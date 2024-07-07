@@ -1,0 +1,11 @@
+version: '3'
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SECRET_KEY=your_secret_key
+      - FLASK_DEBUG=True
+    volumes:
+      - ./instance:/app/instance
