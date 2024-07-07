@@ -40,7 +40,7 @@ def import_data():
         return jsonify({'success': True, 'message': f'Imported {len(imported_data)} entries'})
 
     # For GET requests, render the template
-    return render_template('imPort.html', theme=session.get('theme', 'light'))
+    return render_template('import.html', theme=session.get('theme', 'light'))
 
 def import_caddyfile(content):
     entries = []
