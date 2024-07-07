@@ -31,7 +31,6 @@ services:
       - "8080:8080"
     environment:
       - SECRET_KEY=your_secret_key
-      - PORT=8080
       - FLASK_DEBUG=True
     volumes:
       - ./instance:/app/instance
