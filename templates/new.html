@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>New Port Assignment</h1>
+<div id="notification-area" class="mb-3"></div>
+<form id="port-form">
+    <div class="mb-3">
+        <label for="ip-address" class="form-label">IP Address</label>
+        <div class="input-group">
+            <select class="form-select" id="ip-address" name="ip_address" required>
+                {% for ip, nickname in ip_addresses %}
+                <option value="{{ ip }}" {% if ip==default_ip %}selected{% endif %}>
+                    {{ ip }}{% if nickname %} ({{ nickname }}){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-outline-secondary" type="button" id="add-ip-btn">Add IP</button>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <input type="text" class="form-control" id="description" name="description" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Generate</button>
+</form>
+<div id="result" class="mt-3"></div>
+
+<!-- New IP Modal -->
+<div class="modal fade" id="newIpModal" tabindex="-1" aria-labelledby="newIpModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newIpModalLabel">Enter New IP Address</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="new-ip" class="form-label">IP Address</label>
+                    <input type="text" class="form-control" id="new-ip" placeholder="Enter new IP address">
+                </div>
+                <div class="mb-3">
+                    <label for="new-nickname" class="form-label">Nickname (optional)</label>
+                    <input type="text" class="form-control" id="new-nickname" placeholder="Enter nickname">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-new-ip">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/new.js') }}"></script>
+{% endblock %}

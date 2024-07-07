@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Settings</h1>
+<div id="notification-area" class="mb-3"></div>
+
+<ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button"
+            role="tab" aria-controls="general" aria-selected="true">General</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="ports-tab" data-bs-toggle="tab" data-bs-target="#ports" type="button" role="tab"
+            aria-controls="ports" aria-selected="false">Ports</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="appearance-tab" data-bs-toggle="tab" data-bs-target="#appearance" type="button"
+            role="tab" aria-controls="appearance" aria-selected="false">Appearance</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab"
+            aria-controls="data" aria-selected="false">Data Management</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="about-tab" data-bs-toggle="tab" data-bs-target="#about" type="button" role="tab"
+            aria-controls="about" aria-selected="false">About</button>
+    </li>
+</ul>
+
+<div class="tab-content" id="settingsTabContent">
+    <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+        <h2>General Settings</h2>
+        <form id="settings-form">
+            <div class="mb-3">
+                <label for="default-ip" class="form-label">Default IP Address</label>
+                <select class="form-select" id="default-ip" name="default_ip">
+                    {% for ip in ip_addresses %}
+                    <option value="{{ ip }}" {% if ip==default_ip %}selected{% endif %}>{{ ip }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+
+    <div class="tab-pane fade" id="ports" role="tabpanel" aria-labelledby="ports-tab">
+        <h2>Port Generation Settings</h2>
+        <form id="port-settings-form">
+            <div class="mb-3">
+                <label for="port-start" class="form-label">Port Number (Start)</label>
+                <input type="number" class="form-control" id="port-start" name="port_start" min="1024" max="65535">
+            </div>
+            <div class="mb-3">
+                <label for="port-end" class="form-label">Port Number (End)</label>
+                <input type="number" class="form-control" id="port-end" name="port_end" min="1024" max="65535">
+            </div>
+            <div class="mb-3">
+                <label for="port-exclude" class="form-label">Exclude Port Numbers (comma-separated)</label>
+                <input type="text" class="form-control" id="port-exclude" name="port_exclude">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Port Number Length</label>
+                <div id="port-length-controls">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="port_length" id="port-length-4" value="4"
+                            checked>
+                        <label class="form-check-label" for="port-length-4">
+                            4 digits
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="port_length" id="port-length-5" value="5">
+                        <label class="form-check-label" for="port-length-5">
+                            5 digits
+                        </label>
+                    </div>
+                </div>
+                <small id="port-length-help" class="form-text text-muted" style="display: none;">
+                    <i class="fas fa-info-circle"></i> Port length is determined by Start/End values when provided.
+                </small>
+            </div>
+            <div class="mb-3">
+                <button type="submit" class="btn btn-primary">Save Port Settings</button>
+                <button type="button" id="clear-port-settings" class="btn btn-secondary">Clear Values</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="tab-pane fade" id="appearance" role="tabpanel" aria-labelledby="appearance-tab">
+        <h2>Appearance</h2>
+        <form id="theme-form">
+            <div class="mb-3">
+                <label for="theme" class="form-label">Theme</label>
+                <select class="form-select" id="theme" name="theme">
+                    {% for theme_name in themes %}
+                    <option value="{{ theme_name }}" {% if theme_name==current_theme %}selected{% endif %}>
+                        {{ theme_name.replace('_', ' ').title() }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="custom-css" class="form-label">Custom CSS</label>
+                <div id="custom-css-editor"></div>
+                <input type="hidden" id="custom-css" name="custom_css" value="{{ custom_css }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+
+    <div class="tab-pane fade" id="data" role="tabpanel" aria-labelledby="data-tab">
+        <h2>Data Management</h2>
+        <button id="purge-button" class="btn btn-danger">Purge All Entries</button>
+    </div>
+
+    <div class="tab-pane fade" id="about" role="tabpanel" aria-labelledby="about-tab">
+        <h2>About</h2>
+        <ul class="list-unstyled">
+            <li><strong>Version:</strong> 0.0.1</li>
+            <li><strong>Released:</strong> July 5, 2024</li>
+            <li><strong>Github:</strong> <a href="https://github.com/need4swede/Portall"
+                    target="_blank">https://github.com/need4swede/Portall</a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalLabel">Confirm Purge</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to purge all entries? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-purge">Purge</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %}
