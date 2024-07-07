@@ -1,6 +1,6 @@
 version: '3'
 services:
-  web:
+  portall-app:
     build: .
     ports:
       - "8080:8080"
