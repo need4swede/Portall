@@ -220,7 +220,7 @@ $(document).ready(function () {
      */
     function movePort(portNumber, sourceIp, targetIp, targetElement) {
         $.ajax({
-            url: '/move_port',
+            url: '/api/move_port',
             method: 'POST',
             data: {
                 port_number: portNumber,
@@ -298,7 +298,7 @@ $(document).ready(function () {
 
         // Send the updated order to the server
         $.ajax({
-            url: '/update_ip_order',
+            url: '/api/update_ip_order',
             method: 'POST',
             data: JSON.stringify({ ip_order: ipOrder }),
             contentType: 'application/json',
@@ -442,7 +442,7 @@ $(document).ready(function () {
     $('#save-ip').click(function () {
         const formData = $('#edit-ip-form').serialize();
         $.ajax({
-            url: '/edit_ip',
+            url: '/api/edit_ip',
             method: 'POST',
             data: formData,
             success: function (response) {
@@ -488,7 +488,7 @@ $(document).ready(function () {
      */
     $('#confirm-delete-ip').click(function () {
         $.ajax({
-            url: '/delete_ip',
+            url: '/api/delete_ip',
             method: 'POST',
             data: { ip: deleteIpAddress },
             success: function (response) {
@@ -519,7 +519,7 @@ $(document).ready(function () {
     $('#save-port').click(function () {
         const formData = $('#edit-port-form').serialize();
         $.ajax({
-            url: '/edit_port',
+            url: '/api/edit_port',
             method: 'POST',
             data: formData,
             success: function (response) {
@@ -629,7 +629,7 @@ $(document).ready(function () {
         console.log("Form data:", formData);
 
         $.ajax({
-            url: '/add_port',
+            url: '/api/add_port',
             method: 'POST',
             data: formData,
             success: function (response) {
@@ -665,7 +665,7 @@ $(document).ready(function () {
      */
     $('#confirm-delete-port').click(function () {
         $.ajax({
-            url: '/delete_port',
+            url: '/api/delete_port',
             method: 'POST',
             data: { ip: deleteIp, port_number: deletePortNumber },
             success: function (response) {

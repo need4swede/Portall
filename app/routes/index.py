@@ -1,15 +1,16 @@
 # utils/routes/index.py
 
 # External Imports
-from flask import Blueprint                     # For creating a blueprint
-from flask import render_template               # For rendering HTML templates
-from flask import session                       # For storing session data
+from flask import Blueprint  # For creating a blueprint
+from flask import render_template  # For rendering HTML templates
+from flask import session  # For storing session data
 
 # Local Imports
-from utils.database import db, Port, Setting    # For accessing the database models
+from app.utils.database import db, Port, Setting  # For accessing the database models
 
 # Create the blueprint
 index_bp = Blueprint('index', __name__)
+
 
 @index_bp.route('/')
 def index():

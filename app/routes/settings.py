@@ -1,22 +1,23 @@
 # utils/routes/settings.py
 
 # Standard Imports
-import os                                       # For file operations
+import os  # For file operations
 
 # External Imports
-from flask import Blueprint                     # For creating a blueprint
-from flask import current_app as app            # For accessing the Flask app
-from flask import jsonify                       # For returning JSON responses
-from flask import render_template               # For rendering HTML templates
-from flask import request                       # For handling HTTP requests
-from flask import send_from_directory           # For serving static files
-from flask import session                       # For storing session data
+from flask import Blueprint  # For creating a blueprint
+from flask import current_app as app  # For accessing the Flask app
+from flask import jsonify  # For returning JSON responses
+from flask import render_template  # For rendering HTML templates
+from flask import request  # For handling HTTP requests
+from flask import send_from_directory  # For serving static files
+from flask import session  # For storing session data
 
 # Local Imports
-from utils.database import db, Port, Setting  # For accessing the database models
+from app.utils.database import db, Port, Setting  # For accessing the database models
 
 # Create the blueprint
 settings_bp = Blueprint('settings', __name__)
+
 
 @settings_bp.route('/settings', methods=['GET', 'POST'])
 def settings():
@@ -33,9 +34,9 @@ def settings():
     """
     if request.method == 'POST':
         # Extract form data
-        default_ip = request.form.get('default_ip', '')
-        theme = request.form.get('theme', 'light')
-        custom_css = request.form.get('custom_css', '')
+        default_ip = request.form.get('default_ip', None)
+        theme = request.form.get('theme', None)
+        custom_css = request.form.get('custom_css', None)
 
         # Update or create settings in the database
         for key, value in [('default_ip', default_ip), ('theme', theme), ('custom_css', custom_css)]:
@@ -49,7 +50,8 @@ def settings():
 
         try:
             db.session.commit()
-            session['theme'] = theme  # Update session with new theme
+            if theme:
+                session['theme'] = theme
             return jsonify({'success': True})
         except Exception as e:
             db.session.rollback()
@@ -83,7 +85,8 @@ def settings():
     return render_template('settings.html', ip_addresses=ip_addresses, default_ip=default_ip,
                            current_theme=theme, themes=themes, theme=theme, custom_css=custom_css)
 
-@settings_bp.route('/port_settings', methods=['GET', 'POST'])
+
+@settings_bp.route('/api/port_settings', methods=['GET', 'POST'])
 def port_settings():
     if request.method == 'POST':
         # Extract port settings from form data
@@ -132,6 +135,7 @@ def port_settings():
 
     return jsonify(port_settings)
 
+
 @settings_bp.route('/static/css/themes/<path:filename>')
 def serve_theme(filename):
     """
@@ -145,9 +149,10 @@ def serve_theme(filename):
     Returns:
         The requested CSS file.
     """
-    return send_from_directory('static/css/themes', filename)
+    return send_from_directory('{}/css/themes'.format(app.static_folder), filename)
 
-@settings_bp.route('/purge_entries', methods=['POST'])
+
+@settings_bp.route('/api/purge_entries', methods=['POST'])
 def purge_entries():
     """
     Purge all entries from the Port table in the database.

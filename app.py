@@ -8,14 +8,14 @@ import os
 from flask import Flask
 
 # Local Imports
-from utils.database import init_db, create_tables
-from utils.routes import routes_bp
+from app.utils.database import init_db, create_tables
+from app.routes import routes_bp
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Create the Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder="./app/static", template_folder="./app/templates")
 
 # Environment variables
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///portall.db')
