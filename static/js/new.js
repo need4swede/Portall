@@ -110,13 +110,14 @@ function isValidIpAddress(ip) {
     return false;
 }
 
+// Port Only or Full URL Copy Format
 function getCopyFormat() {
     return new Promise((resolve, reject) => {
         $.ajax({
             url: '/port_settings',
             method: 'GET',
             success: function (data) {
-                resolve(data.copy_format || 'full_url');  // Default to 'full_url' if not set
+                resolve(data.copy_format || 'port_only');   // Default to 'port_only' if not set
             },
             error: function (xhr, status, error) {
                 console.error('Error getting copy format:', status, error);
