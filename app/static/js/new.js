@@ -62,7 +62,7 @@ $(document).ready(function () {
 
         // Send AJAX request to generate port
         $.ajax({
-            url: '/generate_port',
+            url: '/api/generate_port',
             method: 'POST',
             data: {
                 ip_address: ipAddress,
@@ -114,7 +114,7 @@ function isValidIpAddress(ip) {
 function getCopyFormat() {
     return new Promise((resolve, reject) => {
         $.ajax({
-            url: '/port_settings',
+            url: '/api/port_settings',
             method: 'GET',
             success: function (data) {
                 resolve(data.copy_format || 'port_only');   // Default to 'port_only' if not set

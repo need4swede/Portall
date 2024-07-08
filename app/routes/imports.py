@@ -1,22 +1,23 @@
 # utils/routes/imports.py
 
 # Standard Imports
-import json                                     # For parsing JSON data
-import re                                       # For regular expressions
-import yaml                                     # For parsing YAML data
+import json  # For parsing JSON data
+import re  # For regular expressions
+import yaml  # For parsing YAML data
 
 # External Imports
-from flask import Blueprint                     # For creating a blueprint
-from flask import jsonify                       # For returning JSON responses
-from flask import render_template               # For rendering HTML templates
-from flask import request                       # For handling HTTP requests
-from flask import session                       # For storing session data
+from flask import Blueprint  # For creating a blueprint
+from flask import jsonify  # For returning JSON responses
+from flask import render_template  # For rendering HTML templates
+from flask import request  # For handling HTTP requests
+from flask import session  # For storing session data
 
 # Local Imports
-from utils.database import db, Port             # For accessing the database models
+from app.utils.database import db, Port  # For accessing the database models
 
 # Create the blueprint
 imports_bp = Blueprint('imports', __name__)
+
 
 ## Import Route ##
 
@@ -59,6 +60,7 @@ def import_data():
     # For GET requests, render the template
     return render_template('import.html', theme=session.get('theme', 'light'))
 
+
 ## Import Types ##
 
 def import_caddyfile(content):
@@ -98,6 +100,7 @@ def import_caddyfile(content):
 
     return entries
 
+
 def import_docker_compose(content):
     """
     Parse Docker Compose YAML content and extract port information for non-database services.
@@ -123,7 +126,8 @@ def import_docker_compose(content):
             # Iterate through each service in the Docker Compose file
             for service_name, service_config in services.items():
                 # Skip database-related services
-                if any(db in service_name.lower() for db in ['db', 'database', 'mysql', 'postgres', 'mariadb', 'mailhog']):
+                if any(db in service_name.lower() for db in
+                       ['db', 'database', 'mysql', 'postgres', 'mariadb', 'mailhog']):
                     continue
 
                 # Extract ports and image information for the service
@@ -162,6 +166,7 @@ def import_docker_compose(content):
         # If the YAML is invalid, raise a ValueError with a descriptive message
         raise ValueError(f"Invalid Docker-Compose YAML format: {str(e)}")
 
+
 def import_json(content):
     """
     Parse JSON content and extract port information.
@@ -190,6 +195,7 @@ def import_json(content):
         return entries
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format")
+
 
 def parse_port(port_value):
     """

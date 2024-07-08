@@ -1,23 +1,24 @@
 # utils/routes/ports.py
 
 # Standard Imports
-import json                                     # For parsing JSON data
-import random                                   # For generating random ports
+import json  # For parsing JSON data
+import random  # For generating random ports
 
 # External Imports
-from flask import Blueprint                     # For creating a blueprint
-from flask import current_app as app            # For accessing the Flask app
-from flask import jsonify                       # For returning JSON responses
-from flask import render_template               # For rendering HTML templates
-from flask import request                       # For handling HTTP requests
-from flask import session                       # For storing session data
-from flask import url_for                       # For generating URLs
+from flask import Blueprint  # For creating a blueprint
+from flask import current_app as app  # For accessing the Flask app
+from flask import jsonify  # For returning JSON responses
+from flask import render_template  # For rendering HTML templates
+from flask import request  # For handling HTTP requests
+from flask import session  # For storing session data
+from flask import url_for  # For generating URLs
 
 # Local Imports
-from utils.database import db, Port, Setting    # For accessing the database models
+from app.utils.database import db, Port, Setting  # For accessing the database models
 
 # Create the blueprint
 ports_bp = Blueprint('ports', __name__)
+
 
 ## Ports ##
 
@@ -48,7 +49,46 @@ def ports():
     # Render the template with the organized port data and theme
     return render_template('ports.html', ports_by_ip=ports_by_ip, theme=theme)
 
-@ports_bp.route('/add_port', methods=['POST'])
+
+@ports_bp.route('/api/ports')
+def get_ports():
+    """
+    Get all the ports.
+
+    This function retrieves all ports from the database, organizes them by IP address,
+    and returns a json containing said ports.
+
+    Returns:
+        tuple: A tuple containing a JSON response and an HTTP status code.
+               The JSON response includes the list of ports,
+               or an error message on failure.
+    """
+
+    try:
+        # Retrieve all ports, ordered by IP order and address
+        ports = Port.query.order_by(Port.ip_order, Port.ip_address).all()
+
+        # Organize ports by IP address
+        ports_by_ip = {}
+        for port in ports:
+            if port.ip_address not in ports_by_ip:
+                ports_by_ip[port.ip_address] = {'nickname': port.nickname, 'ports': []}
+            ports_by_ip[port.ip_address]['ports'].append({
+                'id': port.id,
+                'ip_address': port.ip_address,
+                'nickname': port.nickname,
+                'port_number': port.port_number,
+                'description': port.description,
+                'ip_order': port.ip_order
+            })
+
+        return jsonify(ports_by_ip), 200
+    except Exception as e:
+        app.logger.error(f"Error getting ports: {str(e)}")
+        return jsonify({'error': 'Error getting ports'}), 500
+
+
+@ports_bp.route('/api/add_port', methods=['POST'])
 def add_port():
     """
     Add a new port for a given IP address.
@@ -73,7 +113,8 @@ def add_port():
         app.logger.error(f"Error adding new port: {str(e)}")
         return jsonify({'success': False, 'message': 'Error adding new port'}), 500
 
-@ports_bp.route('/edit_port', methods=['POST'])
+
+@ports_bp.route('/api/edit_port', methods=['POST'])
 def edit_port():
     """
     Edit an existing port's details.
@@ -101,7 +142,8 @@ def edit_port():
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 400
 
-@ports_bp.route('/delete_port', methods=['POST'])
+
+@ports_bp.route('/api/delete_port', methods=['POST'])
 def delete_port():
     """
     Delete a specific port for a given IP address.
@@ -128,7 +170,8 @@ def delete_port():
         app.logger.error(f"Error deleting port: {str(e)}")
         return jsonify({'success': False, 'message': 'Error deleting port'}), 500
 
-@ports_bp.route('/generate_port', methods=['POST'])
+
+@ports_bp.route('/api/generate_port', methods=['POST'])
 def generate_port():
     """
     Generate a new port for a given IP address.
@@ -145,7 +188,8 @@ def generate_port():
     ip_address = request.form['ip_address']
     nickname = request.form['nickname']
     description = request.form['description']
-    app.logger.debug(f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}")
+    app.logger.debug(
+        f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}")
 
     def get_setting(key, default):
         """Helper function to retrieve settings from the database."""
@@ -177,7 +221,8 @@ def generate_port():
     # Check if there are any available ports
     if not available_ports or all(p in existing_ports for p in available_ports):
         total_ports = len(available_ports)
-        app.logger.error(f"No available ports for IP: {ip_address}. Used {ports_in_use} out of {total_ports} possible ports.")
+        app.logger.error(
+            f"No available ports for IP: {ip_address}. Used {ports_in_use} out of {total_ports} possible ports.")
         settings_url = url_for('routes.settings.settings', _external=True) + '#ports'
         error_message = (
             f"No available ports.\n"
@@ -204,7 +249,8 @@ def generate_port():
     full_url = f"http://{ip_address}:{new_port}"
     return jsonify({'port': new_port, 'full_url': full_url})
 
-@ports_bp.route('/move_port', methods=['POST'])
+
+@ports_bp.route('/api/move_port', methods=['POST'])
 def move_port():
     """
     Move a port from one IP address to another.
@@ -247,7 +293,8 @@ def move_port():
         app.logger.error(f"Error moving port: {str(e)}")
         return jsonify({'success': False, 'message': 'Error moving port'}), 500
 
-@ports_bp.route('/update_port_order', methods=['POST'])
+
+@ports_bp.route('/api/update_port_order', methods=['POST'])
 def update_port_order():
     """
     Update the order of ports for a specific IP address.
@@ -272,9 +319,10 @@ def update_port_order():
         app.logger.error(f"Error updating port order: {str(e)}")
         return jsonify({'success': False, 'message': 'Error updating port order'}), 500
 
+
 ## IP Addresses ##
 
-@ports_bp.route('/edit_ip', methods=['POST'])
+@ports_bp.route('/api/edit_ip', methods=['POST'])
 def edit_ip():
     """
     Edit an IP address and its associated nickname.
@@ -308,7 +356,8 @@ def edit_ip():
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error updating IP: {str(e)}'}), 500
 
-@ports_bp.route('/delete_ip', methods=['POST'])
+
+@ports_bp.route('/api/delete_ip', methods=['POST'])
 def delete_ip():
     """
     Delete an IP address and all its associated ports.
@@ -334,7 +383,8 @@ def delete_ip():
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error deleting IP: {str(e)}'}), 500
 
-@ports_bp.route('/update_ip_order', methods=['POST'])
+
+@ports_bp.route('/api/update_ip_order', methods=['POST'])
 def update_ip_order():
     """
     Update the order of IP address panels.
@@ -356,7 +406,8 @@ def update_ip_order():
             app.logger.info(f"Updated order for IP {ip} to {index}")
 
         # Set a high order number for any IPs not in the received order
-        Port.query.filter(Port.ip_address.notin_(ip_order)).update({Port.ip_order: len(ip_order)}, synchronize_session=False)
+        Port.query.filter(Port.ip_address.notin_(ip_order)).update({Port.ip_order: len(ip_order)},
+                                                                   synchronize_session=False)
 
         db.session.commit()
         return jsonify({'success': True, 'message': 'IP panel order updated successfully'})

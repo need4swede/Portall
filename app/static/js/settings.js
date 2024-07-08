@@ -104,7 +104,7 @@ $(document).ready(function () {
     // Handle confirmation of purge action
     $('#confirm-purge').click(function () {
         $.ajax({
-            url: '/purge_entries',
+            url: '/api/purge_entries',
             method: 'POST',
             success: function (response) {
                 console.log('Entries purged successfully:', response);
@@ -158,7 +158,7 @@ $(document).ready(function () {
 
     // Load port settings on page load
     $.ajax({
-        url: '/port_settings',
+        url: '/api/port_settings',
         method: 'GET',
         success: function (data) {
             $('#port-start').val(data.port_start || '');
@@ -186,7 +186,7 @@ $(document).ready(function () {
         });
 
         $.ajax({
-            url: '/port_settings',
+            url: '/api/port_settings',
             method: 'POST',
             data: $.param(formData),
             success: function (response) {
@@ -207,7 +207,7 @@ $(document).ready(function () {
      */
     function loadPortSettings() {
         $.ajax({
-            url: '/port_settings',
+            url: '/api/port_settings',
             method: 'GET',
             success: function (data) {
                 console.log("Received port settings:", data);  // Add this line for debugging
