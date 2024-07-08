@@ -16,7 +16,6 @@ Portall provides an intuitive web-interface for generating, tracking, and organi
 docker run -p 8080:8080 \
   -e SECRET_KEY=your_secret_key \
   -e PORT=8080 \
-  -e FLASK_DEBUG=True \
   -v ./instance:/app/instance \
   Portall
 ```
@@ -31,7 +30,6 @@ services:
       - "8080:8080"
     environment:
       - SECRET_KEY=your_secret_key
-      - FLASK_DEBUG=True
     volumes:
       - ./instance:/app/instance
 ```
