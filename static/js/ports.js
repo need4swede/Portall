@@ -1,24 +1,44 @@
+// static/js/ports.js
+
+/**
+ * Main script for network switch management interface.
+ * This script handles various functionalities including:
+ * - Drag and drop for ports and IP panels
+ * - CRUD operations for IPs and ports
+ * - Modal interactions for editing and deleting
+ * - Dynamic DOM updates
+ */
+
 $(document).ready(function () {
+
+    // Initialize Bootstrap modals for various actions
     const editIpModal = new bootstrap.Modal(document.getElementById('editIpModal'));
     const editPortModal = new bootstrap.Modal(document.getElementById('editPortModal'));
     const addPortModal = new bootstrap.Modal(document.getElementById('addPortModal'));
     const deletePortModal = new bootstrap.Modal(document.getElementById('deletePortModal'));
 
+    // Variable to store the IP address being deleted
     let deleteIpAddress;
 
+    // Variables for drag and drop functionality
     let draggingElement = null;
     let placeholder = null;
     let dragStartX, dragStartY, dragStartTime;
     let isDragging = false;
-    const dragThreshold = 5; // pixels
-    const clickThreshold = 200; // milliseconds
+    const dragThreshold = 5; // Minimum pixels moved to initiate drag
+    const clickThreshold = 200; // Maximum milliseconds for a click
 
-    // New IP panel drag and drop functionality
+    // Variables for IP panel drag and drop
     let draggingIPPanel = null;
     let ipPanelPlaceholder = null;
 
+    // Variables to store IP and port number for deletion
+    let deleteIp, deletePortNumber;
 
-    // Drag and drop functionality
+    /**
+     * Event listener for mousedown on port slots
+     * Initiates the drag process for ports
+     */
     $('.port-slot:not(.add-port-slot)').on('mousedown', function (e) {
         if (e.which !== 1) return; // Only respond to left mouse button
 
@@ -28,12 +48,13 @@ $(document).ready(function () {
 
         const element = this;
 
+        // Monitor mouse movement to detect drag
         $(document).on('mousemove.dragdetect', function (e) {
             if (!isDragging &&
                 (Math.abs(e.clientX - dragStartX) > dragThreshold ||
                     Math.abs(e.clientY - dragStartY) > dragThreshold)) {
 
-                // Check if this is the last port in the panel before initiating drag
+                // Prevent dragging the last port in a panel
                 if ($(element).siblings('.port-slot:not(.add-port-slot)').length === 0) {
                     showNotification("Can't move the last port in a panel", 'error');
                     $(document).off('mousemove.dragdetect mouseup.dragdetect');
@@ -45,6 +66,7 @@ $(document).ready(function () {
             }
         });
 
+        // Handle mouseup event
         $(document).on('mouseup.dragdetect', function (e) {
             $(document).off('mousemove.dragdetect mouseup.dragdetect');
             if (!isDragging && new Date().getTime() - dragStartTime < clickThreshold) {
@@ -57,18 +79,25 @@ $(document).ready(function () {
         e.preventDefault(); // Prevent text selection
     });
 
+    /**
+     * Initiates the drag operation for a port
+     * @param {Event} e - The event object
+     * @param {HTMLElement} element - The element being dragged
+     */
     function initiateDrag(e, element) {
         draggingElement = element;
         const rect = draggingElement.getBoundingClientRect();
         const offsetX = e.clientX - rect.left;
         const offsetY = e.clientY - rect.top;
 
+        // Create a placeholder for the dragged element
         placeholder = $(draggingElement).clone().empty().css({
             'height': $(draggingElement).height(),
             'background-color': 'rgba(0, 0, 0, 0.1)',
             'border': '2px dashed #ccc'
         }).insertAfter(draggingElement);
 
+        // Style the dragging element
         $(draggingElement).css({
             'position': 'fixed',
             'zIndex': 1000,
@@ -77,6 +106,7 @@ $(document).ready(function () {
             'height': $(draggingElement).height() + 'px'
         }).appendTo('body');
 
+        // Handle mouse movement during drag
         function mouseMoveHandler(e) {
             $(draggingElement).css({
                 'left': e.clientX - offsetX + 'px',
@@ -93,6 +123,7 @@ $(document).ready(function () {
             }
         }
 
+        // Handle mouse up to end drag
         function mouseUpHandler(e) {
             $(document).off('mousemove', mouseMoveHandler);
             $(document).off('mouseup', mouseUpHandler);
@@ -104,6 +135,7 @@ $(document).ready(function () {
                 cancelDrop();
             }
 
+            // Reset the dragging element's style
             $(draggingElement).css({
                 'position': '',
                 'zIndex': '',
@@ -122,6 +154,12 @@ $(document).ready(function () {
         $(document).on('mouseup', mouseUpHandler);
     }
 
+    /**
+     * Determines the target element for dropping a port
+     * @param {number} x - The x-coordinate of the mouse
+     * @param {number} y - The y-coordinate of the mouse
+     * @returns {HTMLElement|null} The target element or null if invalid
+     */
     function getTargetElement(x, y) {
         const elements = document.elementsFromPoint(x, y);
         const potentialTarget = elements.find(el => el.classList.contains('port-slot') && el !== draggingElement && !el.classList.contains('add-port-slot'));
@@ -130,15 +168,19 @@ $(document).ready(function () {
             const sourcePanel = $(draggingElement).closest('.switch-panel');
             const targetPanel = $(potentialTarget).closest('.switch-panel');
 
-            // If moving to a different panel, check if it's the last port in the source panel
+            // Prevent moving the last port out of a panel
             if (sourcePanel[0] !== targetPanel[0] && sourcePanel.find('.port-slot:not(.add-port-slot)').length === 1) {
-                return null; // Prevent drop if it's the last port
+                return null;
             }
         }
 
         return potentialTarget;
     }
 
+    /**
+     * Finalizes the drop operation for a port
+     * @param {HTMLElement} targetElement - The element where the port is being dropped
+     */
     function finalizeDrop(targetElement) {
         if (!targetElement) {
             showNotification("Can't move the last port in a panel", 'error');
@@ -162,42 +204,20 @@ $(document).ready(function () {
         }
     }
 
+    /**
+     * Cancels the drop operation and reverts the dragged element
+     */
     function cancelDrop() {
         $(draggingElement).insertBefore(placeholder);
     }
 
-    function updateIPPanelOrder() {
-        const ipOrder = $('.network-switch').map(function () {
-            return $(this).data('ip');
-        }).get();
-
-        $.ajax({
-            url: '/update_ip_order',
-            method: 'POST',
-            data: { ip_order: ipOrder },
-            success: function (response) {
-                if (response.success) {
-                    // Reorder the IP panels in the DOM
-                    const container = $('.network-switch').parent();
-                    ipOrder.forEach(function (ip) {
-                        const panel = $(`.network-switch[data-ip="${ip}"]`);
-                        container.append(panel);
-                    });
-                    showNotification('IP panel order updated successfully', 'success');
-                } else {
-                    showNotification('Error updating IP panel order: ' + response.message, 'error');
-                    // Revert to original order if there's an error
-                    location.reload();
-                }
-            },
-            error: function (xhr, status, error) {
-                showNotification('Error updating IP panel order: ' + error, 'error');
-                // Revert to original order if there's an error
-                location.reload();
-            }
-        });
-    }
-
+    /**
+     * Moves a port from one IP to another
+     * @param {number} portNumber - The port number being moved
+     * @param {string} sourceIp - The source IP address
+     * @param {string} targetIp - The target IP address
+     * @param {HTMLElement} targetElement - The target element for insertion
+     */
     function movePort(portNumber, sourceIp, targetIp, targetElement) {
         $.ajax({
             url: '/move_port',
@@ -236,19 +256,24 @@ $(document).ready(function () {
         });
     }
 
+    /**
+     * Handles click events on port elements
+     * @param {HTMLElement} element - The clicked port element
+     */
     function handlePortClick(element) {
         const port = $(element).find('.port');
         const ip = port.data('ip');
         const portNumber = port.data('port');
         const description = port.data('description');
 
+        // Populate the edit port modal
         $('#edit-port-ip').val(ip);
         $('#display-edit-port-ip').text(ip);
         $('#old-port-number').val(portNumber);
         $('#new-port-number').val(portNumber);
         $('#port-description').val(description);
 
-        // Check if this is the last port in the panel
+        // Disable delete button if it's the last port in the panel
         const isLastPort = $(element).siblings('.port-slot:not(.add-port-slot)').length === 0;
         $('#delete-port').prop('disabled', isLastPort);
         if (isLastPort) {
@@ -260,29 +285,105 @@ $(document).ready(function () {
         editPortModal.show();
     }
 
+    /**
+     * Updates the order of IP panels on the server
+     */
+    function updateIPPanelOrder() {
+        const ipOrder = [];
+        $('.network-switch').each(function () {
+            ipOrder.push($(this).data('ip'));
+        });
+
+        console.log("Sending IP order:", ipOrder); // Debugging log
+
+        // Send the updated order to the server
+        $.ajax({
+            url: '/update_ip_order',
+            method: 'POST',
+            data: JSON.stringify({ ip_order: ipOrder }),
+            contentType: 'application/json',
+            success: function (response) {
+                if (response.success) {
+                    // Success notification can be uncommented if needed
+                    // showNotification('IP panel order updated successfully', 'success');
+                } else {
+                    showNotification('Error updating IP panel order: ' + response.message, 'error');
+                    location.reload(); // Revert to original order if there's an error
+                }
+            },
+            error: function (xhr, status, error) {
+                showNotification('Error updating IP panel order: ' + error, 'error');
+                location.reload(); // Revert to original order if there's an error
+            }
+        });
+    }
+
+    /**
+ * Checks if a port exists for a given IP address
+ * @param {string} ip - The IP address to check
+ * @param {string} portNumber - The port number to check
+ * @returns {boolean} True if the port exists, false otherwise
+ */
+    function checkPortExists(ip, portNumber) {
+        console.log("Checking if port exists:", ip, portNumber);
+        const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
+        console.log("Port element found:", portElement.length > 0);
+        return portElement.length > 0;
+    }
+
+    /**
+ * Displays a notification message
+ * @param {string} message - The message to display
+ * @param {string} type - The type of notification ('success' or 'error')
+ */
+    function showNotification(message, type = 'success') {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const notification = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        $('#notification-area').html(notification);
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            $('.alert').alert('close');
+        }, 5000);
+    }
+
+    /**
+     * Initializes drag functionality for network switch panels
+     */
     $('.network-switch').on('dragstart', function (e) {
+        // Store the dragged element
         draggingIPPanel = this;
         e.originalEvent.dataTransfer.effectAllowed = 'move';
         e.originalEvent.dataTransfer.setData('text/html', this.outerHTML);
 
-        // Create placeholder
+        // Create and insert a placeholder for the dragged element
         ipPanelPlaceholder = document.createElement('div');
         ipPanelPlaceholder.className = 'network-switch-placeholder';
         ipPanelPlaceholder.style.height = `${this.offsetHeight}px`;
         this.parentNode.insertBefore(ipPanelPlaceholder, this.nextSibling);
 
+        // Hide the original element after a short delay
         setTimeout(() => {
             this.style.display = 'none';
         }, 0);
     });
 
+    /**
+     * Handles the dragover event for network switch panels
+     */
     $('.network-switch').on('dragover', function (e) {
         e.preventDefault();
         e.originalEvent.dataTransfer.dropEffect = 'move';
 
+        // Calculate the midpoint of the current element
         const rect = this.getBoundingClientRect();
         const midpoint = rect.top + rect.height / 2;
 
+        // Insert the placeholder above or below the current element based on cursor position
         if (e.originalEvent.clientY < midpoint) {
             this.parentNode.insertBefore(ipPanelPlaceholder, this);
         } else {
@@ -290,19 +391,30 @@ $(document).ready(function () {
         }
     });
 
+    /**
+     * Handles the dragend event for network switch panels
+     */
     $('.network-switch').on('dragend', function (e) {
+        // Restore visibility of the dragged element
         this.style.display = 'block';
+
+        // Insert the dragged element at the placeholder's position and remove the placeholder
         if (ipPanelPlaceholder && ipPanelPlaceholder.parentNode) {
             ipPanelPlaceholder.parentNode.insertBefore(this, ipPanelPlaceholder);
             ipPanelPlaceholder.parentNode.removeChild(ipPanelPlaceholder);
         }
-        // Wait for the next tick to ensure the DOM has updated
+
+        // Update the order of IP panels after the DOM has been updated
         setTimeout(updateIPPanelOrder, 0);
     });
 
+    /**
+     * Handles the drop event on the body element
+     */
     $('body').on('drop', function (e) {
         e.preventDefault();
         if (draggingIPPanel !== null) {
+            // Insert the dragged element at the placeholder's position and remove the placeholder
             if (ipPanelPlaceholder && ipPanelPlaceholder.parentNode) {
                 ipPanelPlaceholder.parentNode.insertBefore(draggingIPPanel, ipPanelPlaceholder);
                 ipPanelPlaceholder.parentNode.removeChild(ipPanelPlaceholder);
@@ -311,37 +423,9 @@ $(document).ready(function () {
         }
     });
 
-    function updateIPPanelOrder() {
-        const ipOrder = [];
-        $('.network-switch').each(function () {
-            ipOrder.push($(this).data('ip'));
-        });
-
-        console.log("Sending IP order:", ipOrder); // Add this line for debugging
-
-        $.ajax({
-            url: '/update_ip_order',
-            method: 'POST',
-            data: JSON.stringify({ ip_order: ipOrder }),
-            contentType: 'application/json',
-            success: function (response) {
-                if (response.success) {
-                    // showNotification('IP panel order updated successfully', 'success');
-                } else {
-                    showNotification('Error updating IP panel order: ' + response.message, 'error');
-                    // Revert to original order if there's an error
-                    location.reload();
-                }
-            },
-            error: function (xhr, status, error) {
-                showNotification('Error updating IP panel order: ' + error, 'error');
-                // Revert to original order if there's an error
-                location.reload();
-            }
-        });
-    }
-
-    // Existing edit IP functionality
+    /**
+     * Handles the edit IP button click event
+     */
     $('.edit-ip').click(function (e) {
         e.preventDefault();
         const ip = $(this).data('ip');
@@ -352,6 +436,9 @@ $(document).ready(function () {
         editIpModal.show();
     });
 
+    /**
+     * Handles the save IP button click event
+     */
     $('#save-ip').click(function () {
         const formData = $('#edit-ip-form').serialize();
         $.ajax({
@@ -386,7 +473,9 @@ $(document).ready(function () {
         });
     });
 
-    // Delete IP functionality
+    /**
+     * Handles the delete IP button click event
+     */
     $('#delete-ip').click(function () {
         deleteIpAddress = $('#old-ip').val();
         $('#delete-ip-address').text(deleteIpAddress);
@@ -394,6 +483,9 @@ $(document).ready(function () {
         $('#deleteIpModal').modal('show');
     });
 
+    /**
+     * Handles the confirm delete IP button click event
+     */
     $('#confirm-delete-ip').click(function () {
         $.ajax({
             url: '/delete_ip',
@@ -421,7 +513,9 @@ $(document).ready(function () {
         deleteIpAddress = null;
     });
 
-    // Edit port functionality
+    /**
+     * Handles the save port button click event
+     */
     $('#save-port').click(function () {
         const formData = $('#edit-port-form').serialize();
         $.ajax({
@@ -456,15 +550,9 @@ $(document).ready(function () {
         });
     });
 
-    // Function to check if port exists
-    function checkPortExists(ip, portNumber) {
-        console.log("Checking if port exists:", ip, portNumber);
-        const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
-        console.log("Port element found:", portElement.length > 0);
-        return portElement.length > 0;
-    }
-
-    // Add port functionality
+    /**
+     * Handles the add port button click event
+     */
     $('.add-port').click(function () {
         const ip = $(this).data('ip');
         $('#add-port-ip').val(ip);
@@ -476,6 +564,9 @@ $(document).ready(function () {
         addPortModal.show();
     });
 
+    /**
+     * Handles the input event for the new port number field
+     */
     $('#add-new-port-number').on('input', function () {
         console.log("Port number input changed. New value:", this.value);
         const ip = $('#add-port-ip').val();
@@ -499,6 +590,9 @@ $(document).ready(function () {
         }
     });
 
+    /**
+     * Handles the save new port button click event
+     */
     $('#save-new-port').click(function () {
         console.log("Save new port button clicked");
 
@@ -510,6 +604,7 @@ $(document).ready(function () {
         console.log("Port Number:", portNumber);
         console.log("Description:", description);
 
+        // Validate input
         if (portNumber === '') {
             console.log("Port number is empty");
             showNotification('Please enter a port number', 'error');
@@ -555,9 +650,9 @@ $(document).ready(function () {
         });
     });
 
-    // Delete port functionality
-    let deleteIp, deletePortNumber;
-
+    /**
+     * Handles the delete port button click event
+     */
     $('#delete-port').click(function () {
         deleteIp = $('#edit-port-ip').val();
         deletePortNumber = $('#old-port-number').val();
@@ -565,6 +660,9 @@ $(document).ready(function () {
         deletePortModal.show();
     });
 
+    /**
+     * Handles the confirm delete port button click event
+     */
     $('#confirm-delete-port').click(function () {
         $.ajax({
             url: '/delete_port',
@@ -593,18 +691,4 @@ $(document).ready(function () {
         deletePortNumber = null;
     });
 
-    function showNotification(message, type = 'success') {
-        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-        const notification = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        `;
-        $('#notification-area').html(notification);
-        // Auto-dismiss after 5 seconds
-        setTimeout(() => {
-            $('.alert').alert('close');
-        }, 5000);
-    }
 });

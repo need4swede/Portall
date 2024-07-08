@@ -1,22 +1,39 @@
-$(document).ready(function() {
+// static/js/new.js
+
+/**
+ * Application: New Port / IP Address Generator
+ * Description: AJAX requests for managing IP addresses and
+ * generating ports based on user input.
+ */
+
+$(document).ready(function () {
     console.log('Document ready');
     const ipSelect = $('#ip-address');
     const newIpModal = new bootstrap.Modal(document.getElementById('newIpModal'));
 
-    $('#add-ip-btn').click(function() {
+    /**
+     * Event handler for the "Add IP" button.
+     * Opens a modal for adding a new IP address and nickname.
+     */
+    $('#add-ip-btn').click(function () {
         console.log('Add IP button clicked');
         $('#new-ip').val('');
         $('#new-nickname').val('');
         newIpModal.show();
     });
 
-    $('#save-new-ip').click(function() {
+    /**
+     * Event handler for saving a new IP address.
+     * Validates the IP, adds it to the select dropdown, and closes the modal.
+     */
+    $('#save-new-ip').click(function () {
         console.log('Save new IP clicked');
         const newIp = $('#new-ip').val().trim();
         const newNickname = $('#new-nickname').val().trim();
         if (isValidIpAddress(newIp)) {
             console.log('New IP:', newIp, 'Nickname:', newNickname);
             const optionText = newIp + (newNickname ? ` (${newNickname})` : '');
+            // Add the new IP to the dropdown if it doesn't already exist
             if ($(`#ip-address option[value="${newIp}"]`).length === 0) {
                 ipSelect.append(new Option(optionText, newIp));
             }
@@ -28,7 +45,12 @@ $(document).ready(function() {
         }
     });
 
-    $('#port-form').submit(function(e) {
+    /**
+     * Event handler for form submission.
+     * Prevents default form submission, validates input, and sends an AJAX request
+     * to generate a port based on the selected IP address and other inputs.
+     */
+    $('#port-form').submit(function (e) {
         e.preventDefault();
         const ipAddress = ipSelect.val();
         const selectedOption = ipSelect.find('option:selected');
@@ -38,6 +60,7 @@ $(document).ready(function() {
             return;
         }
 
+        // Send AJAX request to generate port
         $.ajax({
             url: '/generate_port',
             method: 'POST',
@@ -46,20 +69,23 @@ $(document).ready(function() {
                 nickname: nickname,
                 description: $('#description').val()
             },
-            success: function(response) {
+            success: function (response) {
                 console.log('Port generated successfully:', response);
+                // Display the generated URL with a copy button
                 $('#result').html(`
                     <div class="alert alert-success" role="alert">
                         Generated URL: ${response.full_url}
                         <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${response.full_url}">Copy</button>
                     </div>
                 `);
-                $('.copy-btn').click(function() {
+                // Add click event for the copy button
+                $('.copy-btn').click(function () {
                     copyToClipboard($(this).data('url'));
                 });
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 console.error('Error generating port:', status, error);
+                // Display error message
                 $('#result').html(`
                     <div class="alert alert-danger" role="alert">
                         Error: ${xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'}
@@ -70,6 +96,11 @@ $(document).ready(function() {
     });
 });
 
+/**
+ * Validates an IP address.
+ * @param {string} ip - The IP address to validate.
+ * @returns {boolean} True if the IP address is valid, false otherwise.
+ */
 function isValidIpAddress(ip) {
     const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
     if (ipv4Regex.test(ip)) {
@@ -79,13 +110,18 @@ function isValidIpAddress(ip) {
     return false;
 }
 
+/**
+ * Copies the given text to the clipboard.
+ * Uses the Clipboard API if available, otherwise falls back to a manual method.
+ * @param {string} text - The text to copy to the clipboard.
+ */
 function copyToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
         // If the browser supports the Clipboard API and we're in a secure context
-        navigator.clipboard.writeText(text).then(function() {
+        navigator.clipboard.writeText(text).then(function () {
             console.log('Copied to clipboard:', text);
             alert('Copied to clipboard!');
-        }, function(err) {
+        }, function (err) {
             console.error('Could not copy text: ', err);
             fallbackCopyTextToClipboard(text);
         });
@@ -95,10 +131,15 @@ function copyToClipboard(text) {
     }
 }
 
+/**
+ * Fallback method to copy text to clipboard for browsers that don't support the Clipboard API.
+ * Creates a temporary textarea element, selects its content, and uses document.execCommand('copy').
+ * @param {string} text - The text to copy to the clipboard.
+ */
 function fallbackCopyTextToClipboard(text) {
     var textArea = document.createElement("textarea");
     textArea.value = text;
-    
+
     // Avoid scrolling to bottom
     textArea.style.top = "0";
     textArea.style.left = "0";

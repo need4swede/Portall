@@ -3,30 +3,45 @@
 <h1>Settings</h1>
 <div id="notification-area" class="mb-3"></div>
 
+<!-- Tabs -->
 <ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+
+    <!-- General -->
     <li class="nav-item" role="presentation">
         <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button"
             role="tab" aria-controls="general" aria-selected="true">General</button>
     </li>
+
+    <!-- Ports -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="ports-tab" data-bs-toggle="tab" data-bs-target="#ports" type="button" role="tab"
             aria-controls="ports" aria-selected="false">Ports</button>
     </li>
+
+    <!-- Appearance -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="appearance-tab" data-bs-toggle="tab" data-bs-target="#appearance" type="button"
             role="tab" aria-controls="appearance" aria-selected="false">Appearance</button>
     </li>
+
+    <!-- Data Management -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab"
             aria-controls="data" aria-selected="false">Data Management</button>
     </li>
+
+    <!-- About -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="about-tab" data-bs-toggle="tab" data-bs-target="#about" type="button" role="tab"
             aria-controls="about" aria-selected="false">About</button>
     </li>
+
 </ul>
 
+<!-- Pages -->
 <div class="tab-content" id="settingsTabContent">
+
+    <!-- General Settings -->
     <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
         <h2>General Settings</h2>
         <form id="settings-form">
@@ -42,6 +57,7 @@
         </form>
     </div>
 
+    <!-- Port Settings -->
     <div class="tab-pane fade" id="ports" role="tabpanel" aria-labelledby="ports-tab">
         <h2>Port Generation Settings</h2>
         <form id="port-settings-form">
@@ -85,6 +101,7 @@
         </form>
     </div>
 
+    <!-- Appearance Settings -->
     <div class="tab-pane fade" id="appearance" role="tabpanel" aria-labelledby="appearance-tab">
         <h2>Appearance</h2>
         <form id="theme-form">
@@ -107,11 +124,13 @@
         </form>
     </div>
 
+    <!-- Data Management -->
     <div class="tab-pane fade" id="data" role="tabpanel" aria-labelledby="data-tab">
         <h2>Data Management</h2>
         <button id="purge-button" class="btn btn-danger">Purge All Entries</button>
     </div>
 
+    <!-- About -->
     <div class="tab-pane fade" id="about" role="tabpanel" aria-labelledby="about-tab">
         <h2>About</h2>
         <ul class="list-unstyled">
@@ -121,6 +140,7 @@
                     target="_blank">https://github.com/need4swede/Portall</a></li>
         </ul>
     </div>
+
 </div>
 
 <!-- Confirmation Modal -->

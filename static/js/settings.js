@@ -1,11 +1,21 @@
+// static/js/settings.js
+
+/**
+ * Manages the settings page functionality for a web application.
+ * This script handles custom CSS editing, form submissions, port settings,
+ * and various UI interactions.
+ */
+
 let cssEditor;
 
 $(document).ready(function () {
+    // Initialize Bootstrap modal for confirmation dialogs
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
 
-    // Initialize CodeMirror
-    initializeCodeMirror();
-
+    /**
+     * Initializes the CodeMirror editor for custom CSS editing.
+     * Sets up the editor with specific options and event listeners.
+     */
     function initializeCodeMirror() {
         cssEditor = CodeMirror(document.getElementById("custom-css-editor"), {
             value: $('#custom-css').val(),
@@ -33,9 +43,17 @@ $(document).ready(function () {
         });
     }
 
+    // Initialize CodeMirror on page load
+    initializeCodeMirror();
+
     // Apply custom CSS on page load
     applyCustomCSS($('#custom-css').val());
 
+    /**
+     * Displays a notification message to the user.
+     * @param {string} message - The message to display.
+     * @param {string} [type='success'] - The type of notification ('success' or 'error').
+     */
     function showNotification(message, type = 'success') {
         const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
         const notification = `
@@ -51,6 +69,7 @@ $(document).ready(function () {
         }, 5000);
     }
 
+    // Handle settings and theme form submissions
     $('#settings-form, #theme-form').submit(function (e) {
         e.preventDefault();
         // Update hidden input with latest CodeMirror content before submitting
@@ -74,10 +93,12 @@ $(document).ready(function () {
         });
     });
 
+    // Handle purge button click
     $('#purge-button').click(function () {
         confirmModal.show();
     });
 
+    // Handle confirmation of purge action
     $('#confirm-purge').click(function () {
         $.ajax({
             url: '/purge_entries',
@@ -105,6 +126,9 @@ $(document).ready(function () {
         window.location.hash = e.target.hash;
     });
 
+    /**
+     * Activates the correct tab based on the URL hash.
+     */
     function activateTabFromHash() {
         let hash = window.location.hash;
         if (hash) {
@@ -129,7 +153,7 @@ $(document).ready(function () {
         }
     });
 
-    // Load port settings
+    // Load port settings on page load
     $.ajax({
         url: '/port_settings',
         method: 'GET',
@@ -177,6 +201,9 @@ $(document).ready(function () {
         });
     });
 
+    /**
+     * Loads and updates the port settings UI.
+     */
     function loadPortSettings() {
         $.ajax({
             url: '/port_settings',
@@ -203,7 +230,9 @@ $(document).ready(function () {
         });
     }
 
-    // Updated function to handle radio buttons
+    /**
+     * Updates the UI state of port length controls based on start/end port values.
+     */
     function updatePortLengthStatus() {
         const portStart = $('#port-start').val();
         const portEnd = $('#port-end').val();
@@ -240,6 +269,7 @@ $(document).ready(function () {
 
     // Handle clear port settings button
     $('#clear-port-settings').click(function () {
+
         // Clear all input fields
         $('#port-start, #port-end, #port-exclude').val('');
 
@@ -256,7 +286,10 @@ $(document).ready(function () {
         showNotification('Port settings cleared.');
     });
 
-    // Function to apply custom CSS
+    /**
+     * Applies custom CSS to the page.
+     * @param {string} css - The CSS string to apply.
+     */
     function applyCustomCSS(css) {
         let styleElement = $('#custom-style');
         if (styleElement.length === 0) {

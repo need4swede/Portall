@@ -1,11 +1,13 @@
-$(document).ready(function () {
-    // Animate navbar items
-    // $('.navbar-nav .nav-link').each(function (index) {
-    //     $(this).css('animation-delay', `${index * 0.1}s`);
-    // });
+// static/js/animations.js
 
-    // // Animate content on page load
-    // $('.container.mt-5').children().addClass('animate__animated animate__fadeIn');
+/**
+ * Application: Animation Logic
+ * Description: Handles animations and transitions for the application.
+ *
+ * Uses jQuery for DOM manipulation and Bootstrap for animations.
+ */
+
+$(document).ready(function () {
 
     // Animate buttons on hover
     $('.btn').hover(
@@ -13,21 +15,24 @@ $(document).ready(function () {
         function () { $(this).removeClass('animate__animated animate__pulse'); }
     );
 
-    // Animate modals
+    // Show modals
     $('.modal').on('show.bs.modal', function (e) {
         $(this).find('.modal-dialog').attr('class', 'modal-dialog animate__animated');
     });
 
+    // Hide modals
     $('.modal').on('hide.bs.modal', function (e) {
         $(this).find('.modal-dialog').attr('class', 'modal-dialog animate__animated');
     });
 
-    // Animate dropdown menus
+    // Show dropdown menus
     $('.dropdown-toggle').on('show.bs.dropdown', function () {
         $(this).find('.dropdown-menu').first().stop(true, true).slideDown(200);
     });
 
+    // Hide dropdown menus
     $('.dropdown-toggle').on('hide.bs.dropdown', function () {
         $(this).find('.dropdown-menu').first().stop(true, true).slideUp(200);
     });
+
 });
