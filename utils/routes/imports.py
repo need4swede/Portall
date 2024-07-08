@@ -2,6 +2,7 @@
 
 # Standard Imports
 import json                                     # For parsing JSON data
+import re                                       # For regular expressions
 import yaml                                     # For parsing YAML data
 
 # External Imports
@@ -99,42 +100,66 @@ def import_caddyfile(content):
 
 def import_docker_compose(content):
     """
-    Parse Docker Compose YAML content and extract port information.
-
-    This function processes Docker Compose YAML content, extracting service names
-    and their associated port mappings.
+    Parse Docker Compose YAML content and extract port information for non-database services.
 
     Args:
-        content (str): YAML-formatted string containing Docker Compose configuration
+    content (str): YAML-formatted string containing Docker Compose configuration
 
     Returns:
-        list: A list of dictionaries containing extracted port information
+    list: A list of dictionaries containing extracted port information
 
     Raises:
-        ValueError: If the YAML format is invalid
+    ValueError: If the YAML format is invalid
     """
     try:
-        # Split the content into separate documents
-        documents = content.split('version:')
+        # Parse the YAML content
+        data = yaml.safe_load(content)
         entries = []
 
-        for doc in documents:
-            if doc.strip():
-                # Add back the 'version:' prefix and parse
-                data = yaml.safe_load('version:' + doc)
-                if isinstance(data, dict) and 'services' in data:
-                    for service_name, service_config in data.get('services', {}).items():
-                        ports = service_config.get('ports', [])
-                        for port_mapping in ports:
-                            if isinstance(port_mapping, str) and ':' in port_mapping:
-                                host_port, container_port = port_mapping.split(':')
-                                entries.append({
-                                    'ip': '127.0.0.1',  # Assuming localhost, adjust if needed
-                                    'port': int(host_port),
-                                    'description': f"{service_name} - {container_port}"
-                                })
+        if isinstance(data, dict):
+            # Extract the services from the Docker Compose file
+            services = data.get('services', {})
+
+            # Iterate through each service in the Docker Compose file
+            for service_name, service_config in services.items():
+                # Skip database-related services
+                if any(db in service_name.lower() for db in ['db', 'database', 'mysql', 'postgres', 'mariadb', 'mailhog']):
+                    continue
+
+                # Extract ports and image information for the service
+                ports = service_config.get('ports', [])
+                image = service_config.get('image', '')
+
+                # Process each port mapping for the service
+                for port_mapping in ports:
+                    if isinstance(port_mapping, str):
+                        try:
+                            # Attempt to parse the port from the mapping
+                            parsed_port = parse_port(port_mapping)
+
+                            # Use the image name as description, or fall back to service name
+                            description = image if image else service_name
+
+                            # Add the parsed information to our entries list
+                            entries.append({
+                                'ip': '127.0.0.1',  # Assume localhost for all services
+                                'port': parsed_port,
+                                'description': description
+                            })
+
+                            # Log the successfully added entry
+                            print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Description: {description}")
+
+                        except ValueError as e:
+                            # Log a warning if we couldn't parse the port
+                            print(f"Warning: {str(e)} for service {service_name}")
+
+        # Log the total number of entries found
+        print(f"Total entries found: {len(entries)}")
         return entries
+
     except yaml.YAMLError as e:
+        # If the YAML is invalid, raise a ValueError with a descriptive message
         raise ValueError(f"Invalid Docker-Compose YAML format: {str(e)}")
 
 def import_json(content):
@@ -165,3 +190,42 @@ def import_json(content):
         return entries
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format")
+
+def parse_port(port_value):
+    """
+    Parse a port value, handling direct integers, environment variable expressions,
+    and complex port mappings.
+
+    Args:
+        port_value (str): The port value to parse
+
+    Returns:
+        int or None: The parsed port number, or None if parsing fails
+
+    Raises:
+        ValueError: If no valid port number can be found
+    """
+    # Remove any leading/trailing whitespace
+    port_value = port_value.strip()
+
+    # Find the last colon in the string
+    last_colon_index = port_value.rfind(':')
+    if last_colon_index != -1:
+        # Look for numbers before the last colon
+        before_colon = port_value[:last_colon_index]
+        number_match = re.search(r'(\d+)', before_colon)
+        if number_match:
+            return int(number_match.group(1))
+
+    # If no number found before the last colon, check for other patterns
+    # Check for complete environment variable syntax with default value
+    complete_env_var_match = re.search(r':-(\d+)', port_value)
+    if complete_env_var_match:
+        return int(complete_env_var_match.group(1))
+
+    # Check if it's a direct integer
+    if port_value.isdigit():
+        return int(port_value)
+
+    # If we can't parse it, raise an error
+    raise ValueError(f"Unable to parse port value: {port_value}")
