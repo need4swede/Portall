@@ -24,8 +24,9 @@ docker run -p 8080:8080 \
 ```yml
 version: '3'
 services:
-  portall-app:
-    image: portall
+  portall:
+    image: need4swede/portall:latest
+    container_name: portall
     ports:
       - "8080:8080"
     environment:
