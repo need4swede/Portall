@@ -46,6 +46,9 @@ $(document).ready(function () {
     // Initialize CodeMirror on page load
     initializeCodeMirror();
 
+    // Load port settings on page load
+    loadPortSettings();
+
     // Apply custom CSS on page load
     applyCustomCSS($('#custom-css').val());
 
@@ -189,9 +192,7 @@ $(document).ready(function () {
             success: function (response) {
                 console.log('Port settings saved successfully:', response);
                 showNotification('Port settings saved successfully!');
-                // Reload the settings to ensure they're up to date
                 loadPortSettings();
-                // Update port length status after saving
                 updatePortLengthStatus();
             },
             error: function (xhr, status, error) {
@@ -209,9 +210,12 @@ $(document).ready(function () {
             url: '/port_settings',
             method: 'GET',
             success: function (data) {
+                console.log("Received port settings:", data);  // Add this line for debugging
+
                 // Clear all fields first
                 $('#port-start, #port-end, #port-exclude').val('');
                 $('input[name="port_length"]').prop('checked', false);
+                $('input[name="copy_format"]').prop('checked', false);
 
                 // Then set values only if they exist in the data
                 if (data.port_start) $('#port-start').val(data.port_start);
@@ -220,6 +224,12 @@ $(document).ready(function () {
                 if (data.port_length) {
                     $(`input[name="port_length"][value="${data.port_length}"]`).prop('checked', true);
                 }
+
+                // Always set a value for copy_format
+                const copyFormat = data.copy_format || 'port_only';
+                $(`input[name="copy_format"][value="${copyFormat}"]`).prop('checked', true);
+
+                console.log("Copy format set to:", copyFormat);  // Add this line for debugging
 
                 updatePortLengthStatus();
             },

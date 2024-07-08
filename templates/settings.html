@@ -61,18 +61,26 @@
     <div class="tab-pane fade" id="ports" role="tabpanel" aria-labelledby="ports-tab">
         <h2>Port Generation Settings</h2>
         <form id="port-settings-form">
+
+            <!-- Port Start -->
             <div class="mb-3">
                 <label for="port-start" class="form-label">Port Number (Start)</label>
                 <input type="number" class="form-control" id="port-start" name="port_start" min="1024" max="65535">
             </div>
+
+            <!-- Port End -->
             <div class="mb-3">
                 <label for="port-end" class="form-label">Port Number (End)</label>
                 <input type="number" class="form-control" id="port-end" name="port_end" min="1024" max="65535">
             </div>
+
+            <!-- Exclude Ports -->
             <div class="mb-3">
                 <label for="port-exclude" class="form-label">Exclude Port Numbers (comma-separated)</label>
                 <input type="text" class="form-control" id="port-exclude" name="port_exclude">
             </div>
+
+            <!-- Port Length -->
             <div class="mb-3">
                 <label class="form-label">Port Number Length</label>
                 <div id="port-length-controls">
@@ -94,10 +102,35 @@
                     <i class="fas fa-info-circle"></i> Port length is determined by Start/End values when provided.
                 </small>
             </div>
+
+            <!-- Copy to Clipboard -->
+            <div class="mb-3">
+                <label class="form-label">Copy to Clipboard Format</label>
+                <div id="copy-format-controls">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="copy_format" id="copy-format-full"
+                            value="full_url">
+                        <label class="form-check-label" for="copy-format-full">
+                            Full URL
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="copy_format" id="copy-format-port"
+                            value="port_only">
+                        <label class="form-check-label" for="copy-format-port">
+                            Port Only
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save and Clear Buttons -->
             <div class="mb-3">
                 <button type="submit" class="btn btn-primary">Save Port Settings</button>
                 <button type="button" id="clear-port-settings" class="btn btn-secondary">Clear Values</button>
             </div>
+
+
         </form>
     </div>
 

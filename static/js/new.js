@@ -110,25 +110,51 @@ function isValidIpAddress(ip) {
     return false;
 }
 
-/**
- * Copies the given text to the clipboard.
- * Uses the Clipboard API if available, otherwise falls back to a manual method.
- * @param {string} text - The text to copy to the clipboard.
- */
-function copyToClipboard(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        // If the browser supports the Clipboard API and we're in a secure context
-        navigator.clipboard.writeText(text).then(function () {
-            console.log('Copied to clipboard:', text);
-            alert('Copied to clipboard!');
-        }, function (err) {
-            console.error('Could not copy text: ', err);
-            fallbackCopyTextToClipboard(text);
+function getCopyFormat() {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/port_settings',
+            method: 'GET',
+            success: function (data) {
+                resolve(data.copy_format || 'full_url');  // Default to 'full_url' if not set
+            },
+            error: function (xhr, status, error) {
+                console.error('Error getting copy format:', status, error);
+                reject(error);
+            }
         });
-    } else {
-        // Fallback for browsers that don't support the Clipboard API or in non-secure contexts
-        fallbackCopyTextToClipboard(text);
-    }
+    });
+}
+
+/**
+ * Copies the given URL to the clipboard.
+ * Uses the Clipboard API if available, otherwise falls back to a manual method.
+ * @param {string} url - The URL to copy to the clipboard.
+ */
+function copyToClipboard(url) {
+    getCopyFormat().then(format => {
+        let textToCopy;
+        if (format === 'port_only') {
+            const port = url.split(':').pop();
+            textToCopy = port;
+        } else {
+            textToCopy = url;
+        }
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(textToCopy).then(function () {
+                showNotification('Copied to clipboard!');
+            }, function (err) {
+                console.error('Could not copy text: ', err);
+                fallbackCopyTextToClipboard(textToCopy);
+            });
+        } else {
+            fallbackCopyTextToClipboard(textToCopy);
+        }
+    }).catch(error => {
+        console.error('Error getting copy format:', error);
+        showNotification('Error getting copy format', 'error');
+    });
 }
 
 /**

@@ -85,24 +85,14 @@ def settings():
 
 @settings_bp.route('/port_settings', methods=['GET', 'POST'])
 def port_settings():
-    """
-    Handle port-related settings.
-
-    This function manages both GET and POST requests for port settings.
-    For GET requests, it retrieves current port settings.
-    For POST requests, it updates the port settings based on form data.
-
-    Returns:
-        For GET: JSON object containing current port settings
-        For POST: JSON response indicating success or failure of the update operation
-    """
     if request.method == 'POST':
         # Extract port settings from form data
         port_settings = {
             'port_start': request.form.get('port_start'),
             'port_end': request.form.get('port_end'),
             'port_exclude': request.form.get('port_exclude'),
-            'port_length': request.form.get('port_length')
+            'port_length': request.form.get('port_length'),
+            'copy_format': request.form.get('copy_format', 'port_only')  # Default to 'port_only' if not provided
         }
 
         # Update or create port settings in the database
@@ -127,9 +117,18 @@ def port_settings():
 
     # Handle GET request: Retrieve current port settings
     port_settings = {}
-    for key in ['port_start', 'port_end', 'port_exclude', 'port_length']:
+    for key in ['port_start', 'port_end', 'port_exclude', 'port_length', 'copy_format']:
         setting = Setting.query.filter_by(key=key).first()
-        port_settings[key] = setting.value if setting else None
+        if setting:
+            port_settings[key] = setting.value
+        elif key == 'copy_format':
+            # If copy_format doesn't exist, create it with default value
+            new_setting = Setting(key='copy_format', value='port_only')
+            db.session.add(new_setting)
+            db.session.commit()
+            port_settings[key] = 'port_only'
+        else:
+            port_settings[key] = None
 
     return jsonify(port_settings)
 
