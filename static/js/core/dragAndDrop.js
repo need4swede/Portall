@@ -237,10 +237,20 @@ function finalizeDrop(targetElement) {
     if (sourceIp !== targetIp) {
         console.log('Moving port to a different IP group');
         const portNumber = $(draggingElement).find('.port').data('port');
+
+        // Insert the dragged element before the target element
+        $(targetElement).before(draggingElement);
+
+        // Update the port's IP and other attributes
+        $(draggingElement).find('.port').attr('data-ip', targetIp);
+        const targetNickname = targetPanel.siblings('.switch-label').find('.edit-ip').data('nickname');
+        $(draggingElement).find('.port').attr('data-nickname', targetNickname);
+
+        // Move port on the server and update orders
         movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDrop);
     } else {
         console.log('Reordering within the same IP group');
-        targetElement.parentNode.insertBefore(draggingElement, targetElement.nextSibling);
+        targetElement.parentNode.insertBefore(draggingElement, targetElement);
         updatePortOrder(sourceIp);
     }
 

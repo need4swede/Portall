@@ -10,7 +10,7 @@ import { cancelDrop } from '../../utils/dragDropUtils.js';
  * @param {string} targetIp - The target IP address
  * @param {HTMLElement} targetElement - The target element for insertion
  */
-export function movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder) {
+export function movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDropFn) {
     $.ajax({
         url: '/move_port',
         method: 'POST',
@@ -21,22 +21,6 @@ export function movePort(portNumber, sourceIp, targetIp, targetElement, dragging
         },
         success: function (response) {
             if (response.success) {
-                if (document.body.contains(targetElement)) {
-                    targetElement.parentNode.insertBefore(draggingElement, targetElement.nextSibling);
-                    $(draggingElement).find('.port').attr('data-ip', targetIp);
-
-                    // Update the nickname
-                    const targetNickname = $(`.switch-panel[data-ip="${targetIp}"]`).siblings('.switch-label').find('.edit-ip').data('nickname');
-                    $(draggingElement).find('.port').attr('data-nickname', targetNickname);
-                } else {
-                    $(`.switch-panel[data-ip="${targetIp}"]`).append(draggingElement);
-                    $(draggingElement).find('.port').attr('data-ip', targetIp);
-
-                    // Update the nickname
-                    const targetNickname = $(`.switch-panel[data-ip="${targetIp}"]`).siblings('.switch-label').find('.edit-ip').data('nickname');
-                    $(draggingElement).find('.port').attr('data-nickname', targetNickname);
-                }
-
                 // Update port order for both source and target IPs
                 updatePortOrder(sourceIp);
                 if (sourceIp !== targetIp) {
@@ -44,13 +28,12 @@ export function movePort(portNumber, sourceIp, targetIp, targetElement, dragging
                 }
             } else {
                 showNotification('Error moving port: ' + response.message, 'error');
-                // You might need to import cancelDrop or pass it as a parameter as well
-                cancelDrop();
+                cancelDropFn();
             }
         },
         error: function (xhr, status, error) {
             showNotification('Error moving port: ' + error, 'error');
-            cancelDropFn(draggingElement, targetElement);
+            cancelDropFn();
         }
     });
 }
