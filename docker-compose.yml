@@ -1,11 +1,13 @@
 version: '3'
 services:
   portall:
-    image: need4swede/portall:latest
-    container_name: portall
+    build: .
+    container_name: portal
     ports:
-      - "8080:8080"
+      - "8982:8080"
     environment:
-      - SECRET_KEY=your_secret_key
+      - SECRET_KEY=erhrehrfrdt
+      - DOCKER_HOST=unix://var/run/docker.sock
     volumes:
       - ./instance:/app/instance
+      - /var/run/docker.sock:/var/run/docker.sock
