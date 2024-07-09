@@ -1,6 +1,6 @@
 // js/core/dragAndDrop.js
 
-import { updatePortOrder } from './portManagement.js';
+import { updatePortOrder, handlePortClick } from './portManagement.js';
 import { updateIPPanelOrder } from './ipManagement.js';
 import { showNotification } from '../ui/helpers.js';
 import { movePort } from '../api/ajax/helpers.js';

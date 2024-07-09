@@ -5,6 +5,7 @@ import { editPortModal, addPortModal, deletePortModal } from '../ui/modals.js';
 
 let deleteIp, deletePortNumber;
 let originalPortNumber;
+let originalPortId;
 
 export function init() {
     handlePortNumberInput(true);  // For edit
@@ -28,8 +29,11 @@ export function handlePortClick(element) {
 
     console.log("Port clicked - ID:", portId);
 
+    // Store the original port number and ID
     originalPortNumber = portNumber;
+    originalPortId = portId;
 
+    // Populate the edit port modal
     $('#edit-port-ip').val(ip);
     $('#display-edit-port-ip').text(ip);
     $('#old-port-number').val(portNumber);
@@ -37,6 +41,7 @@ export function handlePortClick(element) {
     $('#port-description').val(description);
     $('#port-id').val(portId);
 
+    // Disable delete button if it's the last port in the panel
     const isLastPort = $(element).siblings('.port-slot:not(.add-port-slot)').length === 0;
     $('#delete-port').prop('disabled', isLastPort);
     if (isLastPort) {
@@ -45,6 +50,7 @@ export function handlePortClick(element) {
         $('#delete-port').removeAttr('title');
     }
 
+    // Clear any existing messages
     $('#edit-port-exists-disclaimer').hide();
     $('#save-port').prop('disabled', false);
 
