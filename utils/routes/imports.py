@@ -214,11 +214,11 @@ def import_docker_socket():
                 continue
             else:
               try:
-                  ip = container.labels["com.portall.ip"]
+                  ip = str(container.labels["com.portall.ip"])
               except:
                   ip = "127.0.0.1"
               try:
-                  description = container.labels["com.portall.description"]
+                  description = str(container.labels["com.portall.description"])
               except:
                   description = str(container.name)
               entries.append({
