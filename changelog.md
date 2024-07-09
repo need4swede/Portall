@@ -5,6 +5,8 @@
 Track changes between app versions. Found under `Settings > About`
 ### Planned Features section
 See what is planned for future releases. Found under `Settings > About`
+### linux/arm64 support
+Added support for linux/arm64, which was absent in the initial release.
 ## Fixed:
 ### Docker-Compose import bug
 Fixed bug that wouldn't detect ports for certain Docker-Compose imports
