@@ -2,6 +2,7 @@
 
 # Standard Imports
 import os                                       # For file operations
+import re                                       # For regular expressions
 
 # External Imports
 from flask import Blueprint                     # For creating a blueprint
@@ -80,9 +81,34 @@ def settings():
     custom_css = Setting.query.filter_by(key='custom_css').first()
     custom_css = custom_css.value if custom_css else ''
 
+    # Get version from README
+    def get_version_from_readme():
+        try:
+            readme_path = os.path.join(os.path.dirname(__file__), '..', '..', 'README.md')
+            if not os.path.exists(readme_path):
+                app.logger.error(f"README.md not found at {readme_path}")
+                return "Unknown (File Not Found)"
+
+            with open(readme_path, 'r') as file:
+                content = file.read()
+                match = re.search(r'version-(\d+\.\d+\.\d+)-blue\.svg', content)
+                if match:
+                    version = match.group(1)
+                    app.logger.info(f"version: {version}")
+                    return version
+                else:
+                    app.logger.warning("Version pattern not found in README")
+                    return "Unknown (Pattern Not Found)"
+
+        except Exception as e:
+            app.logger.error(f"Error reading version from README: {str(e)}")
+            return f"Unknown (Error: {str(e)})"
+    version = get_version_from_readme()
+
     # Render the settings template with all necessary data
     return render_template('settings.html', ip_addresses=ip_addresses, default_ip=default_ip,
-                           current_theme=theme, themes=themes, theme=theme, custom_css=custom_css)
+                           current_theme=theme, themes=themes, theme=theme, custom_css=custom_css,
+                           version=version)
 
 @settings_bp.route('/port_settings', methods=['GET', 'POST'])
 def port_settings():
