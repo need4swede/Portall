@@ -1,3 +1,11 @@
+# v1.0.2
+<hr>
+## Changed:
+**Breaking Change!** - Altered database structure to handle new ordering logic.
+## Fixed:
+### Port Order Bug
+Fixed an issue where re-arranged ports would not have their order saved.
+
 # v1.0.1
 <hr>
 ## Added:

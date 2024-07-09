@@ -12,9 +12,10 @@
     </h2>
     <div class="switch-panel" data-ip="{{ ip }}">
         {% for port in data.ports %}
-        <div class="port-slot" draggable="true" data-port="{{ port.port_number }}">
+        <div class="port-slot" draggable="true" data-port="{{ port.port_number }}" data-order="{{ port.order }}">
             <div class="port {% if port.port_number in data.ports|map(attribute='port_number') %}active{% endif %}"
-                data-ip="{{ ip }}" data-port="{{ port.port_number }}" data-description="{{ port.description }}">
+                data-ip="{{ ip }}" data-port="{{ port.port_number }}" data-description="{{ port.description }}"
+                data-order="{{ port.order }}">
                 <span class="port-number">{{ port.port_number }}</span>
                 <span class="port-description">{{ port.description }}</span>
                 <div class="port-tooltip">{{ port.description }}</div>

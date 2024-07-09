@@ -32,8 +32,8 @@ def ports():
     Returns:
         str: Rendered HTML template for the ports page.
     """
-    # Retrieve all ports, ordered by IP order and address
-    ports = Port.query.order_by(Port.ip_order, Port.ip_address).all()
+    # Retrieve all ports, ordered by order
+    ports = Port.query.order_by(Port.order).all()
 
     # Organize ports by IP address
     ports_by_ip = {}
@@ -209,68 +209,69 @@ def move_port():
     """
     Move a port from one IP address to another.
 
-    This function updates the IP address and nickname of a port based on the target IP.
+    This function updates the IP address and order of a port based on the target IP.
 
     Returns:
         JSON: A JSON response indicating success or failure of the operation.
     """
-    app.logger.info(f"Received move_port request: {request.form}")
     port_number = request.form.get('port_number')
     source_ip = request.form.get('source_ip')
     target_ip = request.form.get('target_ip')
-    app.logger.info(f"Parsed data: port_number={port_number}, source_ip={source_ip}, target_ip={target_ip}")
 
-    if not all([port_number, target_ip]):
+    if not all([port_number, source_ip, target_ip]):
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
-        port = Port.query.filter_by(port_number=port_number).first()
+        port = Port.query.filter_by(port_number=port_number, ip_address=source_ip).first()
         if port:
-            old_ip = port.ip_address
-
-            # Get the nickname of the target IP
-            target_port = Port.query.filter_by(ip_address=target_ip).first()
-            target_nickname = target_port.nickname if target_port else None
-
-            # Update the port's IP address and nickname
+            # Update IP address
             port.ip_address = target_ip
-            port.nickname = target_nickname
+
+            # Update order
+            max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=target_ip).scalar() or 0
+            port.order = max_order + 1
 
             db.session.commit()
-            app.logger.info(f"Moved port {port_number} from {old_ip} to {target_ip}")
             return jsonify({'success': True, 'message': 'Port moved successfully'})
         else:
-            app.logger.warning(f"Port not found: {port_number}")
             return jsonify({'success': False, 'message': 'Port not found'}), 404
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error moving port: {str(e)}")
-        return jsonify({'success': False, 'message': 'Error moving port'}), 500
+        return jsonify({'success': False, 'message': f'Error moving port: {str(e)}'}), 500
 
 @ports_bp.route('/update_port_order', methods=['POST'])
 def update_port_order():
     """
     Update the order of ports for a specific IP address.
 
-    This function updates the order of ports based on the received list of port numbers.
+    This function receives a new order for ports of a given IP and updates the database accordingly.
 
     Returns:
         JSON: A JSON response indicating success or failure of the operation.
     """
-    ip = request.form['ip']
-    port_order = request.form.getlist('port_order[]')
+    data = request.json
+    ip = data.get('ip')
+    port_order = data.get('port_order')
+
+    if not ip or not port_order:
+        return jsonify({'success': False, 'message': 'Missing IP or port order data'}), 400
 
     try:
-        ports = Port.query.filter_by(ip_address=ip).all()
-        for i, port_number in enumerate(port_order):
-            port = next(p for p in ports if str(p.port_number) == port_number)
-            port.order = i
+        # Get the base order for this IP
+        base_order = Port.query.filter_by(ip_address=ip).order_by(Port.order).first().order
+
+        # Update the order for each port
+        for index, port_number in enumerate(port_order):
+            port = Port.query.filter_by(ip_address=ip, port_number=port_number).first()
+            if port:
+                port.order = base_order + index
+
         db.session.commit()
         return jsonify({'success': True, 'message': 'Port order updated successfully'})
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error updating port order: {str(e)}")
-        return jsonify({'success': False, 'message': 'Error updating port order'}), 500
+        return jsonify({'success': False, 'message': f'Error updating port order: {str(e)}'}), 500
 
 ## IP Addresses ##
 
@@ -339,24 +340,22 @@ def update_ip_order():
     """
     Update the order of IP address panels.
 
-    This function updates the order of IP addresses based on the received list of IPs.
-    It also sets a high order number for any IPs not in the received order.
+    This function receives a new order for IP addresses and updates the database accordingly.
+    It uses a large step between IP orders to allow for many ports per IP.
 
     Returns:
         JSON: A JSON response indicating success or failure of the operation.
     """
     data = json.loads(request.data)
     ip_order = data.get('ip_order', [])
-    app.logger.info(f"Received IP order: {ip_order}")
 
     try:
         # Update the order for each IP
         for index, ip in enumerate(ip_order):
-            Port.query.filter_by(ip_address=ip).update({Port.ip_order: index})
-            app.logger.info(f"Updated order for IP {ip} to {index}")
-
-        # Set a high order number for any IPs not in the received order
-        Port.query.filter(Port.ip_address.notin_(ip_order)).update({Port.ip_order: len(ip_order)}, synchronize_session=False)
+            base_order = index * 1000  # Use a large step to allow for many ports per IP
+            ports = Port.query.filter_by(ip_address=ip).order_by(Port.order).all()
+            for i, port in enumerate(ports):
+                port.order = base_order + i
 
         db.session.commit()
         return jsonify({'success': True, 'message': 'IP panel order updated successfully'})
