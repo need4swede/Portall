@@ -15,7 +15,7 @@
         <div class="port-slot" draggable="true" data-port="{{ port.port_number }}" data-order="{{ port.order }}">
             <div class="port {% if port.port_number in data.ports|map(attribute='port_number') %}active{% endif %}"
                 data-ip="{{ ip }}" data-port="{{ port.port_number }}" data-description="{{ port.description }}"
-                data-order="{{ port.order }}">
+                data-order="{{ port.order }}" data-id="{{ port.id }}">
                 <span class="port-number">{{ port.port_number }}</span>
                 <span class="port-description">{{ port.description }}</span>
                 <div class="port-tooltip">{{ port.description }}</div>
@@ -74,9 +74,11 @@
                 <form id="edit-port-form">
                     <input type="hidden" id="edit-port-ip" name="ip">
                     <input type="hidden" id="old-port-number" name="old_port_number">
+                    <input type="hidden" id="port-id" name="port_id">
                     <div class="mb-3">
                         <label for="new-port-number" class="form-label">Port Number</label>
                         <input type="number" class="form-control" id="new-port-number" name="new_port_number" required>
+                        <small id="edit-port-exists-disclaimer" class="text-danger" style="display: none;"></small>
                     </div>
                     <div class="mb-3">
                         <label for="port-description" class="form-label">Description</label>

@@ -36,6 +36,11 @@ $(document).ready(function () {
 
     // Variables to store IP and port number for deletion
     let deleteIp, deletePortNumber;
+    let originalPortNumber;
+
+    // Initialize port number input handlers
+    handlePortNumberInput(true);  // For edit
+    handlePortNumberInput(false); // For add
 
     /**
      * Event listener for mousedown on port slots
@@ -253,7 +258,7 @@ $(document).ready(function () {
     }
 
     /**
-     * Cancels the drop operation and reverts the dragged element
+     * Cancels the drop operation and reverts the dragged element to its original position
      */
     function cancelDrop() {
         $(draggingElement).insertBefore(placeholder);
@@ -319,6 +324,13 @@ $(document).ready(function () {
         const ip = port.data('ip');
         const portNumber = port.data('port');
         const description = port.data('description');
+        const portId = port.data('id');
+
+        console.log("Port clicked - ID:", portId);
+
+        // Store the original port number and ID
+        originalPortNumber = portNumber;
+        originalPortId = portId;
 
         // Populate the edit port modal
         $('#edit-port-ip').val(ip);
@@ -326,6 +338,7 @@ $(document).ready(function () {
         $('#old-port-number').val(portNumber);
         $('#new-port-number').val(portNumber);
         $('#port-description').val(description);
+        $('#port-id').val(portId);
 
         // Disable delete button if it's the last port in the panel
         const isLastPort = $(element).siblings('.port-slot:not(.add-port-slot)').length === 0;
@@ -336,7 +349,54 @@ $(document).ready(function () {
             $('#delete-port').removeAttr('title');
         }
 
+        // Clear any existing messages
+        $('#edit-port-exists-disclaimer').hide();
+        $('#save-port').prop('disabled', false);
+
         editPortModal.show();
+    }
+
+    /**
+     * Handles input events for port number fields
+     * @param {boolean} isEdit - True if handling edit mode, false for add mode
+     */
+    function handlePortNumberInput(isEdit) {
+        const inputSelector = isEdit ? '#new-port-number' : '#add-new-port-number';
+        const ipSelector = isEdit ? '#edit-port-ip' : '#add-port-ip';
+        const disclaimerSelector = isEdit ? '#edit-port-exists-disclaimer' : '#port-exists-disclaimer';
+        const saveButtonSelector = isEdit ? '#save-port' : '#save-new-port';
+
+        $(inputSelector).on('input', function () {
+            console.log("Port number input changed. New value:", this.value);
+            const ip = $(ipSelector).val();
+            const portNumber = $(this).val().trim();
+            const currentPortId = isEdit ? $('#port-id').val() : null;
+            const oldPortNumber = isEdit ? $('#old-port-number').val() : null;
+
+            if (portNumber === '') {
+                $(disclaimerSelector).hide();
+                $(saveButtonSelector).prop('disabled', true);
+                return;
+            }
+
+            // Don't show disclaimer for the current port number when editing
+            if (isEdit && portNumber === oldPortNumber) {
+                $(disclaimerSelector).hide();
+                $(saveButtonSelector).prop('disabled', false);
+                return;
+            }
+
+            const portExists = checkPortExists(ip, portNumber, currentPortId);
+
+            if (portExists) {
+                const description = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`).data('description');
+                $(disclaimerSelector).text(`Port ${portNumber} already assigned to ${description}`).show();
+                $(saveButtonSelector).prop('disabled', true);
+            } else {
+                $(disclaimerSelector).hide();
+                $(saveButtonSelector).prop('disabled', false);
+            }
+        });
     }
 
     /**
@@ -373,23 +433,30 @@ $(document).ready(function () {
     }
 
     /**
- * Checks if a port exists for a given IP address
- * @param {string} ip - The IP address to check
- * @param {string} portNumber - The port number to check
- * @returns {boolean} True if the port exists, false otherwise
- */
-    function checkPortExists(ip, portNumber) {
-        console.log("Checking if port exists:", ip, portNumber);
+     * Checks if a port exists for a given IP address
+     * @param {string} ip - The IP address to check
+     * @param {string} portNumber - The port number to check
+     * @param {string} [currentPortId] - The ID of the current port being edited (optional)
+     * @returns {boolean} True if the port exists, false otherwise
+     */
+    function checkPortExists(ip, portNumber, currentPortId) {
+        console.log("Checking if port exists:", ip, portNumber, currentPortId);
         const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
         console.log("Port element found:", portElement.length > 0);
+        console.log("Port element data-id:", portElement.data('id'));
+        if (currentPortId) {
+            const result = portElement.length > 0 && portElement.data('id') != currentPortId;
+            console.log("Check result:", result);
+            return result;
+        }
         return portElement.length > 0;
     }
 
     /**
- * Displays a notification message
- * @param {string} message - The message to display
- * @param {string} type - The type of notification ('success' or 'error')
- */
+     * Displays a notification message
+     * @param {string} message - The message to display
+     * @param {string} [type='success'] - The type of notification ('success' or 'error')
+     */
     function showNotification(message, type = 'success') {
         const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
         const notification = `
@@ -406,7 +473,8 @@ $(document).ready(function () {
     }
 
     /**
-     * Initializes drag functionality for network switch panels
+     * Handles the dragstart event for network switch panels
+     * @param {Event} e - The dragstart event object
      */
     $('.network-switch').on('dragstart', function (e) {
         // Store the dragged element
@@ -428,6 +496,7 @@ $(document).ready(function () {
 
     /**
      * Handles the dragover event for network switch panels
+     * @param {Event} e - The dragover event object
      */
     $('.network-switch').on('dragover', function (e) {
         e.preventDefault();
@@ -447,6 +516,7 @@ $(document).ready(function () {
 
     /**
      * Handles the dragend event for network switch panels
+     * @param {Event} e - The dragend event object
      */
     $('.network-switch').on('dragend', function (e) {
         // Restore visibility of the dragged element
@@ -464,6 +534,7 @@ $(document).ready(function () {
 
     /**
      * Handles the drop event on the body element
+     * @param {Event} e - The drop event object
      */
     $('body').on('drop', function (e) {
         e.preventDefault();
@@ -479,6 +550,7 @@ $(document).ready(function () {
 
     /**
      * Handles the edit IP button click event
+     * @param {Event} e - The click event object
      */
     $('.edit-ip').click(function (e) {
         e.preventDefault();
@@ -571,7 +643,39 @@ $(document).ready(function () {
      * Handles the save port button click event
      */
     $('#save-port').click(function () {
+        console.log("Save port button clicked");
+        const ip = $('#edit-port-ip').val();
+        const portNumber = $('#new-port-number').val().trim();
+        const description = $('#port-description').val().trim();
+        const currentPortId = $('#port-id').val();
+
+        console.log("IP:", ip);
+        console.log("Port Number:", portNumber);
+        console.log("Description:", description);
+
+        // Validate input
+        if (portNumber === '') {
+            console.log("Port number is empty");
+            showNotification('Please enter a port number', 'error');
+            return;
+        }
+
+        if (description === '') {
+            console.log("Description is empty");
+            showNotification('Please enter a port description', 'error');
+            return;
+        }
+
+        if (checkPortExists(ip, portNumber, currentPortId)) {
+            console.log("Port already exists");
+            showNotification('Port already exists', 'error');
+            return;
+        }
+
+        console.log("All checks passed, proceeding with AJAX call");
         const formData = $('#edit-port-form').serialize();
+        console.log("Form data:", formData);
+
         $.ajax({
             url: '/edit_port',
             method: 'POST',
@@ -580,14 +684,11 @@ $(document).ready(function () {
                 if (response.success) {
                     showNotification('Port updated successfully', 'success');
                     // Update the DOM dynamically
-                    const ip = $('#edit-port-ip').val();
                     const oldPortNumber = $('#old-port-number').val();
-                    const newPortNumber = $('#new-port-number').val();
-                    const description = $('#port-description').val();
                     const portElement = $(`.port[data-ip="${ip}"][data-port="${oldPortNumber}"]`);
-                    portElement.data('port', newPortNumber).data('description', description);
-                    portElement.attr('data-port', newPortNumber).attr('data-description', description);
-                    portElement.find('.port-number').text(newPortNumber);
+                    portElement.data('port', portNumber).data('description', description);
+                    portElement.attr('data-port', portNumber).attr('data-description', description);
+                    portElement.find('.port-number').text(portNumber);
                     portElement.find('.port-description').text(description);
 
                     // Refresh the page to ensure all data is correctly displayed
@@ -616,6 +717,45 @@ $(document).ready(function () {
         $('#port-exists-disclaimer').hide();
         $('#save-new-port').prop('disabled', false);
         addPortModal.show();
+    });
+
+    $('#new-port-number').on('input', function () {
+        const ip = $('#edit-port-ip').val();
+        const portNumber = $(this).val().trim();
+        const currentPortId = $('#port-id').val();
+
+        console.log('Input event triggered');
+        console.log('IP:', ip);
+        console.log('Port Number:', portNumber);
+        console.log('Original Port Number:', originalPortNumber);
+        console.log('Current Port ID:', currentPortId);
+
+        if (portNumber === '') {
+            console.log('Port number is empty');
+            $('#edit-port-exists-disclaimer').hide();
+            $('#save-port').prop('disabled', true);
+            return;
+        }
+
+        if (portNumber === originalPortNumber) {
+            console.log('Port number is the same as original');
+            $('#edit-port-exists-disclaimer').hide();
+            $('#save-port').prop('disabled', false);
+            return;
+        }
+
+        const portExists = checkPortExists(ip, portNumber, currentPortId);
+        console.log('Port exists:', portExists);
+
+        if (portExists) {
+            const existingPortDescription = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]:not([data-id="${currentPortId}"])`).data('description');
+            console.log('Existing port description:', existingPortDescription);
+            $('#edit-port-exists-disclaimer').text(`Port ${portNumber} already assigned to ${existingPortDescription}`).show();
+            $('#save-port').prop('disabled', true);
+        } else {
+            $('#edit-port-exists-disclaimer').hide();
+            $('#save-port').prop('disabled', false);
+        }
     });
 
     /**

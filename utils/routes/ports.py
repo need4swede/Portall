@@ -40,7 +40,12 @@ def ports():
     for port in ports:
         if port.ip_address not in ports_by_ip:
             ports_by_ip[port.ip_address] = {'nickname': port.nickname, 'ports': []}
-        ports_by_ip[port.ip_address]['ports'].append(port)
+        ports_by_ip[port.ip_address]['ports'].append({
+            'id': port.id,
+            'port_number': port.port_number,
+            'description': port.description,
+            'order': port.order
+        })
 
     # Get the current theme from the session
     theme = session.get('theme', 'light')
@@ -75,28 +80,30 @@ def add_port():
 
 @ports_bp.route('/edit_port', methods=['POST'])
 def edit_port():
-    """
-    Edit an existing port's details.
+    port_id = request.form.get('port_id')
+    new_port_number = request.form.get('new_port_number')
+    ip_address = request.form.get('ip')
+    description = request.form.get('description')
 
-    This function updates the port number and description for a given IP address.
-
-    Returns:
-        JSON: A JSON response indicating success or failure of the operation.
-    """
-    new_port_number = request.form['new_port_number']
-    old_port_number = request.form['old_port_number']
-    ip_address = request.form['ip']
-    description = request.form['description']
+    if not all([port_id, new_port_number, ip_address, description]):
+        return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
-        port_entry = Port.query.filter_by(ip_address=ip_address, port_number=old_port_number).first()
-        if port_entry:
-            port_entry.port_number = new_port_number
-            port_entry.description = description
-            db.session.commit()
-            return jsonify({'success': True, 'message': 'Port updated successfully'})
-        else:
+        port_entry = Port.query.get(port_id)
+        if not port_entry:
             return jsonify({'success': False, 'message': 'Port entry not found'}), 404
+
+        # Check if the new port number already exists for this IP
+        existing_port = Port.query.filter(Port.ip_address == ip_address,
+                                          Port.port_number == new_port_number,
+                                          Port.id != port_id).first()
+        if existing_port:
+            return jsonify({'success': False, 'message': 'Port number already exists for this IP'}), 400
+
+        port_entry.port_number = new_port_number
+        port_entry.description = description
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Port updated successfully'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 400

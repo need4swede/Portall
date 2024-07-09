@@ -326,6 +326,11 @@ code {
     border-bottom-color: var(--color-blue-dark);
 }
 
+.markdown-content h3 a {
+    color: var(--color-purple-dark);
+    border-bottom: 1px solid var(--color-purple-light);
+}
+
 .show-more {
     color: var(--color-blue);
 }

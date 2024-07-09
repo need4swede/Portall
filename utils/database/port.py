@@ -9,3 +9,5 @@ class Port(db.Model):
     port_number = db.Column(db.Integer, nullable=False)
     description = db.Column(db.String(100), nullable=False)
     order = db.Column(db.Integer, default=0)
+
+    __table_args__ = (db.UniqueConstraint('ip_address', 'port_number', name='_ip_port_uc'),)
