@@ -163,6 +163,37 @@
         </div>
     </div>
 </div>
+
+<!-- Port Conflict Modal -->
+<div class="modal fade" id="portConflictModal" tabindex="-1" aria-labelledby="portConflictModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="portConflictModalLabel">Port Conflict</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>There is a port number conflict between:</p>
+                <p>Source: <span id="sourcePortInfo"></span></p>
+                <p>Destination: <span id="destinationPortInfo"></span></p>
+                <div class="mb-3">
+                    <label for="changeSourcePort" class="form-label">Change source port number:</label>
+                    <input type="number" class="form-control" id="changeSourcePort">
+                </div>
+                <div class="mb-3">
+                    <label for="changeDestinationPort" class="form-label">Change destination port number:</label>
+                    <input type="number" class="form-control" id="changeDestinationPort">
+                </div>
+                <p>Or you can choose to delete the destination port and replace it with the source port.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="resolveConflict">Resolve Conflict</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
