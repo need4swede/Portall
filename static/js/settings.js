@@ -309,6 +309,57 @@ $(document).ready(function () {
         styleElement.text(css);
     }
 
+    // Call this function when the About tab is shown
+    $('button[data-bs-target="#about"]').on('shown.bs.tab', function (e) {
+        loadAboutContent();
+    });
+
+    // Load About content
+    function loadAboutContent() {
+        $.ajax({
+            url: '/get_about_content',
+            method: 'GET',
+            success: function (data) {
+                $('#planned-features-content').html(data.planned_features);
+                $('#changelog-content').html(data.changelog);
+
+                // Apply custom formatting and animations
+                $('.markdown-content h2').each(function (index) {
+                    $(this).css('opacity', '0').delay(100 * index).animate({ opacity: 1 }, 500);
+                });
+
+                $('.markdown-content ul').addClass('list-unstyled');
+                $('.markdown-content li').each(function (index) {
+                    $(this).css('opacity', '0').delay(50 * index).animate({ opacity: 1 }, 300);
+                });
+
+                // Add a collapsible feature to long lists
+                $('.markdown-content ul').each(function () {
+                    if ($(this).children().length > 5) {
+                        var $list = $(this);
+                        var $items = $list.children();
+                        $items.slice(5).hide();
+                        $list.after('<a href="#" class="show-more">Show more...</a>');
+                        $list.next('.show-more').click(function (e) {
+                            e.preventDefault();
+                            $items.slice(5).slideToggle();
+                            $(this).text($(this).text() === 'Show more...' ? 'Show less' : 'Show more...');
+                        });
+                    }
+                });
+
+                // Animate info cards
+                $('.info-card').each(function (index) {
+                    $(this).css('opacity', '0').delay(200 * index).animate({ opacity: 1 }, 500);
+                });
+            },
+            error: function (xhr, status, error) {
+                console.error('Error loading About content:', status, error);
+                showNotification('Error loading About content.', 'error');
+            }
+        });
+    }
+
     // Force a refresh on window load
     $(window).on('load', function () {
         if (cssEditor) {

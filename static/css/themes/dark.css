@@ -280,3 +280,71 @@ code {
 .cm-s-monokai .CodeMirror-gutters {
     background-color: var(--bg-color-secondary);
 }
+
+/* About section styles */
+#about {
+    background-color: var(--bg-color);
+}
+
+.section-title {
+    color: var(--color-blue-dark);
+}
+
+.info-card {
+    background-color: var(--bg-color-secondary);
+}
+
+.card-title {
+    color: var(--color-gray-lighter);
+}
+
+.card-title::after {
+    background-color: var(--color-purple-light);
+}
+
+.info-label {
+    color: var(--color-gray-lighter);
+}
+
+.markdown-content {
+    color: var(--text-color-primary);
+}
+
+.markdown-content h1 {
+    color: var(--color-blue-dark);
+}
+
+.markdown-content h2 {
+    color: var(--color-teal-dark);
+}
+
+.markdown-content h3 {
+    color: var(--color-purple-light);
+}
+
+.markdown-content li::before {
+    color: var(--color-blue-light);
+}
+
+.markdown-content code {
+    background-color: var(--color-black);
+    color: var(--color-purple-light);
+}
+
+.markdown-content a {
+    color: var(--color-blue);
+    border-bottom: 1px solid var(--color-blue-light);
+}
+
+.markdown-content a:hover {
+    color: var(--color-blue-dark);
+    border-bottom-color: var(--color-blue-dark);
+}
+
+.show-more {
+    color: var(--color-blue);
+}
+
+.show-more:hover {
+    color: var(--color-blue-dark);
+}

@@ -265,3 +265,71 @@ code {
 .CodeMirror.cm-s-monokai.CodeMirror-wrap.CodeMirror-focused {
     color: var(--color-black);
 }
+
+/* About section styles */
+#about {
+    background-color: var(--color-gray-lighter);
+}
+
+.section-title {
+    color: var(--color-blue-dark);
+}
+
+.info-card {
+    background-color: var(--color-white);
+}
+
+.card-title {
+    color: var(--color-blue);
+}
+
+.card-title::after {
+    background-color: var(--color-blue-light);
+}
+
+.info-label {
+    color: var(--color-gray-dark);
+}
+
+.markdown-content {
+    color: var(--color-gray-dark);
+}
+
+.markdown-content h1 {
+    color: var(--color-blue-dark);
+}
+
+.markdown-content h2 {
+    color: var(--color-teal-dark);
+}
+
+.markdown-content h3 {
+    color: var(--color-purple-dark);
+}
+
+.markdown-content li::before {
+    color: var(--color-blue-light);
+}
+
+.markdown-content code {
+    background-color: var(--color-gray-lighter);
+    color: var(--color-purple-dark);
+}
+
+.markdown-content a {
+    color: var(--color-blue);
+    border-bottom: 1px solid var(--color-blue-light);
+}
+
+.markdown-content a:hover {
+    color: var(--color-blue-dark);
+    border-bottom-color: var(--color-blue-dark);
+}
+
+.show-more {
+    color: var(--color-blue);
+}
+
+.show-more:hover {
+    color: var(--color-blue-dark);
+}

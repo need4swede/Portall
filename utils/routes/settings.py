@@ -11,6 +11,7 @@ from flask import render_template               # For rendering HTML templates
 from flask import request                       # For handling HTTP requests
 from flask import send_from_directory           # For serving static files
 from flask import session                       # For storing session data
+import markdown                                 # For rendering Markdown text
 
 # Local Imports
 from utils.database import db, Port, Setting  # For accessing the database models
@@ -167,3 +168,21 @@ def purge_entries():
         db.session.rollback()
         app.logger.error(f"Error purging entries: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@settings_bp.route('/get_about_content')
+def get_about_content():
+    def read_md_file(filename):
+        filepath = os.path.join(app.root_path, filename)
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as file:
+                content = file.read()
+                return markdown.markdown(content)
+        return ""
+
+    planned_features = read_md_file('planned_features.md')
+    changelog = read_md_file('changelog.md')
+
+    return jsonify({
+        'planned_features': planned_features,
+        'changelog': changelog
+    })
