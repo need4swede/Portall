@@ -25,6 +25,8 @@ $(document).ready(function () {
     let placeholder = null;
     let dragStartX, dragStartY, dragStartTime;
     let isDragging = false;
+    let sourcePanel = null;
+    let sourceIp = null;
     const dragThreshold = 5; // Minimum pixels moved to initiate drag
     const clickThreshold = 200; // Maximum milliseconds for a click
 
@@ -42,10 +44,15 @@ $(document).ready(function () {
     $('.port-slot:not(.add-port-slot)').on('mousedown', function (e) {
         if (e.which !== 1) return; // Only respond to left mouse button
 
+        const panel = $(this).closest('.switch-panel');
+        if (panel.find('.port-slot:not(.add-port-slot)').length === 1) {
+            showNotification("Can't move the last port in a panel", 'error');
+            return;
+        }
+
         dragStartX = e.clientX;
         dragStartY = e.clientY;
         dragStartTime = new Date().getTime();
-
         const element = this;
 
         // Monitor mouse movement to detect drag
@@ -53,13 +60,6 @@ $(document).ready(function () {
             if (!isDragging &&
                 (Math.abs(e.clientX - dragStartX) > dragThreshold ||
                     Math.abs(e.clientY - dragStartY) > dragThreshold)) {
-
-                // Prevent dragging the last port in a panel
-                if ($(element).siblings('.port-slot:not(.add-port-slot)').length === 0) {
-                    showNotification("Can't move the last port in a panel", 'error');
-                    $(document).off('mousemove.dragdetect mouseup.dragdetect');
-                    return;
-                }
 
                 isDragging = true;
                 initiateDrag(e, element);
@@ -86,6 +86,12 @@ $(document).ready(function () {
      */
     function initiateDrag(e, element) {
         draggingElement = element;
+        sourcePanel = $(element).closest('.switch-panel');
+        sourceIp = sourcePanel.data('ip');
+        console.log('Dragging element:', draggingElement);
+        console.log('Source panel:', sourcePanel);
+        console.log('Source IP:', sourceIp);
+
         const rect = draggingElement.getBoundingClientRect();
         const offsetX = e.clientX - rect.left;
         const offsetY = e.clientY - rect.top;
@@ -188,20 +194,62 @@ $(document).ready(function () {
             return;
         }
 
-        const sourcePanel = $(draggingElement).closest('.switch-panel');
         const targetPanel = $(targetElement).closest('.switch-panel');
+        const targetIp = targetPanel.data('ip');
 
-        if (sourcePanel[0] !== targetPanel[0]) {
+        console.log('Source panel:', sourcePanel);
+        console.log('Target panel:', targetPanel);
+        console.log('Source IP:', sourceIp);
+        console.log('Target IP:', targetIp);
+
+        if (sourceIp !== targetIp) {
+            console.log('Moving port to a different IP group');
             // Moving port to a different IP group
             const portNumber = $(draggingElement).find('.port').data('port');
-            const sourceIp = sourcePanel.data('ip');
-            const targetIp = targetPanel.data('ip');
             movePort(portNumber, sourceIp, targetIp, targetElement);
         } else {
+            console.log('Reordering within the same IP group');
             // Reordering within the same IP group
             targetElement.parentNode.insertBefore(draggingElement, targetElement.nextSibling);
-            updatePortOrder(sourcePanel.data('ip'));
+            updatePortOrder(sourceIp);
         }
+
+        // Reset source variables
+        sourcePanel = null;
+        sourceIp = null;
+    }
+
+    /**
+     * Updates the order of ports for a specific IP address
+     * @param {string} ip - The IP address of the ports to reorder
+     */
+    function updatePortOrder(ip) {
+        const panel = $(`.switch-panel[data-ip="${ip}"]`);
+        const portOrder = panel.find('.port-slot:not(.add-port-slot) .port').map(function () {
+            return $(this).data('port');
+        }).get();
+
+        $.ajax({
+            url: '/update_port_order',
+            method: 'POST',
+            data: JSON.stringify({
+                ip: ip,
+                port_order: portOrder
+            }),
+            contentType: 'application/json',
+            success: function (response) {
+                if (response.success) {
+                    console.log('Port order updated successfully');
+                } else {
+                    console.error('Error updating port order:', response.message);
+                    showNotification('Error updating port order: ' + response.message, 'error');
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error updating port order:', error);
+                showNotification('Error updating port order: ' + error, 'error');
+            }
+        });
     }
 
     /**
@@ -243,6 +291,12 @@ $(document).ready(function () {
                         // Update the nickname
                         const targetNickname = $(`.switch-panel[data-ip="${targetIp}"]`).siblings('.switch-label').find('.edit-ip').data('nickname');
                         $(draggingElement).find('.port').attr('data-nickname', targetNickname);
+                    }
+
+                    // Update port order for both source and target IPs
+                    updatePortOrder(sourceIp);
+                    if (sourceIp !== targetIp) {
+                        updatePortOrder(targetIp);
                     }
                 } else {
                     showNotification('Error moving port: ' + response.message, 'error');
@@ -294,7 +348,7 @@ $(document).ready(function () {
             ipOrder.push($(this).data('ip'));
         });
 
-        console.log("Sending IP order:", ipOrder); // Debugging log
+        console.log("Sending IP order:", ipOrder);
 
         // Send the updated order to the server
         $.ajax({
@@ -308,12 +362,12 @@ $(document).ready(function () {
                     // showNotification('IP panel order updated successfully', 'success');
                 } else {
                     showNotification('Error updating IP panel order: ' + response.message, 'error');
-                    location.reload(); // Revert to original order if there's an error
+                    location.reload();
                 }
             },
             error: function (xhr, status, error) {
                 showNotification('Error updating IP panel order: ' + error, 'error');
-                location.reload(); // Revert to original order if there's an error
+                location.reload();
             }
         });
     }

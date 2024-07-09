@@ -1,3 +1,11 @@
+# v1.0.2
+<hr>
+## Changed:
+**Breaking Change!** - Altered database structure to handle new ordering logic.
+## Fixed:
+### Port Order Bug
+Fixed an issue where re-arranged ports would not have their order saved.
+
 # v1.0.1
 <hr>
 ## Added:
@@ -5,6 +13,8 @@
 Track changes between app versions. Found under `Settings > About`
 ### Planned Features section
 See what is planned for future releases. Found under `Settings > About`
+### linux/arm64 support
+Added support for linux/arm64, which was absent in the initial release.
 ## Fixed:
 ### Docker-Compose import bug
 Fixed bug that wouldn't detect ports for certain Docker-Compose imports
