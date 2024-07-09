@@ -11,6 +11,7 @@ from flask import jsonify                       # For returning JSON responses
 from flask import render_template               # For rendering HTML templates
 from flask import request                       # For handling HTTP requests
 from flask import session                       # For storing session data
+from docker import from_env                     # For accessing Docker socket
 
 # Local Imports
 from utils.database import db, Port             # For accessing the database models
@@ -44,6 +45,8 @@ def import_data():
             imported_data = import_json(file_content)
         elif import_type == 'Docker-Compose':
             imported_data = import_docker_compose(file_content)
+        elif import_type == "Docker-Socket":
+            imported_data = import_docker_socket()
         else:
             return jsonify({'success': False, 'message': 'Unsupported import type'}), 400
 
@@ -190,7 +193,31 @@ def import_json(content):
         return entries
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format")
+def import_docker_socket(content):
+    """
+    Parse a Caddyfile and extract port information.
 
+    This function processes a Caddyfile content, extracting domain names and
+    their associated reverse proxy configurations.
+
+    Args:
+        content (str): The content of the Caddyfile
+
+    Returns:
+        list: A list of dictionaries containing extracted port information
+    """
+    entries = []
+    client = from_env()
+    for container in client.containers.list():
+        for key in container.ports:
+            entries.append({
+                'ip': "127.0.0.1",
+                'port': int(container.ports[key][0]['HostPort']),
+                'description': str(container.name)
+            })
+
+
+    return entries
 def parse_port(port_value):
     """
     Parse a port value, handling direct integers, environment variable expressions,
