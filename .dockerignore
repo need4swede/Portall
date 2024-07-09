@@ -1,3 +1,4 @@
 .git
+.DS
 __pycache__
 demo

@@ -399,6 +399,11 @@ h1 {
     font-size: 1.8em;
 }
 
+.markdown-content h1 a {
+    text-decoration: none;
+    border-bottom: none;
+}
+
 .markdown-content h2 {
     font-size: 1.5em;
 }
