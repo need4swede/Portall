@@ -33,6 +33,7 @@ services:
       - SECRET_KEY=your_secret_key
     volumes:
       - ./instance:/app/instance
+      
 ```
 
 ## ✨ Core Functionality
