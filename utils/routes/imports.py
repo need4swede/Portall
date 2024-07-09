@@ -213,10 +213,18 @@ def import_docker_socket():
             if container.ports[key] == None:
                 continue
             else:
+              try:
+                  ip = container.labels["com.portall.ip"]
+              except:
+                  ip = "127.0.0.1"
+              try:
+                  description = container.labels["com.portall.description"]
+              except:
+                  description = str(container.name)
               entries.append({
-                  'ip': "127.0.0.1",
+                  'ip': ip,
                   'port': int(container.ports[key][0]['HostPort']),
-                  'description': str(container.name)
+                  'description': description
               })
 
 
