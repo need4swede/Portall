@@ -22,18 +22,20 @@ docker run -p 8080:8080 \
 
 ### Docker Compose
 ```yml
-version: '3'
+
 services:
   portall:
     image: need4swede/portall:latest
     container_name: portall
     ports:
-      - "8080:8080"
+      - "8982:8080"
     environment:
       - SECRET_KEY=your_secret_key
+      - DOCKER_HOST=/var/run/docker.sock 
     volumes:
       - ./instance:/app/instance
-      
+      - /var/run/docker.sock:/var/run/docker.sock
+
 ```
 
 ## ✨ Core Functionality
@@ -45,7 +47,7 @@ services:
    - Quickly generate unique port numbers to host your applications.
 
 **Import Tools**
-   - Import existing configurations by pasting your Caddyfile, Docker-Compose or JSON data.
+   - Import existing configurations by pasting your Caddyfile, Docker-Compose, JSON data or docker socket.
 
 **Custom Rules**
    - Define your own port ranges and set exclusions for the port generator.
