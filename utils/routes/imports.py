@@ -186,9 +186,9 @@ def import_json(content):
         entries = []
         for item in data:
             entries.append({
-                'ip': item['ip'],
-                'port': int(item['port']),
-                'description': item.get('description', '')
+                'ip': item['ip_address'],
+                'port': int(item['port_number']),
+                'description': item['description']
             })
         return entries
     except json.JSONDecodeError:
