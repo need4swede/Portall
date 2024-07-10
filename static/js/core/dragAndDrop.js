@@ -5,7 +5,6 @@ import { updateIPPanelOrder } from './ipManagement.js';
 import { showNotification } from '../ui/helpers.js';
 import { movePort } from '../api/ajax/helpers.js';
 import { cancelDrop as cancelDropUtil } from '../utils/dragDropUtils.js';
-import { handlePortConflict } from './portConflict.js';
 
 let draggingElement = null;
 let placeholder = null;
@@ -31,14 +30,6 @@ function handleMouseDown(e) {
     if (e.which !== 1) return; // Only respond to left mouse button
 
     const panel = $(this).closest('.switch-panel');
-    const isLastPort = panel.find('.port-slot:not(.add-port-slot)').length === 1;
-
-    // If it's the last port, only allow click (edit) functionality
-    if (isLastPort) {
-        handlePortClick(this);
-        return;
-    }
-
     if (panel.find('.port-slot:not(.add-port-slot)').length === 1) {
         showNotification("Can't move the last port in a panel", 'error');
         return;
@@ -212,15 +203,10 @@ function getTargetElement(x, y) {
     const potentialTarget = elements.find(el => el.classList.contains('port-slot') && el !== draggingElement && !el.classList.contains('add-port-slot'));
 
     if (potentialTarget) {
+        const sourcePanel = $(draggingElement).closest('.switch-panel');
         const targetPanel = $(potentialTarget).closest('.switch-panel');
 
-        // Allow dropping on panels with only one port
-        if (targetPanel.find('.port-slot:not(.add-port-slot)').length === 1) {
-            return potentialTarget;
-        }
-
         // Prevent moving the last port out of a panel
-        const sourcePanel = $(draggingElement).closest('.switch-panel');
         if (sourcePanel[0] !== targetPanel[0] && sourcePanel.find('.port-slot:not(.add-port-slot)').length === 1) {
             return null;
         }
@@ -251,37 +237,17 @@ function finalizeDrop(targetElement) {
     if (sourceIp !== targetIp) {
         console.log('Moving port to a different IP group');
         const portNumber = $(draggingElement).find('.port').data('port');
-        const existingPort = $(targetPanel).find(`.port[data-port="${portNumber}"]`);
 
-        if (existingPort.length > 0) {
-            // Port conflict detected
-            handlePortConflict(
-                { ip: sourceIp, number: portNumber },
-                { ip: targetIp, number: portNumber },
-                (action, newPortNumber) => {
-                    switch (action) {
-                        case 'changeSource':
-                            // Change source port number and move
-                            $(draggingElement).find('.port').data('port', newPortNumber).find('.port-number').text(newPortNumber);
-                            movePort(newPortNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDrop);
-                            break;
-                        case 'changeDestination':
-                            // Change destination port number and move
-                            existingPort.data('port', newPortNumber).find('.port-number').text(newPortNumber);
-                            movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDrop);
-                            break;
-                        case 'deleteDestination':
-                            // Delete destination port and move
-                            existingPort.closest('.port-slot').remove();
-                            movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDrop);
-                            break;
-                    }
-                }
-            );
-        } else {
-            // No conflict, proceed with move
-            movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDrop);
-        }
+        // Insert the dragged element before the target element
+        $(targetElement).before(draggingElement);
+
+        // Update the port's IP and other attributes
+        $(draggingElement).find('.port').attr('data-ip', targetIp);
+        const targetNickname = targetPanel.siblings('.switch-label').find('.edit-ip').data('nickname');
+        $(draggingElement).find('.port').attr('data-nickname', targetNickname);
+
+        // Move port on the server and update orders
+        movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDrop);
     } else {
         console.log('Reordering within the same IP group');
         targetElement.parentNode.insertBefore(draggingElement, targetElement);
