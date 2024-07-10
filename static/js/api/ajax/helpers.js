@@ -168,3 +168,26 @@ export function deletePort(ip, portNumber) {
         }
     });
 }
+
+export function changePortNumber(ip, oldPortNumber, newPortNumber, callback) {
+    $.ajax({
+        url: '/change_port_number',
+        method: 'POST',
+        data: {
+            ip: ip,
+            old_port_number: oldPortNumber,
+            new_port_number: newPortNumber
+        },
+        success: function (response) {
+            if (response.success) {
+                showNotification('Port number changed successfully', 'success');
+                if (callback) callback();
+            } else {
+                showNotification('Error changing port number: ' + response.message, 'error');
+            }
+        },
+        error: function (xhr, status, error) {
+            showNotification('Error changing port number: ' + error, 'error');
+        }
+    });
+}

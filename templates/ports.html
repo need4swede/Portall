@@ -163,6 +163,50 @@
         </div>
     </div>
 </div>
+
+<!-- Port Conflict Resolution Modal -->
+<div class="modal fade" id="portConflictModal" tabindex="-1" aria-labelledby="portConflictModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="portConflictModalLabel">Port Conflict</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Port <span id="conflictingPortNumber"></span> is already registered with this IP.</p>
+                <p>You can either change the port number of the migrating port, or you can change the number of the port
+                    that is already there.</p>
+                <p>What would you like to do?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelPortConflict">Cancel</button>
+                <button type="button" class="btn btn-primary" id="changeMigratingPort">Change Migrating Port</button>
+                <button type="button" class="btn btn-primary" id="changeExistingPort">Change Existing Port</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Port Number Change Modal -->
+<div class="modal fade" id="portChangeModal" tabindex="-1" aria-labelledby="portChangeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="portChangeModalLabel">Change Port Number</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Enter a new port number for the <span id="portChangeType"></span> port:</p>
+                <input type="number" class="form-control" id="newPortNumber">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmPortChange">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}

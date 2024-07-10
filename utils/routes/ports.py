@@ -288,6 +288,24 @@ def update_port_order():
         app.logger.error(f"Error updating port order: {str(e)}")
         return jsonify({'success': False, 'message': f'Error updating port order: {str(e)}'}), 500
 
+@ports_bp.route('/change_port_number', methods=['POST'])
+def change_port_number():
+    ip = request.form['ip']
+    old_port_number = request.form['old_port_number']
+    new_port_number = request.form['new_port_number']
+
+    try:
+        port = Port.query.filter_by(ip_address=ip, port_number=old_port_number).first()
+        if port:
+            port.port_number = new_port_number
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Port number changed successfully'})
+        else:
+            return jsonify({'success': False, 'message': 'Port not found'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 ## IP Addresses ##
 
 @ports_bp.route('/edit_ip', methods=['POST'])

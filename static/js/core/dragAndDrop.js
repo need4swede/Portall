@@ -3,7 +3,7 @@
 import { updatePortOrder, handlePortClick, checkPortExists } from './portManagement.js';
 import { updateIPPanelOrder } from './ipManagement.js';
 import { showNotification } from '../ui/helpers.js';
-import { movePort } from '../api/ajax/helpers.js';
+import { movePort, changePortNumber } from '../api/ajax/helpers.js';
 import { cancelDrop as cancelDropUtil } from '../utils/dragDropUtils.js';
 
 let draggingElement = null;
@@ -17,6 +17,8 @@ const clickThreshold = 200;
 
 let draggingIPPanel = null;
 let ipPanelPlaceholder = null;
+
+let conflictingPortData = null;
 
 export function init() {
     $('.port-slot:not(.add-port-slot)').on('mousedown', handleMouseDown);
@@ -240,21 +242,20 @@ function finalizeDrop(targetElement) {
 
         // Check if the port number already exists in the target IP group
         if (checkPortExists(targetIp, portNumber)) {
-            showNotification(`Port ${portNumber} already exists in the target IP group`, 'error');
-            cancelDrop();
+            conflictingPortData = {
+                sourceIp: sourceIp,
+                targetIp: targetIp,
+                portNumber: portNumber,
+                targetElement: targetElement,
+                draggingElement: draggingElement
+            };
+            $('#conflictingPortNumber').text(portNumber);
+            $('#portConflictModal').modal('show');
             return;
         }
 
-        // Insert the dragged element before the target element
-        $(targetElement).before(draggingElement);
-
-        // Update the port's IP and other attributes
-        $(draggingElement).find('.port').attr('data-ip', targetIp);
-        const targetNickname = targetPanel.siblings('.switch-label').find('.edit-ip').data('nickname');
-        $(draggingElement).find('.port').attr('data-nickname', targetNickname);
-
-        // Move port on the server and update orders
-        movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDrop);
+        // If no conflict, proceed with the move
+        proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement);
     } else {
         console.log('Reordering within the same IP group');
         targetElement.parentNode.insertBefore(draggingElement, targetElement);
@@ -266,6 +267,22 @@ function finalizeDrop(targetElement) {
     sourceIp = null;
 }
 
+function proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement) {
+    // Insert the dragged element before the target element
+    $(targetElement).before(draggingElement);
+
+    // Update the port's IP and other attributes
+    $(draggingElement).find('.port').attr('data-ip', targetIp);
+    const targetNickname = $(targetElement).closest('.network-switch').find('.edit-ip').data('nickname');
+    $(draggingElement).find('.port').attr('data-nickname', targetNickname);
+
+    // Move port on the server and update orders
+    movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, function () {
+        updatePortOrder(sourceIp);
+        updatePortOrder(targetIp);
+    }, cancelDrop);
+}
+
 /**
  * Cancels the drop operation and reverts the dragged element to its original position
  */
@@ -273,6 +290,43 @@ function cancelDrop() {
     cancelDropUtil(draggingElement, placeholder);
 }
 
+$('#cancelPortConflict').click(function () {
+    $('#portConflictModal').modal('hide');
+    location.reload();
+});
+
+$('#changeMigratingPort, #changeExistingPort').click(function () {
+    const isChangingMigrating = $(this).attr('id') === 'changeMigratingPort';
+    $('#portChangeType').text(isChangingMigrating ? 'migrating' : 'existing');
+    $('#portConflictModal').modal('hide');
+    $('#portChangeModal').modal('show');
+});
+
+$('#confirmPortChange').click(function () {
+    const newPortNumber = $('#newPortNumber').val();
+    const isChangingMigrating = $('#portChangeType').text() === 'migrating';
+
+    if (isChangingMigrating) {
+        changePortNumber(conflictingPortData.sourceIp, conflictingPortData.portNumber, newPortNumber, function () {
+            proceedWithMove(newPortNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement);
+            refreshPageAfterDelay();
+        });
+    } else {
+        changePortNumber(conflictingPortData.targetIp, conflictingPortData.portNumber, newPortNumber, function () {
+            proceedWithMove(conflictingPortData.portNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement);
+            refreshPageAfterDelay();
+        });
+    }
+
+    $('#portChangeModal').modal('hide');
+});
+
+function refreshPageAfterDelay() {
+    setTimeout(function () {
+        location.reload();
+    }, 1500);
+}
+
 $(document).ready(init);
 
-export { initiateDrag, getTargetElement, finalizeDrop, cancelDrop };
+export { initiateDrag, getTargetElement, finalizeDrop, proceedWithMove, cancelDrop };
