@@ -28,34 +28,41 @@ settings_bp = Blueprint('settings', __name__)
 def settings():
     """
     Handle the settings page for the application.
-
     This function manages both GET and POST requests for the settings page.
     For GET requests, it retrieves and displays current settings.
     For POST requests, it updates the settings based on form data.
 
     Returns:
-        For GET: Rendered settings.html template
-        For POST: JSON response indicating success or failure
+    For GET: Rendered settings.html template
+    For POST: JSON response indicating success or failure
     """
     if request.method == 'POST':
         # Extract form data
-        default_ip = request.form.get('default_ip', '')
-        theme = request.form.get('theme', 'light')
-        custom_css = request.form.get('custom_css', '')
+        default_ip = request.form.get('default_ip')
+        theme = request.form.get('theme')
+        custom_css = request.form.get('custom_css')
 
-        # Update or create settings in the database
-        for key, value in [('default_ip', default_ip), ('theme', theme), ('custom_css', custom_css)]:
-            if value is not None:  # Update even if the value is an empty string
-                setting = Setting.query.filter_by(key=key).first()
-                if setting:
-                    setting.value = value
-                else:
-                    setting = Setting(key=key, value=value)
-                    db.session.add(setting)
+        # Update settings only if they are provided
+        settings_to_update = {}
+        if default_ip is not None:
+            settings_to_update['default_ip'] = default_ip
+        if theme is not None:
+            settings_to_update['theme'] = theme
+        if custom_css is not None:
+            settings_to_update['custom_css'] = custom_css
+
+        for key, value in settings_to_update.items():
+            setting = Setting.query.filter_by(key=key).first()
+            if setting:
+                setting.value = value
+            else:
+                setting = Setting(key=key, value=value)
+            db.session.add(setting)
 
         try:
             db.session.commit()
-            session['theme'] = theme  # Update session with new theme
+            if 'theme' in settings_to_update:
+                session['theme'] = theme
             return jsonify({'success': True})
         except Exception as e:
             db.session.rollback()
@@ -92,21 +99,21 @@ def settings():
             if not os.path.exists(readme_path):
                 app.logger.error(f"README.md not found at {readme_path}")
                 return "Unknown (File Not Found)"
-
             with open(readme_path, 'r') as file:
                 content = file.read()
-                match = re.search(r'version-(\d+\.\d+\.\d+)-blue\.svg', content)
-                if match:
-                    version = match.group(1)
-                    app.logger.info(f"version: {version}")
-                    return version
-                else:
-                    app.logger.warning("Version pattern not found in README")
-                    return "Unknown (Pattern Not Found)"
-
+            match = re.search(r'version-(\d+\.\d+\.\d+)-blue\.svg', content)
+            if match:
+                version = match.group(1)
+                app.logger.info(f"version: {version}")
+                return version
+            else:
+                app.logger.warning("Version pattern not found in README")
+                return "Unknown (Pattern Not Found)"
         except Exception as e:
             app.logger.error(f"Error reading version from README: {str(e)}")
             return f"Unknown (Error: {str(e)})"
+
+    # Get app version from README
     version = get_version_from_readme()
 
     # Render the settings template with all necessary data
