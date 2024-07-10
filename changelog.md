@@ -1,3 +1,22 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.4" target="_blank">v1.0.4</a>
+## Added:
+### Port Conflict Resolution
+In the event of moving a port to a different IP panel where the port is already registered, a new conflict resolution modal will present users with three options to choose from:
+
+- Change the number of the migrating port
+- Change the number of the existing port
+- Cancel the action
+
+This will prevent port conflicts when moving between hosts and give users an intuative way to migrate their ports and services over between IP's.
+## Changed:
+### Codebase Cleanup
+Refactored files and much of the code to make the applicaiton more modular.
+## Fixed:
+### Port Positioning
+Fixed a bug that would reset a port's position within an IP panel.
+### Can't edit last port
+Fixed a bug that prevented users from editing the only remaining port in an IP panel.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.3" target="_blank">v1.0.3</a>
 ## Changed:
 ### Unique Port Numbers

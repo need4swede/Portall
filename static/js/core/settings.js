@@ -1,4 +1,4 @@
-// static/js/settings.js
+// static/js/core/settings.js
 
 /**
  * Manages the settings page functionality for a web application.
