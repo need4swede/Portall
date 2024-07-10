@@ -164,8 +164,8 @@
         <!-- Export Data Section -->
         <div class="mb-4">
             <h3>Export Data</h3>
-            <p>Export all entries in the database to a JSON file.</p>
-            <button id="export-json-button" class="btn btn-primary">Export to JSON</button>
+            <p>Export all Port entries to a file.</p>
+            <button id="export-entries-button" class="btn btn-primary">Export Entries</button>
         </div>
 
         <!-- Purge Data Section -->
@@ -230,5 +230,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/core/settings.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/core/settings.js') }}"></script>
 {% endblock %}

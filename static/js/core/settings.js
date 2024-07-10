@@ -6,6 +6,8 @@
  * and various UI interactions.
  */
 
+import { exportEntries } from '../api/ajax/helpers.js';
+
 let cssEditor;
 
 $(document).ready(function () {
@@ -99,6 +101,11 @@ $(document).ready(function () {
     // Handle purge button click
     $('#purge-button').click(function () {
         confirmModal.show();
+    });
+
+    // Handle export button click
+    $('#export-entries-button').on('click', function () {
+        exportEntries();
     });
 
     // Handle confirmation of purge action
