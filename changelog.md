@@ -1,3 +1,14 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.5" target="_blank">v1.0.5</a>
+## Added:
+### <a href="https://github.com/need4swede/Portall/issues/7" target="_blank">Data Export</a>
+You can now export your entries to a JSON file.
+## Changed:
+### JSON Import
+Updated the format of JSON imports to match the new export
+## Fixed:
+### <a href="https://github.com/need4swede/Portall/issues/14" target="_blank">Newly Added Port Order</a>
+Fixed an issue where newly added ports would get placed near the beggining of the stack. Now they get appended to the end.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.4" target="_blank">v1.0.4</a>
 ## Added:
 ### Port Conflict Resolution

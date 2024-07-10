@@ -4,11 +4,16 @@ import { showNotification } from '../../ui/helpers.js';
 import { cancelDrop } from '../../utils/dragDropUtils.js';
 
 /**
- * Moves a port from one IP to another
+ * Move a port from one IP address to another.
+ * Sends an AJAX request to move the port and updates the port order.
+ *
  * @param {number} portNumber - The port number being moved
  * @param {string} sourceIp - The source IP address
  * @param {string} targetIp - The target IP address
  * @param {HTMLElement} targetElement - The target element for insertion
+ * @param {HTMLElement} draggingElement - The element being dragged
+ * @param {function} updatePortOrder - Function to update the port order
+ * @param {function} cancelDropFn - Function to cancel the drop operation
  */
 export function movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDropFn) {
     $.ajax({
@@ -38,6 +43,12 @@ export function movePort(portNumber, sourceIp, targetIp, targetElement, dragging
     });
 }
 
+/**
+ * Edit an IP address.
+ * Sends an AJAX request to update the IP address and updates the DOM.
+ *
+ * @param {Object} formData - The form data containing the IP address information
+ */
 export function editIp(formData) {
     $.ajax({
         url: '/edit_ip',
@@ -71,6 +82,12 @@ export function editIp(formData) {
     });
 }
 
+/**
+ * Delete an IP address.
+ * Sends an AJAX request to delete the IP address and removes it from the DOM.
+ *
+ * @param {string} ip - The IP address to delete
+ */
 export function deleteIp(ip) {
     $.ajax({
         url: '/delete_ip',
@@ -93,6 +110,12 @@ export function deleteIp(ip) {
     });
 }
 
+/**
+ * Edit a port's details.
+ * Sends an AJAX request to update the port information and updates the DOM.
+ *
+ * @param {Object} formData - The form data containing the port information
+ */
 export function editPort(formData) {
     $.ajax({
         url: '/edit_port',
@@ -126,6 +149,12 @@ export function editPort(formData) {
     });
 }
 
+/**
+ * Add a new port.
+ * Sends an AJAX request to add a port and reloads the page on success.
+ *
+ * @param {Object} formData - The form data containing the new port information
+ */
 export function addPort(formData) {
     $.ajax({
         url: '/add_port',
@@ -147,6 +176,13 @@ export function addPort(formData) {
     });
 }
 
+/**
+ * Delete a port.
+ * Sends an AJAX request to delete a port and removes it from the DOM.
+ *
+ * @param {string} ip - The IP address of the port
+ * @param {number} portNumber - The port number to delete
+ */
 export function deletePort(ip, portNumber) {
     $.ajax({
         url: '/delete_port',
@@ -169,6 +205,15 @@ export function deletePort(ip, portNumber) {
     });
 }
 
+/**
+ * Change the port number.
+ * Sends an AJAX request to change the port number and executes a callback on success.
+ *
+ * @param {string} ip - The IP address of the port
+ * @param {number} oldPortNumber - The current port number
+ * @param {number} newPortNumber - The new port number
+ * @param {function} callback - The callback function to execute on success
+ */
 export function changePortNumber(ip, oldPortNumber, newPortNumber, callback) {
     $.ajax({
         url: '/change_port_number',
@@ -190,4 +235,45 @@ export function changePortNumber(ip, oldPortNumber, newPortNumber, callback) {
             showNotification('Error changing port number: ' + error, 'error');
         }
     });
+}
+
+/**
+ * Export all entries as a JSON file.
+ * Sends a GET request to fetch the export data and triggers a download.
+ */
+export function exportEntries() {
+    fetch('/export_entries', {
+        method: 'GET',
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            // Get the filename from the Content-Disposition header
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'export.json';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+                if (filenameMatch.length === 2)
+                    filename = filenameMatch[1];
+            }
+
+            return response.blob().then(blob => ({ blob, filename }));
+        })
+        .then(({ blob, filename }) => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            showNotification('Data exported successfully', 'success');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error exporting data: ' + error.message, 'error');
+        });
 }

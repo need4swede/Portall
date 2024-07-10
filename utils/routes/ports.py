@@ -68,11 +68,16 @@ def add_port():
     description = request.form['description']
 
     try:
-        port = Port(ip_address=ip_address, port_number=port_number, description=description)
+        # Get the maximum order for the given IP address
+        max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or 0
+
+        # Create new port with order set to max_order + 1
+        port = Port(ip_address=ip_address, port_number=port_number, description=description, order=max_order + 1)
         db.session.add(port)
         db.session.commit()
-        app.logger.info(f"Added new port {port_number} for IP: {ip_address}")
-        return jsonify({'success': True, 'message': 'Port added successfully'})
+
+        app.logger.info(f"Added new port {port_number} for IP: {ip_address} with order {port.order}")
+        return jsonify({'success': True, 'message': 'Port added successfully', 'order': port.order})
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error adding new port: {str(e)}")
