@@ -313,7 +313,24 @@ function handleSaveNewPortClick() {
             console.log("AJAX success:", response);
             if (response.success) {
                 showNotification('Port added successfully', 'success');
-                location.reload();
+
+                // Create the new port element
+                const newPortElement = `
+                    <div class="port-slot" draggable="true" data-port="${portNumber}" data-order="${response.order}">
+                        <div class="port active" data-ip="${ip}" data-port="${portNumber}" data-description="${description}"
+                            data-order="${response.order}" data-id="${response.id}">
+                            <span class="port-number">${portNumber}</span>
+                            <span class="port-description">${description}</span>
+                            <div class="port-tooltip">${description}</div>
+                        </div>
+                    </div>
+                `;
+
+                // Insert the new port element before the add-port-slot
+                $(`.switch-panel[data-ip="${ip}"] .add-port-slot`).before(newPortElement);
+
+                // Optionally, update the order of other ports if necessary
+                updatePortOrder(ip);
             } else {
                 showNotification('Error adding port: ' + response.message, 'error');
             }
