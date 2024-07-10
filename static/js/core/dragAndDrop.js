@@ -5,6 +5,7 @@ import { updateIPPanelOrder } from './ipManagement.js';
 import { showNotification } from '../ui/helpers.js';
 import { movePort, changePortNumber } from '../api/ajax/helpers.js';
 import { cancelDrop as cancelDropUtil } from '../utils/dragDropUtils.js';
+import { showLoadingAnimation, hideLoadingAnimation } from '../ui/loadingAnimation.js';
 
 let draggingElement = null;
 let placeholder = null;
@@ -267,7 +268,7 @@ function finalizeDrop(targetElement) {
     sourceIp = null;
 }
 
-function proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement) {
+function proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
     // Insert the dragged element before the target element
     $(targetElement).before(draggingElement);
 
@@ -280,6 +281,9 @@ function proceedWithMove(portNumber, sourceIp, targetIp, targetElement, dragging
     movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, function () {
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
+        if (isConflictResolution) {
+            refreshPageAfterDelay();
+        }
     }, cancelDrop);
 }
 
@@ -308,13 +312,11 @@ $('#confirmPortChange').click(function () {
 
     if (isChangingMigrating) {
         changePortNumber(conflictingPortData.sourceIp, conflictingPortData.portNumber, newPortNumber, function () {
-            proceedWithMove(newPortNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement);
-            refreshPageAfterDelay();
+            proceedWithMove(newPortNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
         });
     } else {
         changePortNumber(conflictingPortData.targetIp, conflictingPortData.portNumber, newPortNumber, function () {
-            proceedWithMove(conflictingPortData.portNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement);
-            refreshPageAfterDelay();
+            proceedWithMove(conflictingPortData.portNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
         });
     }
 
@@ -322,6 +324,7 @@ $('#confirmPortChange').click(function () {
 });
 
 function refreshPageAfterDelay() {
+    showLoadingAnimation();
     setTimeout(function () {
         location.reload();
     }, 1500);

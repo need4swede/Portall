@@ -456,6 +456,24 @@ h1 {
     text-decoration: underline;
 }
 
+@keyframes wave {
+    0% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+
+    100% {
+        transform: translateY(0);
+    }
+}
+
+#loading-overlay .fa-anchor {
+    animation: wave 2s ease-in-out infinite;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     #about {
