@@ -80,6 +80,14 @@ def add_port():
 
 @ports_bp.route('/edit_port', methods=['POST'])
 def edit_port():
+    """
+    Edit an existing port for a given IP address.
+
+    This function updates an existing port entry in the database with the provided details.
+
+    Returns:
+        JSON: A JSON response indicating success or failure of the operation.
+    """
     port_id = request.form.get('port_id')
     new_port_number = request.form.get('new_port_number')
     ip_address = request.form.get('ip')
@@ -290,6 +298,14 @@ def update_port_order():
 
 @ports_bp.route('/change_port_number', methods=['POST'])
 def change_port_number():
+    """
+    Change the port number for a given IP address.
+
+    This function updates the port number for an existing port entry.
+
+    Returns:
+        JSON: A JSON response indicating success or failure of the operation.
+    """
     ip = request.form['ip']
     old_port_number = request.form['old_port_number']
     new_port_number = request.form['new_port_number']
