@@ -165,7 +165,8 @@ def generate_port():
     ip_address = request.form['ip_address']
     nickname = request.form['nickname']
     description = request.form['description']
-    app.logger.debug(f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}")
+    protocol = request.form['protocol']
+    app.logger.debug(f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}, Protocol: {protocol}")
 
     def get_setting(key, default):
         """Helper function to retrieve settings from the database."""
@@ -211,7 +212,7 @@ def generate_port():
 
     try:
         # Create and save the new port
-        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description)
+        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol)
         db.session.add(port)
         db.session.commit()
         app.logger.info(f"Generated new port {new_port} for IP: {ip_address}")
@@ -222,7 +223,7 @@ def generate_port():
 
     # Return the new port and full URL
     full_url = f"http://{ip_address}:{new_port}"
-    return jsonify({'port': new_port, 'full_url': full_url})
+    return jsonify({'protocol': protocol, 'port': new_port, 'full_url': full_url})
 
 @ports_bp.route('/move_port', methods=['POST'])
 def move_port():
