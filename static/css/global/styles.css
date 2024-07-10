@@ -78,9 +78,17 @@ h1 {
     transition: all var(--transition-duration) ease;
 }
 
-#result,
-#purge-button {
-    margin-top: 20px;
+#result {
+    margin-top: 1em;
+}
+
+#data div h3~p {
+    margin-top: 1em;
+    font-size: small;
+}
+
+#data div h3 {
+    margin-top: 1.5em;
 }
 
 /* Modal Styles */

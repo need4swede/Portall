@@ -160,7 +160,20 @@
     <!-- Data Management -->
     <div class="tab-pane fade" id="data" role="tabpanel" aria-labelledby="data-tab">
         <h2>Data Management</h2>
-        <button id="purge-button" class="btn btn-danger">Purge All Entries</button>
+
+        <!-- Export Data Section -->
+        <div class="mb-4">
+            <h3>Export Data</h3>
+            <p>Export all entries in the database to a JSON file.</p>
+            <button id="export-json-button" class="btn btn-primary">Export to JSON</button>
+        </div>
+
+        <!-- Purge Data Section -->
+        <div>
+            <h3>Purge Data</h3>
+            <p>Purge all entries from the database. This action cannot be undone.</p>
+            <button id="purge-button" class="btn btn-danger">Purge All Entries</button>
+        </div>
     </div>
 
     <!-- About -->
