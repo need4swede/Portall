@@ -1,6 +1,6 @@
 // js/core/dragAndDrop.js
 
-import { updatePortOrder, handlePortClick } from './portManagement.js';
+import { updatePortOrder, handlePortClick, checkPortExists } from './portManagement.js';
 import { updateIPPanelOrder } from './ipManagement.js';
 import { showNotification } from '../ui/helpers.js';
 import { movePort } from '../api/ajax/helpers.js';
@@ -237,6 +237,13 @@ function finalizeDrop(targetElement) {
     if (sourceIp !== targetIp) {
         console.log('Moving port to a different IP group');
         const portNumber = $(draggingElement).find('.port').data('port');
+
+        // Check if the port number already exists in the target IP group
+        if (checkPortExists(targetIp, portNumber)) {
+            showNotification(`Port ${portNumber} already exists in the target IP group`, 'error');
+            cancelDrop();
+            return;
+        }
 
         // Insert the dragged element before the target element
         $(targetElement).before(draggingElement);

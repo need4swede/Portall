@@ -225,10 +225,17 @@ def move_port():
     source_ip = request.form.get('source_ip')
     target_ip = request.form.get('target_ip')
 
+    app.logger.info(f"Moving {port_number} from Source IP: {source_ip} to Target IP: {target_ip}")
+
     if not all([port_number, source_ip, target_ip]):
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
+        # Check if the port already exists in the target IP
+        existing_port = Port.query.filter_by(port_number=port_number, ip_address=target_ip).first()
+        if existing_port:
+            return jsonify({'success': False, 'message': 'Port number already exists in the target IP group'}), 400
+
         port = Port.query.filter_by(port_number=port_number, ip_address=source_ip).first()
         if port:
             # Update IP address
@@ -244,6 +251,7 @@ def move_port():
             return jsonify({'success': False, 'message': 'Port not found'}), 404
     except Exception as e:
         db.session.rollback()
+        app.logger.error(f"Error moving port: {str(e)}")
         return jsonify({'success': False, 'message': f'Error moving port: {str(e)}'}), 500
 
 @ports_bp.route('/update_port_order', methods=['POST'])

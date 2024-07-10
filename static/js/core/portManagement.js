@@ -95,7 +95,7 @@ function handlePortNumberInput(isEdit) {
     });
 }
 
-function checkPortExists(ip, portNumber, currentPortId) {
+export function checkPortExists(ip, portNumber, currentPortId) {
     console.log("Checking if port exists:", ip, portNumber, currentPortId);
     const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
     console.log("Port element found:", portElement.length > 0);
