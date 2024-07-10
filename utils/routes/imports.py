@@ -215,7 +215,7 @@ def parse_port(port_value):
         before_colon = port_value[:last_colon_index]
         number_match = re.search(r'(\d+)', before_colon)
         if number_match:
-            return int(number_match.group(1))
+            return number_match.group(1) + port_value[-4:]
 
     # If no number found before the last colon, check for other patterns
     # Check for complete environment variable syntax with default value
