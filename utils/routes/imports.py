@@ -223,7 +223,7 @@ def import_docker_socket():
                   description = str(container.name)
               entries.append({
                   'ip': ip,
-                  'port': int(container.ports[key][0]['HostPort']),
+                  'port': container.ports[key][0]['HostPort'] + key[-4:],
                   'description': description
               })
 
