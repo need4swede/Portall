@@ -3,10 +3,28 @@
 import { showNotification } from '../ui/helpers.js';
 import { editPortModal, addPortModal, deletePortModal } from '../ui/modals.js';
 
-let deleteIp, deletePortNumber;
-let originalPortNumber;
-let originalPortId;
+/**
+ * The IP address of the port to be deleted.
+ * @type {string}
+ */
+let deleteIp;
 
+/**
+ * The port number to be deleted.
+ * @type {string}
+ */
+let deletePortNumber;
+
+/**
+ * The original port number before editing.
+ * @type {string}
+ */
+let originalPortNumber;
+
+/**
+ * Initialize event handlers for port management.
+ * Sets up event listeners for port number inputs, and handles add, save, and delete port actions.
+ */
 export function init() {
     handlePortNumberInput(true);  // For edit
     handlePortNumberInput(false); // For add
@@ -20,6 +38,12 @@ export function init() {
     $('#add-new-port-number').on('input', handleAddNewPortNumberInput);
 }
 
+/**
+ * Handle click event on a port element.
+ * Populates and displays the edit port modal with the port's details.
+ *
+ * @param {HTMLElement} element - The clicked port element
+ */
 export function handlePortClick(element) {
     const port = $(element).find('.port');
     const ip = port.data('ip');
@@ -57,6 +81,70 @@ export function handlePortClick(element) {
     editPortModal.show();
 }
 
+/**
+ * Check if a port number already exists for a given IP address.
+ * Validates the existence of the port number and handles current port ID if provided.
+ *
+ * @param {string} ip - The IP address to check
+ * @param {string} portNumber - The port number to check
+ * @param {string|null} currentPortId - The current port ID to exclude from the check
+ * @returns {boolean} - True if the port exists, false otherwise
+ */
+export function checkPortExists(ip, portNumber, currentPortId) {
+    console.log("Checking if port exists:", ip, portNumber, currentPortId);
+    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
+    console.log("Port element found:", portElement.length > 0);
+    console.log("Port element data-id:", portElement.data('id'));
+    if (currentPortId) {
+        const result = portElement.length > 0 && portElement.data('id') != currentPortId;
+        console.log("Check result:", result);
+        return result;
+    }
+    return portElement.length > 0;
+}
+
+/**
+ * Update the order of ports for a specific IP address.
+ * Sends an AJAX request to update the port order on the server.
+ *
+ * @param {string} ip - The IP address for which to update the port order
+ */
+export function updatePortOrder(ip) {
+    const panel = $(`.switch-panel[data-ip="${ip}"]`);
+    const portOrder = panel.find('.port-slot:not(.add-port-slot) .port').map(function () {
+        return $(this).data('port');
+    }).get();
+
+    $.ajax({
+        url: '/update_port_order',
+        method: 'POST',
+        data: JSON.stringify({
+            ip: ip,
+            port_order: portOrder
+        }),
+        contentType: 'application/json',
+        success: function (response) {
+            if (response.success) {
+                console.log('Port order updated successfully');
+            } else {
+                console.error('Error updating port order:', response.message);
+                showNotification('Error updating port order: ' + response.message, 'error');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error updating port order:', error);
+            showNotification('Error updating port order: ' + error, 'error');
+        }
+    });
+}
+
+/**
+ * Handle input event on port number fields.
+ * Validates the port number input, checks for port existence,
+ * and updates the disclaimer and save button states accordingly.
+ *
+ * @param {boolean} isEdit - Indicates if the input is for editing an existing port
+ */
 function handlePortNumberInput(isEdit) {
     const inputSelector = isEdit ? '#new-port-number' : '#add-new-port-number';
     const ipSelector = isEdit ? '#edit-port-ip' : '#add-port-ip';
@@ -95,48 +183,10 @@ function handlePortNumberInput(isEdit) {
     });
 }
 
-export function checkPortExists(ip, portNumber, currentPortId) {
-    console.log("Checking if port exists:", ip, portNumber, currentPortId);
-    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
-    console.log("Port element found:", portElement.length > 0);
-    console.log("Port element data-id:", portElement.data('id'));
-    if (currentPortId) {
-        const result = portElement.length > 0 && portElement.data('id') != currentPortId;
-        console.log("Check result:", result);
-        return result;
-    }
-    return portElement.length > 0;
-}
-
-export function updatePortOrder(ip) {
-    const panel = $(`.switch-panel[data-ip="${ip}"]`);
-    const portOrder = panel.find('.port-slot:not(.add-port-slot) .port').map(function () {
-        return $(this).data('port');
-    }).get();
-
-    $.ajax({
-        url: '/update_port_order',
-        method: 'POST',
-        data: JSON.stringify({
-            ip: ip,
-            port_order: portOrder
-        }),
-        contentType: 'application/json',
-        success: function (response) {
-            if (response.success) {
-                console.log('Port order updated successfully');
-            } else {
-                console.error('Error updating port order:', response.message);
-                showNotification('Error updating port order: ' + response.message, 'error');
-            }
-        },
-        error: function (xhr, status, error) {
-            console.error('Error updating port order:', error);
-            showNotification('Error updating port order: ' + error, 'error');
-        }
-    });
-}
-
+/**
+ * Handle click event on the "Add Port" button.
+ * Populates the add port modal with the IP address and resets the input fields.
+ */
 function handleAddPortClick() {
     const ip = $(this).data('ip');
     $('#add-port-ip').val(ip);
@@ -148,6 +198,10 @@ function handleAddPortClick() {
     addPortModal.show();
 }
 
+/**
+ * Handle click event on the "Save Port" button in the edit port modal.
+ * Validates the port details, checks for port existence, and sends an AJAX request to update the port.
+ */
 function handleSavePortClick() {
     console.log("Save port button clicked");
     const ip = $('#edit-port-ip').val();
@@ -207,6 +261,10 @@ function handleSavePortClick() {
     });
 }
 
+/**
+ * Handle click event on the "Save New Port" button in the add port modal.
+ * Validates the new port details, checks for port existence, and sends an AJAX request to add the port.
+ */
 function handleSaveNewPortClick() {
     console.log("Save new port button clicked");
 
@@ -263,6 +321,10 @@ function handleSaveNewPortClick() {
     });
 }
 
+/**
+ * Handle click event on the "Delete Port" button.
+ * Stores the IP address and port number for deletion and shows the delete port modal.
+ */
 function handleDeletePortClick() {
     deleteIp = $('#edit-port-ip').val();
     deletePortNumber = $('#old-port-number').val();
@@ -270,6 +332,10 @@ function handleDeletePortClick() {
     deletePortModal.show();
 }
 
+/**
+ * Handle click event on the "Confirm Delete Port" button in the delete port modal.
+ * Sends an AJAX request to delete the port and updates the UI accordingly.
+ */
 function handleConfirmDeletePortClick() {
     $.ajax({
         url: '/delete_port',
@@ -291,11 +357,19 @@ function handleConfirmDeletePortClick() {
     });
 }
 
+/**
+ * Handle the hidden event for the delete port modal.
+ * Resets the stored IP address and port number for deletion.
+ */
 function handleDeletePortModalHidden() {
     deleteIp = null;
     deletePortNumber = null;
 }
 
+/**
+ * Handle input event on the new port number field in the edit port modal.
+ * Validates the new port number, checks for port existence, and updates the disclaimer and save button states.
+ */
 function handleNewPortNumberInput() {
     const ip = $('#edit-port-ip').val();
     const portNumber = $(this).val().trim();
@@ -335,6 +409,10 @@ function handleNewPortNumberInput() {
     }
 }
 
+/**
+ * Handle input event on the new port number field in the add port modal.
+ * Validates the new port number, checks for port existence, and updates the disclaimer and save button states.
+ */
 function handleAddNewPortNumberInput() {
     console.log("Port number input changed. New value:", this.value);
     const ip = $('#add-port-ip').val();

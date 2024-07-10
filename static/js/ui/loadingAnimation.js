@@ -1,5 +1,9 @@
 // js/ui/loadingAnimation.js
 
+/**
+ * Display a loading animation overlay.
+ * Creates and appends a loading overlay to the body with a spinner and a custom message.
+ */
 export function showLoadingAnimation() {
     const loadingHTML = `
         <div id="loading-overlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="background-color: rgba(0,0,0,0.5); z-index: 9999;">
@@ -17,6 +21,10 @@ export function showLoadingAnimation() {
     $('body').append(loadingHTML);
 }
 
+/**
+ * Hide the loading animation overlay.
+ * Removes the loading overlay element from the body.
+ */
 export function hideLoadingAnimation() {
     $('#loading-overlay').remove();
 }
