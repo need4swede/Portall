@@ -1,3 +1,13 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.4" target="_blank">v1.0.4</a>
+## Changed:
+### Codebase Cleanup
+Refactored files and much of the code to make the applicaiton more modular.
+## Fixed:
+### Port Positioning
+Fixed a bug that would reset a port's position within an IP panel.
+### Can't edit last port
+Fixed a bug that prevented users from editing the only remaining port in an IP panel.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.3" target="_blank">v1.0.3</a>
 ## Changed:
 ### Unique Port Numbers
