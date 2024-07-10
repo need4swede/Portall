@@ -7,6 +7,7 @@ import { movePort, changePortNumber } from '../api/ajax/helpers.js';
 import { cancelDrop as cancelDropUtil } from '../utils/dragDropUtils.js';
 import { showLoadingAnimation, hideLoadingAnimation } from '../ui/loadingAnimation.js';
 
+// For dragging ports
 let draggingElement = null;
 let placeholder = null;
 let dragStartX, dragStartY, dragStartTime;
@@ -16,11 +17,17 @@ let sourceIp = null;
 const dragThreshold = 5;
 const clickThreshold = 200;
 
+// For dragging IP panels
 let draggingIPPanel = null;
 let ipPanelPlaceholder = null;
 
+// For port conflict handling
 let conflictingPortData = null;
 
+/**
+ * Initialize drag-and-drop event handlers.
+ * Sets up event listeners for port slots and network switches.
+ */
 export function init() {
     $('.port-slot:not(.add-port-slot)').on('mousedown', handleMouseDown);
     $('.network-switch').on('dragstart', handleNetworkSwitchDragStart);
@@ -29,6 +36,12 @@ export function init() {
     $('body').on('drop', handleBodyDrop);
 }
 
+/**
+ * Handle mousedown event on a port slot.
+ * Initiates drag detection and handles click vs. drag distinction.
+ *
+ * @param {Event} e - The mousedown event object
+ */
 function handleMouseDown(e) {
     if (e.which !== 1) return; // Only respond to left mouse button
 
@@ -63,6 +76,12 @@ function handleMouseDown(e) {
     e.preventDefault();
 }
 
+/**
+ * Handle drag start event for IP panels.
+ * Prepares the drag operation and creates a placeholder.
+ *
+ * @param {Event} e - The dragstart event object
+ */
 function handleNetworkSwitchDragStart(e) {
     draggingIPPanel = this;
     e.originalEvent.dataTransfer.effectAllowed = 'move';
@@ -78,6 +97,12 @@ function handleNetworkSwitchDragStart(e) {
     }, 0);
 }
 
+/**
+ * Handle drag over event for IP panels.
+ * Adjusts the placeholder position based on the drag location.
+ *
+ * @param {Event} e - The dragover event object
+ */
 function handleNetworkSwitchDragOver(e) {
     e.preventDefault();
     e.originalEvent.dataTransfer.dropEffect = 'move';
@@ -92,6 +117,12 @@ function handleNetworkSwitchDragOver(e) {
     }
 }
 
+/**
+ * Handle drag end event for IP panels.
+ * Finalizes the drag operation and updates the order of panels.
+ *
+ * @param {Event} e - The dragend event object
+ */
 function handleNetworkSwitchDragEnd(e) {
     this.style.display = 'block';
 
@@ -103,6 +134,12 @@ function handleNetworkSwitchDragEnd(e) {
     setTimeout(updateIPPanelOrder, 0);
 }
 
+/**
+ * Handle drop event on the body element.
+ * Completes the drag-and-drop operation for IP panels.
+ *
+ * @param {Event} e - The drop event object
+ */
 function handleBodyDrop(e) {
     e.preventDefault();
     if (draggingIPPanel !== null) {
@@ -294,11 +331,20 @@ function cancelDrop() {
     cancelDropUtil(draggingElement, placeholder);
 }
 
+/**
+ * Event handler for cancelling port conflict.
+ * Hides the port conflict modal and reloads the page.
+ */
 $('#cancelPortConflict').click(function () {
     $('#portConflictModal').modal('hide');
     location.reload();
 });
 
+/**
+ * Event handler for changing port during conflict resolution.
+ * Determines if the migrating or existing port is being changed,
+ * hides the port conflict modal, and shows the port change modal.
+ */
 $('#changeMigratingPort, #changeExistingPort').click(function () {
     const isChangingMigrating = $(this).attr('id') === 'changeMigratingPort';
     $('#portChangeType').text(isChangingMigrating ? 'migrating' : 'existing');
@@ -306,6 +352,12 @@ $('#changeMigratingPort, #changeExistingPort').click(function () {
     $('#portChangeModal').modal('show');
 });
 
+/**
+ * Event handler for confirming port change during conflict resolution.
+ * Retrieves the new port number and updates the port based on whether
+ * the migrating or existing port is being changed.
+ * Proceeds with the port move and hides the port change modal.
+ */
 $('#confirmPortChange').click(function () {
     const newPortNumber = $('#newPortNumber').val();
     const isChangingMigrating = $('#portChangeType').text() === 'migrating';
@@ -323,6 +375,10 @@ $('#confirmPortChange').click(function () {
     $('#portChangeModal').modal('hide');
 });
 
+/**
+ * Refresh the page after a delay.
+ * Shows a loading animation and reloads the page after 1.5 seconds.
+ */
 function refreshPageAfterDelay() {
     showLoadingAnimation();
     setTimeout(function () {
