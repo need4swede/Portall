@@ -209,6 +209,13 @@ h1 {
     text-overflow: ellipsis;
 }
 
+.port-protocol {
+    color: var(--color-teal);
+    text-align: center;
+    font-weight: bold;
+    margin: 0;
+}
+
 .port-tooltip {
     visibility: hidden;
     width: 200px;

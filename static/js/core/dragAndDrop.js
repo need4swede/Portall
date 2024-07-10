@@ -181,7 +181,7 @@ function initiateDrag(e, element) {
         'zIndex': 1000,
         'pointer-events': 'none',
         'width': $(draggingElement).width() + 'px',
-        'height': $(draggingElement).height() + 'px'
+        'height': $(draggingElement).height() + 10 + 'px'
     }).appendTo('body');
 
     // Handle mouse movement during drag

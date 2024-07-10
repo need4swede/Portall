@@ -44,6 +44,7 @@ def ports():
             'id': port.id,
             'port_number': port.port_number,
             'description': port.description,
+            'port_protocol': (port.port_protocol).upper(),
             'order': port.order
         })
 
