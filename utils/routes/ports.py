@@ -68,11 +68,16 @@ def add_port():
     description = request.form['description']
 
     try:
-        port = Port(ip_address=ip_address, port_number=port_number, description=description)
+        # Get the maximum order for the given IP address
+        max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or 0
+
+        # Create new port with order set to max_order + 1
+        port = Port(ip_address=ip_address, port_number=port_number, description=description, order=max_order + 1)
         db.session.add(port)
         db.session.commit()
-        app.logger.info(f"Added new port {port_number} for IP: {ip_address}")
-        return jsonify({'success': True, 'message': 'Port added successfully'})
+
+        app.logger.info(f"Added new port {port_number} for IP: {ip_address} with order {port.order}")
+        return jsonify({'success': True, 'message': 'Port added successfully', 'order': port.order})
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error adding new port: {str(e)}")
@@ -80,6 +85,14 @@ def add_port():
 
 @ports_bp.route('/edit_port', methods=['POST'])
 def edit_port():
+    """
+    Edit an existing port for a given IP address.
+
+    This function updates an existing port entry in the database with the provided details.
+
+    Returns:
+        JSON: A JSON response indicating success or failure of the operation.
+    """
     port_id = request.form.get('port_id')
     new_port_number = request.form.get('new_port_number')
     ip_address = request.form.get('ip')
@@ -225,10 +238,17 @@ def move_port():
     source_ip = request.form.get('source_ip')
     target_ip = request.form.get('target_ip')
 
+    app.logger.info(f"Moving {port_number} from Source IP: {source_ip} to Target IP: {target_ip}")
+
     if not all([port_number, source_ip, target_ip]):
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
+        # Check if the port already exists in the target IP
+        existing_port = Port.query.filter_by(port_number=port_number, ip_address=target_ip).first()
+        if existing_port:
+            return jsonify({'success': False, 'message': 'Port number already exists in the target IP group'}), 400
+
         port = Port.query.filter_by(port_number=port_number, ip_address=source_ip).first()
         if port:
             # Update IP address
@@ -244,6 +264,7 @@ def move_port():
             return jsonify({'success': False, 'message': 'Port not found'}), 404
     except Exception as e:
         db.session.rollback()
+        app.logger.error(f"Error moving port: {str(e)}")
         return jsonify({'success': False, 'message': f'Error moving port: {str(e)}'}), 500
 
 @ports_bp.route('/update_port_order', methods=['POST'])
@@ -279,6 +300,32 @@ def update_port_order():
         db.session.rollback()
         app.logger.error(f"Error updating port order: {str(e)}")
         return jsonify({'success': False, 'message': f'Error updating port order: {str(e)}'}), 500
+
+@ports_bp.route('/change_port_number', methods=['POST'])
+def change_port_number():
+    """
+    Change the port number for a given IP address.
+
+    This function updates the port number for an existing port entry.
+
+    Returns:
+        JSON: A JSON response indicating success or failure of the operation.
+    """
+    ip = request.form['ip']
+    old_port_number = request.form['old_port_number']
+    new_port_number = request.form['new_port_number']
+
+    try:
+        port = Port.query.filter_by(ip_address=ip, port_number=old_port_number).first()
+        if port:
+            port.port_number = new_port_number
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Port number changed successfully'})
+        else:
+            return jsonify({'success': False, 'message': 'Port not found'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 ## IP Addresses ##
 

@@ -1,15 +1,19 @@
 # utils/routes/settings.py
 
 # Standard Imports
+import json                                     # For JSON operations
 import os                                       # For file operations
 import re                                       # For regular expressions
 
 # External Imports
+from datetime import datetime
+from io import BytesIO
 from flask import Blueprint                     # For creating a blueprint
 from flask import current_app as app            # For accessing the Flask app
 from flask import jsonify                       # For returning JSON responses
 from flask import render_template               # For rendering HTML templates
 from flask import request                       # For handling HTTP requests
+from flask import send_file                     # For serving files
 from flask import send_from_directory           # For serving static files
 from flask import session                       # For storing session data
 import markdown                                 # For rendering Markdown text
@@ -173,6 +177,57 @@ def serve_theme(filename):
         The requested CSS file.
     """
     return send_from_directory('static/css/themes', filename)
+
+@settings_bp.route('/export_entries', methods=['GET'])
+def export_entries():
+    """
+    Export all port entries from the database as a JSON file.
+
+    This function fetches all ports from the database, formats them into a list of dictionaries,
+    converts the list to a JSON string, and returns the JSON data as a downloadable file. The
+    filename includes the current date.
+
+    Returns:
+        Response: A Flask response object containing the JSON file for download.
+    """
+    try:
+        # Fetch all ports from the database
+        ports = Port.query.all()
+
+        # Create a list of dictionaries containing port data
+        port_data = [
+            {
+                'ip_address': port.ip_address,
+                'nickname': port.nickname,
+                'port_number': port.port_number,
+                'description': port.description,
+                'order': port.order
+            } for port in ports
+        ]
+
+        app.logger.info(f"Export Data: {port_data}")
+
+        # Convert data to JSON
+        json_data = json.dumps(port_data, indent=2)
+
+        # Create a BytesIO object
+        buffer = BytesIO()
+        buffer.write(json_data.encode())
+        buffer.seek(0)
+
+        # Generate filename with current date
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        filename = f"portall_export_{current_date}.json"
+
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/json'
+        )
+    except Exception as e:
+        app.logger.error(f"Error in export_entries: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @settings_bp.route('/purge_entries', methods=['POST'])
 def purge_entries():

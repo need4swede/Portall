@@ -1,10 +1,12 @@
-// static/js/settings.js
+// static/js/core/settings.js
 
 /**
  * Manages the settings page functionality for a web application.
  * This script handles custom CSS editing, form submissions, port settings,
  * and various UI interactions.
  */
+
+import { exportEntries } from '../api/ajax/helpers.js';
 
 let cssEditor;
 
@@ -99,6 +101,11 @@ $(document).ready(function () {
     // Handle purge button click
     $('#purge-button').click(function () {
         confirmModal.show();
+    });
+
+    // Handle export button click
+    $('#export-entries-button').on('click', function () {
+        exportEntries();
     });
 
     // Handle confirmation of purge action

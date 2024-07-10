@@ -26,14 +26,18 @@ jellyfin.domain.tld {
 }`,
         'JSON': `[
     {
-        "ip": "192.168.0.123",
-        "port": 8080,
-        "description": "My App"
+        "ip_address": "192.168.1.100",
+        "nickname": "Server1",
+        "port_number": 8080,
+        "description": "example.domain.com",
+        "order": 0
     },
     {
-        "ip": "192.168.0.110",
-        "port": 8096,
-        "description": "Jellyfin Server"
+        "ip_address": "192.168.1.101",
+        "nickname": "Server2",
+        "port_number": 9090,
+        "description": "app.domain.com",
+        "order": 0
     }
 ]`,
         'Docker-Compose': `version: '3'
