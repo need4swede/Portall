@@ -22,6 +22,12 @@ let deletePortNumber;
 let originalPortNumber;
 
 /**
+ * The ID of the original port before editing.
+ * @type {string}
+ */
+let originalPortId;
+
+/**
  * Initialize event handlers for port management.
  * Sets up event listeners for port number inputs, and handles add, save, and delete port actions.
  */
