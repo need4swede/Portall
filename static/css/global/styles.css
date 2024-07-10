@@ -78,9 +78,17 @@ h1 {
     transition: all var(--transition-duration) ease;
 }
 
-#result,
-#purge-button {
-    margin-top: 20px;
+#result {
+    margin-top: 1em;
+}
+
+#data div h3~p {
+    margin-top: 1em;
+    font-size: small;
+}
+
+#data div h3 {
+    margin-top: 1.5em;
 }
 
 /* Modal Styles */
@@ -454,6 +462,24 @@ h1 {
 
 .show-more:hover {
     text-decoration: underline;
+}
+
+@keyframes wave {
+    0% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+
+    100% {
+        transform: translateY(0);
+    }
+}
+
+#loading-overlay .fa-anchor {
+    animation: wave 2s ease-in-out infinite;
 }
 
 /* Responsive adjustments */
