@@ -1,3 +1,8 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.5" target="_blank">v1.0.5</a>
+## Fixed:
+### <a href="https://github.com/need4swede/Portall/issues/14" target="_blank">Newly Added Port Order</a>
+Fixed an issue where newly added ports would get placed near the beggining of the stack. Now they get appended to the end.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.4" target="_blank">v1.0.4</a>
 ## Added:
 ### Port Conflict Resolution
