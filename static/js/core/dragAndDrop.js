@@ -323,7 +323,9 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
         if (isConflictResolution) {
             refreshPageAfterDelay();
         }
-    }, cancelDrop);
+    }, function () {
+        cancelDrop();
+    });
 }
 
 /**
@@ -366,11 +368,11 @@ $('#confirmPortChange').click(function () {
 
     if (isChangingMigrating) {
         changePortNumber(conflictingPortData.sourceIp, conflictingPortData.portNumber, newPortNumber, function () {
-            proceedWithMove(newPortNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
+            proceedWithMove(newPortNumber, conflictingPortData.protocol, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
         });
     } else {
         changePortNumber(conflictingPortData.targetIp, conflictingPortData.portNumber, newPortNumber, function () {
-            proceedWithMove(conflictingPortData.portNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
+            proceedWithMove(conflictingPortData.portNumber, conflictingPortData.protocol, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
         });
     }
 

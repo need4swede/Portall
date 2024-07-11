@@ -27,15 +27,21 @@ export function movePort(portNumber, sourceIp, targetIp, protocol, successCallba
         },
         success: function (response) {
             if (response.success) {
-                successCallback();
+                if (typeof successCallback === 'function') {
+                    successCallback();
+                }
             } else {
                 showNotification('Error moving port: ' + response.message, 'error');
-                errorCallback();
+                if (typeof errorCallback === 'function') {
+                    errorCallback();
+                }
             }
         },
         error: function (xhr, status, error) {
             showNotification('Error moving port: ' + error, 'error');
-            errorCallback();
+            if (typeof errorCallback === 'function') {
+                errorCallback();
+            }
         }
     });
 }
