@@ -119,7 +119,8 @@ function handleNetworkSwitchDragOver(e) {
 
 /**
  * Handle drag end event for IP panels.
- * Finalizes the drag operation and updates the order of panels.
+ * Finalizes the drag operation, updates the order of panels,
+ * shows a loading animation, and refreshes the page.
  *
  * @param {Event} e - The dragend event object
  */
@@ -131,7 +132,16 @@ function handleNetworkSwitchDragEnd(e) {
         ipPanelPlaceholder.parentNode.removeChild(ipPanelPlaceholder);
     }
 
-    setTimeout(updateIPPanelOrder, 0);
+    // Update IP panel order
+    updateIPPanelOrder(() => {
+        // Show loading animation
+        showLoadingAnimation();
+
+        // Refresh the page after a short delay
+        setTimeout(() => {
+            location.reload();
+        }, 1500); // 1.5 seconds delay
+    });
 }
 
 /**
