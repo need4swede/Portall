@@ -1,4 +1,4 @@
-// static/js/animations.js
+// static/js/ui/animations.js
 
 /**
  * Application: Animation Logic

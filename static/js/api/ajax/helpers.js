@@ -10,35 +10,40 @@ import { cancelDrop } from '../../utils/dragDropUtils.js';
  * @param {number} portNumber - The port number being moved
  * @param {string} sourceIp - The source IP address
  * @param {string} targetIp - The target IP address
- * @param {HTMLElement} targetElement - The target element for insertion
- * @param {HTMLElement} draggingElement - The element being dragged
- * @param {function} updatePortOrder - Function to update the port order
- * @param {function} cancelDropFn - Function to cancel the drop operation
+ * @param {string} protocol - The protocol of the port (TCP or UDP)
+ * @param {function} successCallback - Function to call on successful move
+ * @param {function} errorCallback - Function to call on move error
  */
-export function movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDropFn) {
+export function movePort(portNumber, sourceIp, targetIp, protocol, successCallback, errorCallback) {
+    console.log(`Attempting to move port: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
     $.ajax({
         url: '/move_port',
         method: 'POST',
         data: {
             port_number: portNumber,
             source_ip: sourceIp,
-            target_ip: targetIp
+            target_ip: targetIp,
+            protocol: protocol.toUpperCase()  // Ensure protocol is uppercase
         },
         success: function (response) {
+            console.log('Server response:', response);
             if (response.success) {
-                // Update port order for both source and target IPs
-                updatePortOrder(sourceIp);
-                if (sourceIp !== targetIp) {
-                    updatePortOrder(targetIp);
+                if (typeof successCallback === 'function') {
+                    successCallback(response.port);  // Pass the updated port data
                 }
             } else {
                 showNotification('Error moving port: ' + response.message, 'error');
-                cancelDropFn();
+                if (typeof errorCallback === 'function') {
+                    errorCallback();
+                }
             }
         },
         error: function (xhr, status, error) {
+            console.log('Error response:', xhr.responseText);
             showNotification('Error moving port: ' + error, 'error');
-            cancelDropFn();
+            if (typeof errorCallback === 'function') {
+                errorCallback();
+            }
         }
     });
 }

@@ -6,6 +6,8 @@
  * generating ports based on user input.
  */
 
+import { showNotification } from '../ui/helpers.js';
+
 $(document).ready(function () {
     console.log('Document ready');
     const ipSelect = $('#ip-address');
@@ -55,6 +57,7 @@ $(document).ready(function () {
         const ipAddress = ipSelect.val();
         const selectedOption = ipSelect.find('option:selected');
         const nickname = selectedOption.text().match(/\((.*?)\)/)?.[1] || '';
+        const portProtocol = $('#protocol').val();
         if (!ipAddress) {
             alert('Please select or enter an IP address');
             return;
@@ -67,7 +70,8 @@ $(document).ready(function () {
             data: {
                 ip_address: ipAddress,
                 nickname: nickname,
-                description: $('#description').val()
+                description: $('#description').val(),
+                protocol: portProtocol
             },
             success: function (response) {
                 console.log('Port generated successfully:', response);

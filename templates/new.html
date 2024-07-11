@@ -20,6 +20,13 @@
         <label for="description" class="form-label">Description</label>
         <input type="text" class="form-control" id="description" name="description" required>
     </div>
+    <div class="mb-3">
+        <label for="protocol" class="form-label">Protocol</label>
+        <select class="form-select" id="protocol" name="protocol" required>
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+        </select>
+    </div>
     <button type="submit" class="btn btn-primary">Generate</button>
 </form>
 <div id="result" class="mt-3"></div>
@@ -52,5 +59,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/core/new.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/core/new.js') }}"></script>
 {% endblock %}

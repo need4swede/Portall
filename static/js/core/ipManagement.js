@@ -92,7 +92,12 @@ function handleDeleteIpModalHidden() {
     deleteIpAddress = null;
 }
 
-export function updateIPPanelOrder() {
+/**
+ * Update the order of IP panels and execute a callback function.
+ *
+ * @param {Function} callback - Function to be called after updating the order
+ */
+export function updateIPPanelOrder(callback) {
     const ipOrder = [];
     $('.network-switch').each(function () {
         ipOrder.push($(this).data('ip'));
@@ -106,7 +111,12 @@ export function updateIPPanelOrder() {
         data: JSON.stringify({ ip_order: ipOrder }),
         contentType: 'application/json',
         success: function (response) {
-            if (!response.success) {
+            if (response.success) {
+                console.log('IP panel order updated successfully');
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            } else {
                 showNotification('Error updating IP panel order: ' + response.message, 'error');
                 location.reload();
             }
