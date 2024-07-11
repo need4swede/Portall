@@ -311,22 +311,37 @@ function finalizeDrop(targetElement) {
 }
 
 function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
+    console.log(`Proceeding with move: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+    console.log('Dragging element:', draggingElement);
+    console.log('Target element:', targetElement);
+
     // Insert the dragged element before the target element
     $(targetElement).before(draggingElement);
 
-    // Update the port's IP and other attributes
-    $(draggingElement).find('.port').attr('data-ip', targetIp);
-    const targetNickname = $(targetElement).closest('.network-switch').find('.edit-ip').data('nickname');
-    $(draggingElement).find('.port').attr('data-nickname', targetNickname);
-
     // Move port on the server and update orders
-    movePort(portNumber, sourceIp, targetIp, protocol, function () {
+    movePort(portNumber, sourceIp, targetIp, protocol, function (updatedPort) {
+        console.log(`Move successful: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+
+        // Update the dragged element with new data
+        const $port = $(draggingElement).find('.port');
+        $port.attr('data-ip', updatedPort.ip_address);
+        $port.attr('data-port', updatedPort.port_number);
+        $port.attr('data-protocol', updatedPort.protocol);
+        $port.attr('data-description', updatedPort.description);
+        $port.attr('data-order', updatedPort.order);
+        $port.attr('data-id', updatedPort.id);
+
+        // Update the port's IP and other attributes
+        const targetNickname = $(targetElement).closest('.network-switch').find('.edit-ip').data('nickname');
+        $port.attr('data-nickname', targetNickname);
+
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
         if (isConflictResolution) {
             refreshPageAfterDelay();
         }
     }, function () {
+        console.log(`Move failed: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
         cancelDrop();
     });
 }

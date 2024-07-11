@@ -111,7 +111,7 @@ export function handlePortClick(element) {
  */
 export function checkPortExists(ip, portNumber, protocol, currentPortId) {
     console.log("Checking if port exists:", ip, portNumber, protocol, currentPortId);
-    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol}"]`);
+    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol.toUpperCase()}"]`);
     console.log("Port element found:", portElement.length > 0);
     console.log("Port element data-id:", portElement.data('id'));
     if (currentPortId) {
@@ -154,6 +154,18 @@ export function updatePortOrder(ip) {
             console.error('Error updating port order:', error);
             showNotification('Error updating port order: ' + error, 'error');
         }
+    });
+}
+
+/**
+ * Verify port data in the frontend
+ * This function logs all port data currently displayed in the frontend
+ */
+export function verifyPortData() {
+    console.log("Verifying frontend port data:");
+    $('.port').each(function () {
+        const $port = $(this);
+        console.log(`Port: ${$port.data('port')}, IP: ${$port.data('ip')}, Protocol: ${$port.data('protocol')}, Description: ${$port.data('description')}`);
     });
 }
 

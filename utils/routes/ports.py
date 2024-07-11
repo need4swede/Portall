@@ -241,21 +241,28 @@ def move_port():
     port_number = request.form.get('port_number')
     source_ip = request.form.get('source_ip')
     target_ip = request.form.get('target_ip')
-    protocol = request.form.get('protocol')
+    protocol = request.form.get('protocol', '').upper()  # Convert to uppercase
 
     app.logger.info(f"Moving {port_number} ({protocol}) from Source IP: {source_ip} to Target IP: {target_ip}")
 
     if not all([port_number, source_ip, target_ip, protocol]):
+        app.logger.error(f"Missing required data. port_number: {port_number}, source_ip: {source_ip}, target_ip: {target_ip}, protocol: {protocol}")
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
         # Check if the port already exists in the target IP with the same protocol
         existing_port = Port.query.filter_by(port_number=port_number, ip_address=target_ip, port_protocol=protocol).first()
         if existing_port:
+            app.logger.info(f"Port {port_number} ({protocol}) already exists in target IP {target_ip}")
             return jsonify({'success': False, 'message': 'Port number and protocol combination already exists in the target IP group'}), 400
+
+        # Log all ports for the source IP to check if the port exists
+        all_source_ports = Port.query.filter_by(ip_address=source_ip).all()
+        app.logger.info(f"All ports for source IP {source_ip}: {[(p.port_number, p.port_protocol) for p in all_source_ports]}")
 
         port = Port.query.filter_by(port_number=port_number, ip_address=source_ip, port_protocol=protocol).first()
         if port:
+            app.logger.info(f"Found port to move: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
             # Update IP address
             port.ip_address = target_ip
 
@@ -264,8 +271,21 @@ def move_port():
             port.order = max_order + 1
 
             db.session.commit()
-            return jsonify({'success': True, 'message': 'Port moved successfully'})
+            app.logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
+            return jsonify({
+                'success': True,
+                'message': 'Port moved successfully',
+                'port': {
+                    'id': port.id,
+                    'port_number': port.port_number,
+                    'ip_address': port.ip_address,
+                    'protocol': port.port_protocol,
+                    'description': port.description,
+                    'order': port.order
+                }
+            })
         else:
+            app.logger.error(f"Port not found: {port_number}, {source_ip}, {protocol}")
             return jsonify({'success': False, 'message': 'Port not found'}), 404
     except Exception as e:
         db.session.rollback()
