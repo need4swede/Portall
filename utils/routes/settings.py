@@ -123,52 +123,78 @@ def settings():
 
 @settings_bp.route('/port_settings', methods=['GET', 'POST'])
 def port_settings():
-    if request.method == 'POST':
-        # Extract port settings from form data
-        port_settings = {
-            'port_start': request.form.get('port_start'),
-            'port_end': request.form.get('port_end'),
-            'port_exclude': request.form.get('port_exclude'),
-            'port_length': request.form.get('port_length'),
-            'copy_format': request.form.get('copy_format', 'port_only')  # Default to 'port_only' if not provided
-        }
+    """
+    Handle GET and POST requests for port settings.
 
-        # Update or create port settings in the database
-        for key, value in port_settings.items():
-            setting = Setting.query.filter_by(key=key).first()
-            if value:  # Update or create if a value is provided
+    GET: Retrieve current port settings from the database.
+    If settings don't exist, default values are provided.
+
+    POST: Update port settings in the database with values from the form.
+    If a setting is not provided, it uses a default value.
+
+    Port settings include:
+    - port_start: Starting port number
+    - port_end: Ending port number
+    - port_exclude: Comma-separated list of ports to exclude
+    - port_length: Number of digits in port number (default: '4')
+    - copy_format: Format for copying port info (default: 'port_only')
+
+    Returns:
+    - For GET: JSON object containing current port settings
+    - For POST: JSON object indicating success or failure of the update operation
+
+    Raises:
+    - Logs any exceptions and returns a 500 error response
+    """
+    if request.method == 'GET':
+        try:
+            port_settings = {}
+            for key in ['port_start', 'port_end', 'port_exclude', 'port_length', 'copy_format']:
+                setting = Setting.query.filter_by(key=key).first()
+                if setting:
+                    port_settings[key] = setting.value
+                elif key == 'copy_format':
+                    port_settings[key] = 'port_only'
+                elif key == 'port_length':
+                    port_settings[key] = '4'  # Set default to '4'
+                else:
+                    port_settings[key] = ''
+
+            app.logger.debug(f"Retrieved port settings: {port_settings}")
+            return jsonify(port_settings)
+        except Exception as e:
+            app.logger.error(f"Error retrieving port settings: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            # Extract port settings from form data
+            port_settings = {
+                'port_start': request.form.get('port_start', ''),
+                'port_end': request.form.get('port_end', ''),
+                'port_exclude': request.form.get('port_exclude', ''),
+                'port_length': request.form.get('port_length', '4'),  # Default to '4' if not provided
+                'copy_format': request.form.get('copy_format', 'port_only')
+            }
+
+            app.logger.debug(f"Received port settings: {port_settings}")
+
+            # Update or create port settings in the database
+            for key, value in port_settings.items():
+                setting = Setting.query.filter_by(key=key).first()
                 if setting:
                     setting.value = value
                 else:
-                    setting = Setting(key=key, value=value)
-                    db.session.add(setting)
-            elif setting:  # Delete if no value is provided and setting exists
-                db.session.delete(setting)
+                    new_setting = Setting(key=key, value=value)
+                    db.session.add(new_setting)
 
-        try:
             db.session.commit()
+            app.logger.info("Port settings updated successfully")
             return jsonify({'success': True, 'message': 'Port settings updated successfully'})
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"Error saving port settings: {str(e)}")
-            return jsonify({'success': False, 'error': 'Error saving port settings'}), 500
-
-    # Handle GET request: Retrieve current port settings
-    port_settings = {}
-    for key in ['port_start', 'port_end', 'port_exclude', 'port_length', 'copy_format']:
-        setting = Setting.query.filter_by(key=key).first()
-        if setting:
-            port_settings[key] = setting.value
-        elif key == 'copy_format':
-            # If copy_format doesn't exist, create it with default value
-            new_setting = Setting(key='copy_format', value='port_only')
-            db.session.add(new_setting)
-            db.session.commit()
-            port_settings[key] = 'port_only'
-        else:
-            port_settings[key] = None
-
-    return jsonify(port_settings)
+            app.logger.error(f"Error saving port settings: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)}), 500
 
 @settings_bp.route('/static/css/themes/<path:filename>')
 def serve_theme(filename):
