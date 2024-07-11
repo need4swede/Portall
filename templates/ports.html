@@ -122,6 +122,12 @@
                         <label for="add-port-description" class="form-label">Description</label>
                         <input type="text" class="form-control" id="add-port-description" name="description" required>
                     </div>
+                    <div class="mb-3">
+                        <select id="add-port-protocol" name="protocol" class="modern-select">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                        </select>
+                    </div>
                     <div id="port-exists-disclaimer" class="text-danger mt-2" style="display: none;"></div>
                 </form>
             </div>
