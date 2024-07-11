@@ -7,7 +7,8 @@ class Port(db.Model):
     ip_address = db.Column(db.String(15), nullable=False)
     nickname = db.Column(db.String(50))
     port_number = db.Column(db.Integer, nullable=False)
+    port_protocol = db.Column(db.String(3), nullable=False)
     description = db.Column(db.String(100), nullable=False)
     order = db.Column(db.Integer, default=0)
 
-    __table_args__ = (db.UniqueConstraint('ip_address', 'port_number', name='_ip_port_uc'),)
+    __table_args__ = (db.UniqueConstraint('ip_address', 'port_number', 'port_protocol', name='_ip_port_protocol_uc'),)

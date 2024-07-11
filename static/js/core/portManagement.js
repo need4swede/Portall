@@ -28,6 +28,12 @@ let originalPortNumber;
 let originalPortId;
 
 /**
+ * The protocol of the original port before editing.
+ * @type {string}
+ */
+let originalProtocol;
+
+/**
  * Initialize event handlers for port management.
  * Sets up event listeners for port number inputs, and handles add, save, and delete port actions.
  */
@@ -42,6 +48,10 @@ export function init() {
     $('#deletePortModal').on('hidden.bs.modal', handleDeletePortModalHidden);
     $('#new-port-number').on('input', handleNewPortNumberInput);
     $('#add-new-port-number').on('input', handleAddNewPortNumberInput);
+    $('#add-port-protocol').on('change', handleAddNewPortNumberInput);
+    $('#port-protocol').on('change', handleNewPortNumberInput);
+    $('#new-port-number').on('input', handleNewPortNumberInput);
+    $('#port-protocol').on('change', handleProtocolChange);
 }
 
 /**
@@ -56,12 +66,14 @@ export function handlePortClick(element) {
     const portNumber = port.data('port');
     const description = port.data('description');
     const portId = port.data('id');
+    const protocol = port.data('protocol');
 
     console.log("Port clicked - ID:", portId);
 
     // Store the original port number and ID
     originalPortNumber = portNumber;
     originalPortId = portId;
+    originalProtocol = protocol;
 
     // Populate the edit port modal
     $('#edit-port-ip').val(ip);
@@ -69,6 +81,7 @@ export function handlePortClick(element) {
     $('#old-port-number').val(portNumber);
     $('#new-port-number').val(portNumber);
     $('#port-description').val(description);
+    $('#port-protocol').val(protocol);
     $('#port-id').val(portId);
 
     // Disable delete button if it's the last port in the panel
@@ -96,9 +109,9 @@ export function handlePortClick(element) {
  * @param {string|null} currentPortId - The current port ID to exclude from the check
  * @returns {boolean} - True if the port exists, false otherwise
  */
-export function checkPortExists(ip, portNumber, currentPortId) {
-    console.log("Checking if port exists:", ip, portNumber, currentPortId);
-    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
+export function checkPortExists(ip, portNumber, protocol, currentPortId) {
+    console.log("Checking if port exists:", ip, portNumber, protocol, currentPortId);
+    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol.toUpperCase()}"]`);
     console.log("Port element found:", portElement.length > 0);
     console.log("Port element data-id:", portElement.data('id'));
     if (currentPortId) {
@@ -142,6 +155,58 @@ export function updatePortOrder(ip) {
             showNotification('Error updating port order: ' + error, 'error');
         }
     });
+}
+
+/**
+ * Verify port data in the frontend
+ * This function logs all port data currently displayed in the frontend
+ */
+export function verifyPortData() {
+    console.log("Verifying frontend port data:");
+    $('.port').each(function () {
+        const $port = $(this);
+        console.log(`Port: ${$port.data('port')}, IP: ${$port.data('ip')}, Protocol: ${$port.data('protocol')}, Description: ${$port.data('description')}`);
+    });
+}
+
+function checkPortConflict() {
+    const ip = $('#edit-port-ip').val();
+    const portNumber = $('#new-port-number').val().trim();
+    const currentPortId = $('#port-id').val();
+    const protocol = $('#port-protocol').val();
+
+    console.log('Checking port conflict');
+    console.log('IP:', ip);
+    console.log('Port Number:', portNumber);
+    console.log('Current Port ID:', currentPortId);
+    console.log('Protocol:', protocol);
+
+    if (portNumber === '') {
+        console.log('Port number is empty');
+        $('#edit-port-exists-disclaimer').hide();
+        $('#save-port').prop('disabled', true);
+        return;
+    }
+
+    if (portNumber === originalPortNumber && protocol === originalProtocol) {
+        console.log('Port number and protocol are the same as original');
+        $('#edit-port-exists-disclaimer').hide();
+        $('#save-port').prop('disabled', false);
+        return;
+    }
+
+    const portExists = checkPortExists(ip, portNumber, protocol, currentPortId);
+    console.log('Port exists:', portExists);
+
+    if (portExists) {
+        const existingPortDescription = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol}"]:not([data-id="${currentPortId}"])`).data('description');
+        console.log('Existing port description:', existingPortDescription);
+        $('#edit-port-exists-disclaimer').text(`Port ${portNumber} is already assigned to ${existingPortDescription}`).show();
+        $('#save-port').prop('disabled', true);
+    } else {
+        $('#edit-port-exists-disclaimer').hide();
+        $('#save-port').prop('disabled', false);
+    }
 }
 
 /**
@@ -199,6 +264,7 @@ function handleAddPortClick() {
     $('#display-add-port-ip').text(ip);
     $('#add-new-port-number').val('');
     $('#add-port-description').val('');
+    $('#add-port-protocol').val('TCP');  // Reset to TCP by default
     $('#port-exists-disclaimer').hide();
     $('#save-new-port').prop('disabled', false);
     addPortModal.show();
@@ -214,10 +280,12 @@ function handleSavePortClick() {
     const portNumber = $('#new-port-number').val().trim();
     const description = $('#port-description').val().trim();
     const currentPortId = $('#port-id').val();
+    const protocol = $('#port-protocol').val(); // Add this line
 
     console.log("IP:", ip);
     console.log("Port Number:", portNumber);
     console.log("Description:", description);
+    console.log("Protocol:", protocol); // Add this line
 
     if (portNumber === '') {
         console.log("Port number is empty");
@@ -231,7 +299,7 @@ function handleSavePortClick() {
         return;
     }
 
-    if (checkPortExists(ip, portNumber, currentPortId)) {
+    if (checkPortExists(ip, portNumber, protocol, currentPortId)) {
         console.log("Port already exists");
         showNotification('Port already exists', 'error');
         return;
@@ -240,6 +308,7 @@ function handleSavePortClick() {
     console.log("All checks passed, proceeding with AJAX call");
     const formData = $('#edit-port-form').serialize();
     console.log("Form data:", formData);
+
 
     $.ajax({
         url: '/edit_port',
@@ -277,10 +346,12 @@ function handleSaveNewPortClick() {
     const ip = $('#add-port-ip').val();
     const portNumber = $('#add-new-port-number').val().trim();
     const description = $('#add-port-description').val().trim();
+    const protocol = $('#add-port-protocol').val(); // Add this line to get the protocol
 
     console.log("IP:", ip);
     console.log("Port Number:", portNumber);
     console.log("Description:", description);
+    console.log("Protocol:", protocol); // Log the protocol
 
     if (portNumber === '') {
         console.log("Port number is empty");
@@ -294,7 +365,7 @@ function handleSaveNewPortClick() {
         return;
     }
 
-    if (checkPortExists(ip, portNumber)) {
+    if (checkPortExists(ip, portNumber, protocol)) { // Include protocol in the check
         console.log("Port already exists");
         showNotification('Port already exists', 'error');
         return;
@@ -316,14 +387,15 @@ function handleSaveNewPortClick() {
 
                 // Create the new port element
                 const newPortElement = `
-                    <div class="port-slot" draggable="true" data-port="${portNumber}" data-order="${response.order}">
-                        <div class="port active" data-ip="${ip}" data-port="${portNumber}" data-description="${description}"
-                            data-order="${response.order}" data-id="${response.id}">
-                            <span class="port-number">${portNumber}</span>
-                            <span class="port-description">${description}</span>
-                            <div class="port-tooltip">${description}</div>
-                        </div>
+                <div class="port-slot" draggable="true" data-port="${portNumber}" data-order="${response.order}">
+                    <div class="port active" data-ip="${ip}" data-port="${portNumber}" data-description="${description}"
+                        data-order="${response.order}" data-id="${response.id}" data-protocol="${protocol}">
+                        <span class="port-number">${portNumber}</span>
+                        <span class="port-description">${description}</span>
+                        <div class="port-tooltip">${description}</div>
                     </div>
+                    <p class="port-protocol">${protocol}</p>
+                </div>
                 `;
 
                 // Insert the new port element before the add-port-slot
@@ -394,42 +466,11 @@ function handleDeletePortModalHidden() {
  * Validates the new port number, checks for port existence, and updates the disclaimer and save button states.
  */
 function handleNewPortNumberInput() {
-    const ip = $('#edit-port-ip').val();
-    const portNumber = $(this).val().trim();
-    const currentPortId = $('#port-id').val();
+    checkPortConflict();
+}
 
-    console.log('Input event triggered');
-    console.log('IP:', ip);
-    console.log('Port Number:', portNumber);
-    console.log('Original Port Number:', originalPortNumber);
-    console.log('Current Port ID:', currentPortId);
-
-    if (portNumber === '') {
-        console.log('Port number is empty');
-        $('#edit-port-exists-disclaimer').hide();
-        $('#save-port').prop('disabled', true);
-        return;
-    }
-
-    if (portNumber === originalPortNumber) {
-        console.log('Port number is the same as original');
-        $('#edit-port-exists-disclaimer').hide();
-        $('#save-port').prop('disabled', false);
-        return;
-    }
-
-    const portExists = checkPortExists(ip, portNumber, currentPortId);
-    console.log('Port exists:', portExists);
-
-    if (portExists) {
-        const existingPortDescription = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]:not([data-id="${currentPortId}"])`).data('description');
-        console.log('Existing port description:', existingPortDescription);
-        $('#edit-port-exists-disclaimer').text(`Port ${portNumber} already assigned to ${existingPortDescription}`).show();
-        $('#save-port').prop('disabled', true);
-    } else {
-        $('#edit-port-exists-disclaimer').hide();
-        $('#save-port').prop('disabled', false);
-    }
+function handleProtocolChange() {
+    checkPortConflict();
 }
 
 /**
@@ -440,6 +481,7 @@ function handleAddNewPortNumberInput() {
     console.log("Port number input changed. New value:", this.value);
     const ip = $('#add-port-ip').val();
     const portNumber = $(this).val().trim();
+    const protocol = $('#add-port-protocol').val();  // Get the selected protocol
 
     if (portNumber === '') {
         $('#port-exists-disclaimer').hide();
@@ -447,11 +489,11 @@ function handleAddNewPortNumberInput() {
         return;
     }
 
-    const portExists = checkPortExists(ip, portNumber);
+    const portExists = checkPortExists(ip, portNumber, protocol);  // Pass protocol to checkPortExists
 
     if (portExists) {
-        const description = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`).data('description');
-        $('#port-exists-disclaimer').text(`Port ${portNumber} already assigned to ${description}`).show();
+        const description = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol}"]`).data('description');
+        $('#port-exists-disclaimer').text(`Port ${portNumber} (${protocol}) already assigned to ${description}`).show();
         $('#save-new-port').prop('disabled', true);
     } else {
         $('#port-exists-disclaimer').hide();

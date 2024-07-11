@@ -44,6 +44,7 @@ def ports():
             'id': port.id,
             'port_number': port.port_number,
             'description': port.description,
+            'port_protocol': (port.port_protocol).upper(),
             'order': port.order
         })
 
@@ -66,13 +67,12 @@ def add_port():
     ip_address = request.form['ip']
     port_number = request.form['port_number']
     description = request.form['description']
+    protocol = request.form['protocol']  # New line
 
     try:
-        # Get the maximum order for the given IP address
         max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or 0
-
-        # Create new port with order set to max_order + 1
-        port = Port(ip_address=ip_address, port_number=port_number, description=description, order=max_order + 1)
+        port = Port(ip_address=ip_address, port_number=port_number, description=description,
+                    port_protocol=protocol, order=max_order + 1)  # Updated
         db.session.add(port)
         db.session.commit()
 
@@ -97,8 +97,9 @@ def edit_port():
     new_port_number = request.form.get('new_port_number')
     ip_address = request.form.get('ip')
     description = request.form.get('description')
+    protocol = request.form.get('protocol')  # Add this line
 
-    if not all([port_id, new_port_number, ip_address, description]):
+    if not all([port_id, new_port_number, ip_address, description, protocol]):  # Update this line
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
@@ -106,15 +107,17 @@ def edit_port():
         if not port_entry:
             return jsonify({'success': False, 'message': 'Port entry not found'}), 404
 
-        # Check if the new port number already exists for this IP
+        # Check if the new port number and protocol combination already exists for this IP
         existing_port = Port.query.filter(Port.ip_address == ip_address,
                                           Port.port_number == new_port_number,
+                                          Port.port_protocol == protocol,
                                           Port.id != port_id).first()
         if existing_port:
-            return jsonify({'success': False, 'message': 'Port number already exists for this IP'}), 400
+            return jsonify({'success': False, 'message': 'Port number and protocol combination already exists for this IP'}), 400
 
         port_entry.port_number = new_port_number
         port_entry.description = description
+        port_entry.port_protocol = protocol  # Add this line
         db.session.commit()
         return jsonify({'success': True, 'message': 'Port updated successfully'})
     except Exception as e:
@@ -165,18 +168,20 @@ def generate_port():
     ip_address = request.form['ip_address']
     nickname = request.form['nickname']
     description = request.form['description']
-    app.logger.debug(f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}")
+    protocol = request.form['protocol']
+    app.logger.debug(f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}, Protocol: {protocol}")
 
     def get_setting(key, default):
         """Helper function to retrieve settings from the database."""
         setting = Setting.query.filter_by(key=key).first()
-        return setting.value if setting else default
+        value = setting.value if setting else str(default)
+        return value if value != '' else str(default)
 
     # Retrieve port generation settings
     port_start = int(get_setting('port_start', 1024))
     port_end = int(get_setting('port_end', 65535))
     port_exclude = get_setting('port_exclude', '')
-    port_length = int(get_setting('port_length', 0))
+    port_length = int(get_setting('port_length', 4))
 
     # Get existing ports for this IP
     existing_ports = set(p.port_number for p in Port.query.filter_by(ip_address=ip_address).all())
@@ -211,7 +216,7 @@ def generate_port():
 
     try:
         # Create and save the new port
-        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description)
+        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol)
         db.session.add(port)
         db.session.commit()
         app.logger.info(f"Generated new port {new_port} for IP: {ip_address}")
@@ -222,7 +227,7 @@ def generate_port():
 
     # Return the new port and full URL
     full_url = f"http://{ip_address}:{new_port}"
-    return jsonify({'port': new_port, 'full_url': full_url})
+    return jsonify({'protocol': protocol, 'port': new_port, 'full_url': full_url})
 
 @ports_bp.route('/move_port', methods=['POST'])
 def move_port():
@@ -237,20 +242,28 @@ def move_port():
     port_number = request.form.get('port_number')
     source_ip = request.form.get('source_ip')
     target_ip = request.form.get('target_ip')
+    protocol = request.form.get('protocol', '').upper()  # Convert to uppercase
 
-    app.logger.info(f"Moving {port_number} from Source IP: {source_ip} to Target IP: {target_ip}")
+    app.logger.info(f"Moving {port_number} ({protocol}) from Source IP: {source_ip} to Target IP: {target_ip}")
 
-    if not all([port_number, source_ip, target_ip]):
+    if not all([port_number, source_ip, target_ip, protocol]):
+        app.logger.error(f"Missing required data. port_number: {port_number}, source_ip: {source_ip}, target_ip: {target_ip}, protocol: {protocol}")
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
-        # Check if the port already exists in the target IP
-        existing_port = Port.query.filter_by(port_number=port_number, ip_address=target_ip).first()
+        # Check if the port already exists in the target IP with the same protocol
+        existing_port = Port.query.filter_by(port_number=port_number, ip_address=target_ip, port_protocol=protocol).first()
         if existing_port:
-            return jsonify({'success': False, 'message': 'Port number already exists in the target IP group'}), 400
+            app.logger.info(f"Port {port_number} ({protocol}) already exists in target IP {target_ip}")
+            return jsonify({'success': False, 'message': 'Port number and protocol combination already exists in the target IP group'}), 400
 
-        port = Port.query.filter_by(port_number=port_number, ip_address=source_ip).first()
+        # Log all ports for the source IP to check if the port exists
+        all_source_ports = Port.query.filter_by(ip_address=source_ip).all()
+        app.logger.info(f"All ports for source IP {source_ip}: {[(p.port_number, p.port_protocol) for p in all_source_ports]}")
+
+        port = Port.query.filter_by(port_number=port_number, ip_address=source_ip, port_protocol=protocol).first()
         if port:
+            app.logger.info(f"Found port to move: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
             # Update IP address
             port.ip_address = target_ip
 
@@ -259,8 +272,21 @@ def move_port():
             port.order = max_order + 1
 
             db.session.commit()
-            return jsonify({'success': True, 'message': 'Port moved successfully'})
+            app.logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
+            return jsonify({
+                'success': True,
+                'message': 'Port moved successfully',
+                'port': {
+                    'id': port.id,
+                    'port_number': port.port_number,
+                    'ip_address': port.ip_address,
+                    'protocol': port.port_protocol,
+                    'description': port.description,
+                    'order': port.order
+                }
+            })
         else:
+            app.logger.error(f"Port not found: {port_number}, {source_ip}, {protocol}")
             return jsonify({'success': False, 'message': 'Port not found'}), 404
     except Exception as e:
         db.session.rollback()

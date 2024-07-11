@@ -46,10 +46,7 @@ function handleMouseDown(e) {
     if (e.which !== 1) return; // Only respond to left mouse button
 
     const panel = $(this).closest('.switch-panel');
-    if (panel.find('.port-slot:not(.add-port-slot)').length === 1) {
-        showNotification("Can't move the last port in a panel", 'error');
-        return;
-    }
+    const isLastPort = panel.find('.port-slot:not(.add-port-slot)').length === 1;
 
     dragStartX = e.clientX;
     dragStartY = e.clientY;
@@ -60,6 +57,11 @@ function handleMouseDown(e) {
         if (!isDragging &&
             (Math.abs(e.clientX - dragStartX) > dragThreshold ||
                 Math.abs(e.clientY - dragStartY) > dragThreshold)) {
+            if (isLastPort) {
+                showNotification("Can't move the last port in a panel", 'error');
+                $(document).off('mousemove.dragdetect mouseup.dragdetect');
+                return;
+            }
             isDragging = true;
             initiateDrag(e, element);
         }
@@ -119,7 +121,8 @@ function handleNetworkSwitchDragOver(e) {
 
 /**
  * Handle drag end event for IP panels.
- * Finalizes the drag operation and updates the order of panels.
+ * Finalizes the drag operation, updates the order of panels,
+ * shows a loading animation, and refreshes the page.
  *
  * @param {Event} e - The dragend event object
  */
@@ -131,7 +134,16 @@ function handleNetworkSwitchDragEnd(e) {
         ipPanelPlaceholder.parentNode.removeChild(ipPanelPlaceholder);
     }
 
-    setTimeout(updateIPPanelOrder, 0);
+    // Update IP panel order
+    updateIPPanelOrder(() => {
+        // Show loading animation
+        showLoadingAnimation();
+
+        // Refresh the page after a short delay
+        setTimeout(() => {
+            location.reload();
+        }, 1500); // 1.5 seconds delay
+    });
 }
 
 /**
@@ -181,7 +193,7 @@ function initiateDrag(e, element) {
         'zIndex': 1000,
         'pointer-events': 'none',
         'width': $(draggingElement).width() + 'px',
-        'height': $(draggingElement).height() + 'px'
+        'height': $(draggingElement).height() + 10 + 'px'
     }).appendTo('body');
 
     // Handle mouse movement during drag
@@ -277,23 +289,28 @@ function finalizeDrop(targetElement) {
     if (sourceIp !== targetIp) {
         console.log('Moving port to a different IP group');
         const portNumber = $(draggingElement).find('.port').data('port');
+        const protocol = $(draggingElement).find('.port').data('protocol');
 
-        // Check if the port number already exists in the target IP group
-        if (checkPortExists(targetIp, portNumber)) {
+        console.log('Port number:', portNumber);
+        console.log('Protocol:', protocol);
+
+        // Check if the port number and protocol combination already exists in the target IP group
+        if (checkPortExists(targetIp, portNumber, protocol)) {
             conflictingPortData = {
                 sourceIp: sourceIp,
                 targetIp: targetIp,
                 portNumber: portNumber,
+                protocol: protocol,
                 targetElement: targetElement,
                 draggingElement: draggingElement
             };
-            $('#conflictingPortNumber').text(portNumber);
+            $('#conflictingPortNumber').text(`${portNumber} (${protocol})`);
             $('#portConflictModal').modal('show');
             return;
         }
 
         // If no conflict, proceed with the move
-        proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement);
+        proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement);
     } else {
         console.log('Reordering within the same IP group');
         targetElement.parentNode.insertBefore(draggingElement, targetElement);
@@ -305,23 +322,40 @@ function finalizeDrop(targetElement) {
     sourceIp = null;
 }
 
-function proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
+function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
+    console.log(`Proceeding with move: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+    console.log('Dragging element:', draggingElement);
+    console.log('Target element:', targetElement);
+
     // Insert the dragged element before the target element
     $(targetElement).before(draggingElement);
 
-    // Update the port's IP and other attributes
-    $(draggingElement).find('.port').attr('data-ip', targetIp);
-    const targetNickname = $(targetElement).closest('.network-switch').find('.edit-ip').data('nickname');
-    $(draggingElement).find('.port').attr('data-nickname', targetNickname);
-
     // Move port on the server and update orders
-    movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, function () {
+    movePort(portNumber, sourceIp, targetIp, protocol, function (updatedPort) {
+        console.log(`Move successful: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+
+        // Update the dragged element with new data
+        const $port = $(draggingElement).find('.port');
+        $port.attr('data-ip', updatedPort.ip_address);
+        $port.attr('data-port', updatedPort.port_number);
+        $port.attr('data-protocol', updatedPort.protocol);
+        $port.attr('data-description', updatedPort.description);
+        $port.attr('data-order', updatedPort.order);
+        $port.attr('data-id', updatedPort.id);
+
+        // Update the port's IP and other attributes
+        const targetNickname = $(targetElement).closest('.network-switch').find('.edit-ip').data('nickname');
+        $port.attr('data-nickname', targetNickname);
+
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
         if (isConflictResolution) {
             refreshPageAfterDelay();
         }
-    }, cancelDrop);
+    }, function () {
+        console.log(`Move failed: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+        cancelDrop();
+    });
 }
 
 /**
@@ -364,11 +398,11 @@ $('#confirmPortChange').click(function () {
 
     if (isChangingMigrating) {
         changePortNumber(conflictingPortData.sourceIp, conflictingPortData.portNumber, newPortNumber, function () {
-            proceedWithMove(newPortNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
+            proceedWithMove(newPortNumber, conflictingPortData.protocol, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
         });
     } else {
         changePortNumber(conflictingPortData.targetIp, conflictingPortData.portNumber, newPortNumber, function () {
-            proceedWithMove(conflictingPortData.portNumber, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
+            proceedWithMove(conflictingPortData.portNumber, conflictingPortData.protocol, conflictingPortData.sourceIp, conflictingPortData.targetIp, conflictingPortData.targetElement, conflictingPortData.draggingElement, true);
         });
     }
 
