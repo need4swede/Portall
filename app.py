@@ -6,9 +6,10 @@ import os
 
 # External Imports
 from flask import Flask
+from flask_migrate import Migrate
 
 # Local Imports
-from utils.database import init_db, create_tables
+from utils.database import init_db
 from utils.routes import routes_bp
 
 # Setup logging
@@ -25,8 +26,8 @@ app.secret_key = os.environ.get('SECRET_KEY', 'M1Hd4l58YKm2Tqci6ZU65sEgWDexjuSfR
 # Initialize database
 db = init_db(app)
 
-# Create database tables
-create_tables(app)
+# Initialize Flask-Migrate
+migrate = Migrate(app, db)
 
 # Register the routes blueprint
 app.register_blueprint(routes_bp)
