@@ -94,7 +94,7 @@ def import_caddyfile(content):
                         'ip': ip,
                         'port': int(port),
                         'description': current_domain,
-                        'port_protocol': 'tcp' # Assume TCP
+                        'port_protocol': 'TCP' # Assume TCP
                     })
 
     return entries
@@ -188,7 +188,7 @@ def import_json(content):
                 'ip': item['ip_address'],
                 'port': int(item['port_number']),
                 'description': item['description'],
-                'port_protocol': item['port_protocol']
+                'port_protocol': item['port_protocol'].upper()
             })
         return entries
     except json.JSONDecodeError:
@@ -203,7 +203,7 @@ def parse_port_and_protocol(port_value):
         port_value (str): The port value to parse
 
     Returns:
-        tuple: (int, str) The parsed port number and protocol ('tcp' or 'udp' if specified, else 'tcp')
+        tuple: (int, str) The parsed port number and protocol ('TCP' or 'UDP' if specified, else 'TCP')
 
     Raises:
         ValueError: If no valid port number can be found
@@ -213,13 +213,13 @@ def parse_port_and_protocol(port_value):
 
     # Check for explicit protocol specification
     if '/tcp' in port_value:
-        protocol = 'tcp'
+        protocol = 'TCP'
         port_value = port_value.replace('/tcp', '')
     elif '/udp' in port_value:
-        protocol = 'udp'
+        protocol = 'UDP'
         port_value = port_value.replace('/udp', '')
     else:
-        protocol = 'tcp'  # Default to TCP if not explicitly specified
+        protocol = 'TCP'  # Default to TCP if not explicitly specified
 
     # Find the last colon in the string
     last_colon_index = port_value.rfind(':')
