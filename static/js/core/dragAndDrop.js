@@ -307,7 +307,7 @@ function finalizeDrop(targetElement) {
     sourceIp = null;
 }
 
-function proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
+function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
     // Insert the dragged element before the target element
     $(targetElement).before(draggingElement);
 
@@ -317,7 +317,7 @@ function proceedWithMove(portNumber, sourceIp, targetIp, targetElement, dragging
     $(draggingElement).find('.port').attr('data-nickname', targetNickname);
 
     // Move port on the server and update orders
-    movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, function () {
+    movePort(portNumber, sourceIp, targetIp, protocol, function () {
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
         if (isConflictResolution) {

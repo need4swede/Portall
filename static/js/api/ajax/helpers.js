@@ -15,30 +15,27 @@ import { cancelDrop } from '../../utils/dragDropUtils.js';
  * @param {function} updatePortOrder - Function to update the port order
  * @param {function} cancelDropFn - Function to cancel the drop operation
  */
-export function movePort(portNumber, sourceIp, targetIp, targetElement, draggingElement, updatePortOrder, cancelDropFn) {
+export function movePort(portNumber, sourceIp, targetIp, protocol, successCallback, errorCallback) {
     $.ajax({
         url: '/move_port',
         method: 'POST',
         data: {
             port_number: portNumber,
             source_ip: sourceIp,
-            target_ip: targetIp
+            target_ip: targetIp,
+            protocol: protocol
         },
         success: function (response) {
             if (response.success) {
-                // Update port order for both source and target IPs
-                updatePortOrder(sourceIp);
-                if (sourceIp !== targetIp) {
-                    updatePortOrder(targetIp);
-                }
+                successCallback();
             } else {
                 showNotification('Error moving port: ' + response.message, 'error');
-                cancelDropFn();
+                errorCallback();
             }
         },
         error: function (xhr, status, error) {
             showNotification('Error moving port: ' + error, 'error');
-            cancelDropFn();
+            errorCallback();
         }
     });
 }

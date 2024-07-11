@@ -241,8 +241,9 @@ def move_port():
     port_number = request.form.get('port_number')
     source_ip = request.form.get('source_ip')
     target_ip = request.form.get('target_ip')
+    protocol = request.form.get('protocol')
 
-    app.logger.info(f"Moving {port_number} from Source IP: {source_ip} to Target IP: {target_ip}")
+    app.logger.info(f"Moving {port_number} from Source IP: {source_ip} to Target IP: {target_ip} with protocol: {protocol}")
 
     if not all([port_number, source_ip, target_ip]):
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
