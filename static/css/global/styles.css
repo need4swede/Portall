@@ -108,6 +108,36 @@ h1 {
     min-height: calc(100% - 1rem);
 }
 
+/* Modern select styling */
+.modern-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: var(--color-gray-lighter);
+    border: 1px solid var(--color-gray-light);
+    border-radius: var(--border-radius);
+    padding: 0.5rem 2rem 0.5rem 1rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--color-gray-dark);
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M10.293 3.293L6 7.586 1.707 3.293A1 1 0 00.293 4.707l5 5a1 1 0 001.414 0l5-5a1 1 0 10-1.414-1.414z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 0.75rem;
+    transition: border-color var(--transition-duration) ease, box-shadow var(--transition-duration) ease;
+}
+
+.modern-select:hover {
+    border-color: var(--color-blue-light);
+}
+
+.modern-select:focus {
+    outline: none;
+    border-color: var(--color-blue);
+    box-shadow: 0 0 0 2px var(--color-blue-shadow);
+}
+
 @media (min-width: 576px) {
     .modal-dialog {
         min-height: calc(100% - 3.5rem);
