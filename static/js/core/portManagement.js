@@ -34,8 +34,18 @@ let originalPortId;
  */
 let originalProtocol;
 
+/**
+ * The current sort type being used.
+ * @type {string|null}
+ */
 let currentSortType = null;
+
+/**
+ * The current sort order being used.
+ * @type {string|null}
+ */
 let currentSortOrder = null;
+
 
 /**
  * Initialize event handlers for port management.
@@ -59,10 +69,21 @@ export function init() {
     initSortButtons();
 }
 
+/**
+ * Initialize event handlers for sort buttons.
+ * Sets up click event listeners on elements with the class 'sort-btn'.
+ */
 function initSortButtons() {
     $('.sort-btn').on('click', handleSortButtonClick);
 }
 
+/**
+ * Handle click event on a sort button.
+ * Toggles the sort order or resets it if clicking a different sort type,
+ * updates button icons, sorts the ports, and updates the port order in the database.
+ *
+ * @param {Event} e - The click event object
+ */
 function handleSortButtonClick(e) {
     const $button = $(e.currentTarget);
     const sortType = $button.data('sort');
@@ -104,6 +125,14 @@ function handleSortButtonClick(e) {
     updatePortOrder(ip);
 }
 
+/**
+ * Get the value to sort by for a given port element and sort type.
+ * Retrieves the relevant data attribute based on the sort type.
+ *
+ * @param {jQuery} $el - The jQuery element representing the port slot
+ * @param {string} sortType - The type of sorting ('port' or 'protocol')
+ * @returns {number} - The value to sort by
+ */
 function getSortValue($el, sortType) {
     const $port = $el.find('.port');
     if (sortType === 'port') {
@@ -208,6 +237,11 @@ export function verifyPortData() {
     });
 }
 
+/**
+ * Check for port conflicts when editing a port.
+ * Validates the new port number and protocol, checks for existing conflicts,
+ * and updates the disclaimer and save button states accordingly.
+ */
 function checkPortConflict() {
     const ip = $('#edit-port-ip').val();
     const portNumber = $('#new-port-number').val().trim();
