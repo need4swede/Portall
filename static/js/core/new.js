@@ -6,6 +6,8 @@
  * generating ports based on user input.
  */
 
+import { showNotification } from '../ui/helpers.js';
+
 $(document).ready(function () {
     console.log('Document ready');
     const ipSelect = $('#ip-address');

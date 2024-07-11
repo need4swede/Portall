@@ -174,13 +174,14 @@ def generate_port():
     def get_setting(key, default):
         """Helper function to retrieve settings from the database."""
         setting = Setting.query.filter_by(key=key).first()
-        return setting.value if setting else default
+        value = setting.value if setting else str(default)
+        return value if value != '' else str(default)
 
     # Retrieve port generation settings
     port_start = int(get_setting('port_start', 1024))
     port_end = int(get_setting('port_end', 65535))
     port_exclude = get_setting('port_exclude', '')
-    port_length = int(get_setting('port_length', 0))
+    port_length = int(get_setting('port_length', 4))
 
     # Get existing ports for this IP
     existing_ports = set(p.port_number for p in Port.query.filter_by(ip_address=ip_address).all())
