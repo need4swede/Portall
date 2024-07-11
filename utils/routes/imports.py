@@ -49,7 +49,7 @@ def import_data():
 
         # Process the imported data and add to database
         for item in imported_data:
-            port = Port(ip_address=item['ip'], port_number=item['port'], description=item['description'])
+            port = Port(ip_address=item['ip'], port_number=item['port'], description=item['description'], port_protocol=item['port_protocol'])
             db.session.add(port)
         db.session.commit()
 
@@ -93,7 +93,8 @@ def import_caddyfile(content):
                     entries.append({
                         'ip': ip,
                         'port': int(port),
-                        'description': current_domain
+                        'description': current_domain,
+                        'port_protocol': 'tcp' # Assume TCP
                     })
 
     return entries
@@ -134,8 +135,8 @@ def import_docker_compose(content):
                 for port_mapping in ports:
                     if isinstance(port_mapping, str):
                         try:
-                            # Attempt to parse the port from the mapping
-                            parsed_port = parse_port(port_mapping)
+                            # Attempt to parse the port and protocol from the mapping
+                            parsed_port, protocol = parse_port_and_protocol(port_mapping)
 
                             # Use the image name as description, or fall back to service name
                             description = image if image else service_name
@@ -144,11 +145,12 @@ def import_docker_compose(content):
                             entries.append({
                                 'ip': '127.0.0.1',  # Assume localhost for all services
                                 'port': parsed_port,
-                                'description': description
+                                'description': description,
+                                'port_protocol': protocol
                             })
 
                             # Log the successfully added entry
-                            print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Description: {description}")
+                            print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
 
                         except ValueError as e:
                             # Log a warning if we couldn't parse the port
@@ -185,22 +187,23 @@ def import_json(content):
             entries.append({
                 'ip': item['ip_address'],
                 'port': int(item['port_number']),
-                'description': item['description']
+                'description': item['description'],
+                'port_protocol': item['port_protocol']
             })
         return entries
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format")
 
-def parse_port(port_value):
+def parse_port_and_protocol(port_value):
     """
-    Parse a port value, handling direct integers, environment variable expressions,
+    Parse a port value and protocol, handling direct integers, environment variable expressions,
     and complex port mappings.
 
     Args:
         port_value (str): The port value to parse
 
     Returns:
-        int or None: The parsed port number, or None if parsing fails
+        tuple: (int, str) The parsed port number and protocol ('tcp' or 'udp' if specified, else 'tcp')
 
     Raises:
         ValueError: If no valid port number can be found
@@ -208,24 +211,34 @@ def parse_port(port_value):
     # Remove any leading/trailing whitespace
     port_value = port_value.strip()
 
+    # Check for explicit protocol specification
+    if '/tcp' in port_value:
+        protocol = 'tcp'
+        port_value = port_value.replace('/tcp', '')
+    elif '/udp' in port_value:
+        protocol = 'udp'
+        port_value = port_value.replace('/udp', '')
+    else:
+        protocol = 'tcp'  # Default to TCP if not explicitly specified
+
     # Find the last colon in the string
     last_colon_index = port_value.rfind(':')
     if last_colon_index != -1:
-        # Look for numbers before the last colon
-        before_colon = port_value[:last_colon_index]
-        number_match = re.search(r'(\d+)', before_colon)
+        # Look for numbers after the last colon
+        after_colon = port_value[last_colon_index + 1:]
+        number_match = re.search(r'(\d+)', after_colon)
         if number_match:
-            return int(number_match.group(1))
+            return int(number_match.group(1)), protocol
 
-    # If no number found before the last colon, check for other patterns
+    # If no number found after the last colon, check for other patterns
     # Check for complete environment variable syntax with default value
     complete_env_var_match = re.search(r':-(\d+)', port_value)
     if complete_env_var_match:
-        return int(complete_env_var_match.group(1))
+        return int(complete_env_var_match.group(1)), protocol
 
     # Check if it's a direct integer
     if port_value.isdigit():
-        return int(port_value)
+        return int(port_value), protocol
 
     # If we can't parse it, raise an error
     raise ValueError(f"Unable to parse port value: {port_value}")
