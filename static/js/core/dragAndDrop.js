@@ -279,6 +279,9 @@ function finalizeDrop(targetElement) {
         const portNumber = $(draggingElement).find('.port').data('port');
         const protocol = $(draggingElement).find('.port').data('protocol');
 
+        console.log('Port number:', portNumber);
+        console.log('Protocol:', protocol);
+
         // Check if the port number and protocol combination already exists in the target IP group
         if (checkPortExists(targetIp, portNumber, protocol)) {
             conflictingPortData = {
