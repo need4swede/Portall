@@ -56,6 +56,7 @@ export function handlePortClick(element) {
     const portNumber = port.data('port');
     const description = port.data('description');
     const portId = port.data('id');
+    const protocol = port.data('protocol'); // Add this line
 
     console.log("Port clicked - ID:", portId);
 
@@ -69,6 +70,7 @@ export function handlePortClick(element) {
     $('#old-port-number').val(portNumber);
     $('#new-port-number').val(portNumber);
     $('#port-description').val(description);
+    $('#port-protocol').val(protocol);
     $('#port-id').val(portId);
 
     // Disable delete button if it's the last port in the panel
@@ -96,9 +98,9 @@ export function handlePortClick(element) {
  * @param {string|null} currentPortId - The current port ID to exclude from the check
  * @returns {boolean} - True if the port exists, false otherwise
  */
-export function checkPortExists(ip, portNumber, currentPortId) {
-    console.log("Checking if port exists:", ip, portNumber, currentPortId);
-    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"]`);
+export function checkPortExists(ip, portNumber, protocol, currentPortId) {
+    console.log("Checking if port exists:", ip, portNumber, protocol, currentPortId);
+    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol}"]`);
     console.log("Port element found:", portElement.length > 0);
     console.log("Port element data-id:", portElement.data('id'));
     if (currentPortId) {
@@ -214,10 +216,12 @@ function handleSavePortClick() {
     const portNumber = $('#new-port-number').val().trim();
     const description = $('#port-description').val().trim();
     const currentPortId = $('#port-id').val();
+    const protocol = $('#port-protocol').val(); // Add this line
 
     console.log("IP:", ip);
     console.log("Port Number:", portNumber);
     console.log("Description:", description);
+    console.log("Protocol:", protocol); // Add this line
 
     if (portNumber === '') {
         console.log("Port number is empty");
@@ -231,7 +235,7 @@ function handleSavePortClick() {
         return;
     }
 
-    if (checkPortExists(ip, portNumber, currentPortId)) {
+    if (checkPortExists(ip, portNumber, protocol, currentPortId)) {
         console.log("Port already exists");
         showNotification('Port already exists', 'error');
         return;
@@ -240,6 +244,7 @@ function handleSavePortClick() {
     console.log("All checks passed, proceeding with AJAX call");
     const formData = $('#edit-port-form').serialize();
     console.log("Form data:", formData);
+
 
     $.ajax({
         url: '/edit_port',

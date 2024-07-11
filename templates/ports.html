@@ -15,7 +15,7 @@
         <div class="port-slot" draggable="true" data-port="{{ port.port_number }}" data-order="{{ port.order }}">
             <div class="port {% if port.port_number in data.ports|map(attribute='port_number') %}active{% endif %}"
                 data-ip="{{ ip }}" data-port="{{ port.port_number }}" data-description="{{ port.description }}"
-                data-order="{{ port.order }}" data-id="{{ port.id }}">
+                data-order="{{ port.order }}" data-id="{{ port.id }}" data-protocol="{{ port.port_protocol }}">
                 <span class="port-number">{{ port.port_number }}</span>
                 <span class="port-description">{{ port.description }}</span>
                 <div class="port-tooltip">{{ port.description }}</div>
@@ -84,6 +84,12 @@
                     <div class="mb-3">
                         <label for="port-description" class="form-label">Description</label>
                         <input type="text" class="form-control" id="port-description" name="description" required>
+                    </div>
+                    <div class="mb-3">
+                        <select id="port-protocol" name="protocol">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                        </select>
                     </div>
                 </form>
             </div>

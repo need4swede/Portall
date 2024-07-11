@@ -277,23 +277,25 @@ function finalizeDrop(targetElement) {
     if (sourceIp !== targetIp) {
         console.log('Moving port to a different IP group');
         const portNumber = $(draggingElement).find('.port').data('port');
+        const protocol = $(draggingElement).find('.port').data('protocol');
 
-        // Check if the port number already exists in the target IP group
-        if (checkPortExists(targetIp, portNumber)) {
+        // Check if the port number and protocol combination already exists in the target IP group
+        if (checkPortExists(targetIp, portNumber, protocol)) {
             conflictingPortData = {
                 sourceIp: sourceIp,
                 targetIp: targetIp,
                 portNumber: portNumber,
+                protocol: protocol,
                 targetElement: targetElement,
                 draggingElement: draggingElement
             };
-            $('#conflictingPortNumber').text(portNumber);
+            $('#conflictingPortNumber').text(`${portNumber} (${protocol})`);
             $('#portConflictModal').modal('show');
             return;
         }
 
         // If no conflict, proceed with the move
-        proceedWithMove(portNumber, sourceIp, targetIp, targetElement, draggingElement);
+        proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement);
     } else {
         console.log('Reordering within the same IP group');
         targetElement.parentNode.insertBefore(draggingElement, targetElement);

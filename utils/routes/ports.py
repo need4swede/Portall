@@ -67,13 +67,12 @@ def add_port():
     ip_address = request.form['ip']
     port_number = request.form['port_number']
     description = request.form['description']
+    protocol = request.form['protocol']  # New line
 
     try:
-        # Get the maximum order for the given IP address
         max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or 0
-
-        # Create new port with order set to max_order + 1
-        port = Port(ip_address=ip_address, port_number=port_number, description=description, order=max_order + 1)
+        port = Port(ip_address=ip_address, port_number=port_number, description=description,
+                    port_protocol=protocol, order=max_order + 1)  # Updated
         db.session.add(port)
         db.session.commit()
 
@@ -98,8 +97,9 @@ def edit_port():
     new_port_number = request.form.get('new_port_number')
     ip_address = request.form.get('ip')
     description = request.form.get('description')
+    protocol = request.form.get('protocol')  # Add this line
 
-    if not all([port_id, new_port_number, ip_address, description]):
+    if not all([port_id, new_port_number, ip_address, description, protocol]):  # Update this line
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
@@ -107,15 +107,17 @@ def edit_port():
         if not port_entry:
             return jsonify({'success': False, 'message': 'Port entry not found'}), 404
 
-        # Check if the new port number already exists for this IP
+        # Check if the new port number and protocol combination already exists for this IP
         existing_port = Port.query.filter(Port.ip_address == ip_address,
                                           Port.port_number == new_port_number,
+                                          Port.port_protocol == protocol,
                                           Port.id != port_id).first()
         if existing_port:
-            return jsonify({'success': False, 'message': 'Port number already exists for this IP'}), 400
+            return jsonify({'success': False, 'message': 'Port number and protocol combination already exists for this IP'}), 400
 
         port_entry.port_number = new_port_number
         port_entry.description = description
+        port_entry.port_protocol = protocol  # Add this line
         db.session.commit()
         return jsonify({'success': True, 'message': 'Port updated successfully'})
     except Exception as e:
