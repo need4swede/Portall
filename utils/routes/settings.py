@@ -208,11 +208,10 @@ def export_entries():
                 'nickname': port.nickname,
                 'port_number': port.port_number,
                 'description': port.description,
+                'port_protocol': port.port_protocol,
                 'order': port.order
             } for port in ports
         ]
-
-        app.logger.info(f"Export Data: {port_data}")
 
         # Convert data to JSON
         json_data = json.dumps(port_data, indent=2)
@@ -225,6 +224,9 @@ def export_entries():
         # Generate filename with current date
         current_date = datetime.now().strftime("%Y-%m-%d")
         filename = f"portall_export_{current_date}.json"
+
+        # Log the export
+        app.logger.info(f"Exporting Data to: {filename}")
 
         return send_file(
             buffer,
