@@ -283,6 +283,13 @@ export function exportEntries() {
         });
 }
 
+/**
+ * Update the order of ports for a specific IP address.
+ * Sends an AJAX request to update the port order on the server.
+ *
+ * @param {string} ip - The IP address for which to update the port order
+ * @param {Array<number>} portOrder - An array of port numbers in the new order
+ */
 export function updatePortOrder(ip, portOrder) {
     $.ajax({
         url: '/update_port_order',

@@ -6,6 +6,11 @@ import { editIpModal } from '../ui/modals.js';
 
 let deleteIpAddress;
 
+/**
+ * Initialize event handlers for IP management.
+ * Sets up click event listeners for editing, saving, and deleting IPs,
+ * and modal event listeners for delete IP modal.
+ */
 export function init() {
     $('.edit-ip').click(handleEditIpClick);
     $('#save-ip').click(handleSaveIpClick);
@@ -14,6 +19,12 @@ export function init() {
     $('#deleteIpModal').on('hidden.bs.modal', handleDeleteIpModalHidden);
 }
 
+/**
+ * Handle click event on the edit IP button.
+ * Populates and shows the edit IP modal with the current IP and nickname.
+ *
+ * @param {Event} e - The click event object
+ */
 function handleEditIpClick(e) {
     e.preventDefault();
     const ip = $(this).data('ip');
@@ -24,6 +35,10 @@ function handleEditIpClick(e) {
     editIpModal.show();
 }
 
+/**
+ * Handle click event on the save IP button.
+ * Sends an AJAX request to update the IP and updates the UI accordingly.
+ */
 function handleSaveIpClick() {
     const formData = $('#edit-ip-form').serialize();
     $.ajax({
@@ -46,6 +61,12 @@ function handleSaveIpClick() {
     });
 }
 
+/**
+ * Update the IP label in the UI.
+ * Modifies the IP and nickname data attributes and updates the displayed label.
+ *
+ * @param {string} formData - The serialized form data containing the IP information
+ */
 function updateIPLabel(formData) {
     const data = new URLSearchParams(formData);
     const oldIp = data.get('old_ip');
@@ -60,6 +81,10 @@ function updateIPLabel(formData) {
     switchLabel.contents().first().replaceWith(newIp + (nickname ? ' (' + nickname + ')' : ''));
 }
 
+/**
+ * Handle click event on the delete IP button.
+ * Stores the IP address to be deleted and shows the delete IP modal.
+ */
 function handleDeleteIpClick() {
     deleteIpAddress = $('#old-ip').val();
     $('#delete-ip-address').text(deleteIpAddress);
@@ -67,6 +92,10 @@ function handleDeleteIpClick() {
     $('#deleteIpModal').modal('show');
 }
 
+/**
+ * Handle click event on the confirm delete IP button.
+ * Sends an AJAX request to delete the IP and updates the UI accordingly.
+ */
 function handleConfirmDeleteIpClick() {
     $.ajax({
         url: '/delete_ip',
@@ -88,12 +117,17 @@ function handleConfirmDeleteIpClick() {
     });
 }
 
+/**
+ * Handle hidden event for the delete IP modal.
+ * Resets the stored IP address to be deleted.
+ */
 function handleDeleteIpModalHidden() {
     deleteIpAddress = null;
 }
 
 /**
  * Update the order of IP panels and execute a callback function.
+ * Sends an AJAX request to update the IP order on the server.
  *
  * @param {Function} callback - Function to be called after updating the order
  */

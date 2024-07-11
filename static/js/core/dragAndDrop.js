@@ -322,6 +322,19 @@ function finalizeDrop(targetElement) {
     sourceIp = null;
 }
 
+/**
+ * Proceed with moving a port from one IP address to another.
+ * Inserts the dragged element before the target element, updates the server,
+ * and adjusts the port order.
+ *
+ * @param {number} portNumber - The port number being moved
+ * @param {string} protocol - The protocol of the port (e.g., 'TCP', 'UDP')
+ * @param {string} sourceIp - The source IP address
+ * @param {string} targetIp - The target IP address
+ * @param {HTMLElement} targetElement - The target element for insertion
+ * @param {HTMLElement} draggingElement - The element being dragged
+ * @param {boolean} [isConflictResolution=false] - Flag indicating if this is part of conflict resolution
+ */
 function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
     console.log(`Proceeding with move: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
     console.log('Dragging element:', draggingElement);
