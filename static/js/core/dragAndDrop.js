@@ -46,10 +46,7 @@ function handleMouseDown(e) {
     if (e.which !== 1) return; // Only respond to left mouse button
 
     const panel = $(this).closest('.switch-panel');
-    if (panel.find('.port-slot:not(.add-port-slot)').length === 1) {
-        showNotification("Can't move the last port in a panel", 'error');
-        return;
-    }
+    const isLastPort = panel.find('.port-slot:not(.add-port-slot)').length === 1;
 
     dragStartX = e.clientX;
     dragStartY = e.clientY;
@@ -60,6 +57,11 @@ function handleMouseDown(e) {
         if (!isDragging &&
             (Math.abs(e.clientX - dragStartX) > dragThreshold ||
                 Math.abs(e.clientY - dragStartY) > dragThreshold)) {
+            if (isLastPort) {
+                showNotification("Can't move the last port in a panel", 'error');
+                $(document).off('mousemove.dragdetect mouseup.dragdetect');
+                return;
+            }
             isDragging = true;
             initiateDrag(e, element);
         }
