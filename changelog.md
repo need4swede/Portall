@@ -1,3 +1,8 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.7" target="_blank">v1.0.7</a>
+## Added:
+### Sorting
+You can now quickly sort your ports by port number or by protocol type. Manually sorting your ports via drag-and-drop is still supported.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.6" target="_blank">v1.0.6</a>
 ## Added:
 ### Port Protocols
