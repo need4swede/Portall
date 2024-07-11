@@ -12,7 +12,10 @@ from utils.database import init_db, create_tables
 from utils.routes import routes_bp
 
 # Setup logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(filename="/app/instance/portall.log"
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
+logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
 
 # Create the Flask app
 app = Flask(__name__)
