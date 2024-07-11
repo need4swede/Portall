@@ -6,6 +6,14 @@
 <div class="network-switch" draggable="true" data-ip="{{ ip }}">
     <h2 class="switch-label">
         {{ ip }}{% if data.nickname %} ({{ data.nickname }}){% endif %}
+        <div class="sort-buttons">
+            <button class="sort-btn" data-sort="port" title="Sort by Port Number">
+                <i class="fas fa-hashtag"></i><i class="fas fa-sort" style="display:none;"></i>
+            </button>
+            <button class="sort-btn" data-sort="protocol" title="Sort by Protocol">
+                <i class="fas fa-network-wired"></i><i class="fas fa-sort" style="display:none;"></i>
+            </button>
+        </div>
         <a href="#" class="edit-ip" data-ip="{{ ip }}" data-nickname="{{ data.nickname or '' }}">
             <i class="fas fa-pencil-alt"></i>
         </a>

@@ -346,6 +346,28 @@ h1 {
     cursor: not-allowed;
 }
 
+.sort-buttons {
+    display: inline-block;
+    margin-left: 10px;
+}
+
+.sort-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 5px;
+    font-size: 0.8em;
+    color: var(--color-gray-light);
+}
+
+.sort-btn:hover {
+    color: var(--color-gray-very-light);
+}
+
+.sort-btn i {
+    margin-right: 2px;
+}
+
 /* CodeMirror Styles */
 .CodeMirror {
     height: 300px;
