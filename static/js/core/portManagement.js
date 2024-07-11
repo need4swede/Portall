@@ -2,6 +2,7 @@
 
 import { showNotification } from '../ui/helpers.js';
 import { editPortModal, addPortModal, deletePortModal } from '../ui/modals.js';
+import { updatePortOrder as updatePortOrderAjax } from '../api/ajax/helpers.js';
 
 /**
  * The IP address of the port to be deleted.
@@ -33,6 +34,9 @@ let originalPortId;
  */
 let originalProtocol;
 
+let currentSortType = null;
+let currentSortOrder = null;
+
 /**
  * Initialize event handlers for port management.
  * Sets up event listeners for port number inputs, and handles add, save, and delete port actions.
@@ -52,6 +56,61 @@ export function init() {
     $('#port-protocol').on('change', handleNewPortNumberInput);
     $('#new-port-number').on('input', handleNewPortNumberInput);
     $('#port-protocol').on('change', handleProtocolChange);
+    initSortButtons();
+}
+
+function initSortButtons() {
+    $('.sort-btn').on('click', handleSortButtonClick);
+}
+
+function handleSortButtonClick(e) {
+    const $button = $(e.currentTarget);
+    const sortType = $button.data('sort');
+    const ip = $button.data('ip');
+    const $panel = $button.closest('.network-switch').find('.switch-panel');
+
+    // Toggle sort order or reset if clicking a different sort type
+    if (sortType === currentSortType) {
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortType = sortType;
+        currentSortOrder = 'asc';
+    }
+
+    // Update all button icons
+    $('.sort-btn').each(function () {
+        const $btn = $(this);
+        const $icon = $btn.find('i:last-child');
+        if ($btn.data('sort') === sortType) {
+            $icon.removeClass('fa-sort fa-sort-up fa-sort-down')
+                .addClass(currentSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down')
+                .show();
+        } else {
+            $icon.removeClass('fa-sort-up fa-sort-down').addClass('fa-sort').hide();
+        }
+    });
+
+    // Sort the ports
+    const $ports = $panel.find('.port-slot:not(.add-port-slot)').detach().sort((a, b) => {
+        const aValue = getSortValue($(a), sortType);
+        const bValue = getSortValue($(b), sortType);
+        return currentSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+    // Reattach sorted ports
+    $panel.prepend($ports);
+
+    // Update port order in the database
+    updatePortOrder(ip);
+}
+
+function getSortValue($el, sortType) {
+    const $port = $el.find('.port');
+    if (sortType === 'port') {
+        return parseInt($port.data('port'), 10);
+    } else if (sortType === 'protocol') {
+        return $port.data('protocol') === 'TCP' ? 0 : 1;
+    }
 }
 
 /**
@@ -134,27 +193,7 @@ export function updatePortOrder(ip) {
         return $(this).data('port');
     }).get();
 
-    $.ajax({
-        url: '/update_port_order',
-        method: 'POST',
-        data: JSON.stringify({
-            ip: ip,
-            port_order: portOrder
-        }),
-        contentType: 'application/json',
-        success: function (response) {
-            if (response.success) {
-                console.log('Port order updated successfully');
-            } else {
-                console.error('Error updating port order:', response.message);
-                showNotification('Error updating port order: ' + response.message, 'error');
-            }
-        },
-        error: function (xhr, status, error) {
-            console.error('Error updating port order:', error);
-            showNotification('Error updating port order: ' + error, 'error');
-        }
-    });
+    updatePortOrderAjax(ip, portOrder);
 }
 
 /**

@@ -282,3 +282,27 @@ export function exportEntries() {
             showNotification('Error exporting data: ' + error.message, 'error');
         });
 }
+
+export function updatePortOrder(ip, portOrder) {
+    $.ajax({
+        url: '/update_port_order',
+        method: 'POST',
+        data: JSON.stringify({
+            ip: ip,
+            port_order: portOrder
+        }),
+        contentType: 'application/json',
+        success: function (response) {
+            if (response.success) {
+                console.log('Port order updated successfully');
+            } else {
+                console.error('Error updating port order:', response.message);
+                showNotification('Error updating port order: ' + response.message, 'error');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error updating port order:', error);
+            showNotification('Error updating port order: ' + error, 'error');
+        }
+    });
+}
