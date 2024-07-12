@@ -15,7 +15,7 @@ from flask import url_for                       # For generating URLs
 
 # Local Imports
 from utils.database import db, Port, Setting    # For accessing the database models
-
+from ...app import logger                       # For Logging
 # Create the blueprint
 ports_bp = Blueprint('ports', __name__)
 
@@ -76,11 +76,11 @@ def add_port():
         db.session.add(port)
         db.session.commit()
 
-        app.logger.info(f"Added new port {port_number} for IP: {ip_address} with order {port.order}")
+        logger.info(f"Added new port {port_number} for IP: {ip_address} with order {port.order}")
         return jsonify({'success': True, 'message': 'Port added successfully', 'order': port.order})
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error adding new port: {str(e)}")
+        logger.error(f"Error adding new port: {str(e)}")
         return jsonify({'success': False, 'message': 'Error adding new port'}), 500
 
 @ports_bp.route('/edit_port', methods=['POST'])
@@ -142,13 +142,13 @@ def delete_port():
         if port:
             db.session.delete(port)
             db.session.commit()
-            app.logger.info(f"Deleted port {port_number} for IP: {ip_address}")
+            logger.info(f"Deleted port {port_number} for IP: {ip_address}")
             return jsonify({'success': True, 'message': 'Port deleted successfully'})
         else:
             return jsonify({'success': False, 'message': 'Port not found'}), 404
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error deleting port: {str(e)}")
+        logger.error(f"Error deleting port: {str(e)}")
         return jsonify({'success': False, 'message': 'Error deleting port'}), 500
 
 @ports_bp.route('/generate_port', methods=['POST'])
@@ -169,7 +169,7 @@ def generate_port():
     nickname = request.form['nickname']
     description = request.form['description']
     protocol = request.form['protocol']
-    app.logger.debug(f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}, Protocol: {protocol}")
+    logger.debug(f"Received request to generate port for IP: {ip_address}, Nickname: {nickname}, Description: {description}, Protocol: {protocol}")
 
     def get_setting(key, default):
         """Helper function to retrieve settings from the database."""
@@ -202,7 +202,7 @@ def generate_port():
     # Check if there are any available ports
     if not available_ports or all(p in existing_ports for p in available_ports):
         total_ports = len(available_ports)
-        app.logger.error(f"No available ports for IP: {ip_address}. Used {ports_in_use} out of {total_ports} possible ports.")
+        logger.error(f"No available ports for IP: {ip_address}. Used {ports_in_use} out of {total_ports} possible ports.")
         settings_url = url_for('routes.settings.settings', _external=True) + '#ports'
         error_message = (
             f"No available ports.\n"
@@ -219,10 +219,10 @@ def generate_port():
         port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol)
         db.session.add(port)
         db.session.commit()
-        app.logger.info(f"Generated new port {new_port} for IP: {ip_address}")
+        logger.info(f"Generated new port {new_port} for IP: {ip_address}")
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error saving new port: {str(e)}")
+        logger.error(f"Error saving new port: {str(e)}")
         return jsonify({'error': 'Error saving new port'}), 500
 
     # Return the new port and full URL
@@ -244,26 +244,26 @@ def move_port():
     target_ip = request.form.get('target_ip')
     protocol = request.form.get('protocol', '').upper()  # Convert to uppercase
 
-    app.logger.info(f"Moving {port_number} ({protocol}) from Source IP: {source_ip} to Target IP: {target_ip}")
+    logger.info(f"Moving {port_number} ({protocol}) from Source IP: {source_ip} to Target IP: {target_ip}")
 
     if not all([port_number, source_ip, target_ip, protocol]):
-        app.logger.error(f"Missing required data. port_number: {port_number}, source_ip: {source_ip}, target_ip: {target_ip}, protocol: {protocol}")
+        logger.error(f"Missing required data. port_number: {port_number}, source_ip: {source_ip}, target_ip: {target_ip}, protocol: {protocol}")
         return jsonify({'success': False, 'message': 'Missing required data'}), 400
 
     try:
         # Check if the port already exists in the target IP with the same protocol
         existing_port = Port.query.filter_by(port_number=port_number, ip_address=target_ip, port_protocol=protocol).first()
         if existing_port:
-            app.logger.info(f"Port {port_number} ({protocol}) already exists in target IP {target_ip}")
+            logger.info(f"Port {port_number} ({protocol}) already exists in target IP {target_ip}")
             return jsonify({'success': False, 'message': 'Port number and protocol combination already exists in the target IP group'}), 400
 
         # Log all ports for the source IP to check if the port exists
         all_source_ports = Port.query.filter_by(ip_address=source_ip).all()
-        app.logger.info(f"All ports for source IP {source_ip}: {[(p.port_number, p.port_protocol) for p in all_source_ports]}")
+        logger.info(f"All ports for source IP {source_ip}: {[(p.port_number, p.port_protocol) for p in all_source_ports]}")
 
         port = Port.query.filter_by(port_number=port_number, ip_address=source_ip, port_protocol=protocol).first()
         if port:
-            app.logger.info(f"Found port to move: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
+            logger.info(f"Found port to move: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
             # Update IP address
             port.ip_address = target_ip
 
@@ -272,7 +272,7 @@ def move_port():
             port.order = max_order + 1
 
             db.session.commit()
-            app.logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
+            logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
             return jsonify({
                 'success': True,
                 'message': 'Port moved successfully',
@@ -286,11 +286,11 @@ def move_port():
                 }
             })
         else:
-            app.logger.error(f"Port not found: {port_number}, {source_ip}, {protocol}")
+            logger.error(f"Port not found: {port_number}, {source_ip}, {protocol}")
             return jsonify({'success': False, 'message': 'Port not found'}), 404
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error moving port: {str(e)}")
+        logger.error(f"Error moving port: {str(e)}")
         return jsonify({'success': False, 'message': f'Error moving port: {str(e)}'}), 500
 
 @ports_bp.route('/update_port_order', methods=['POST'])
@@ -324,7 +324,7 @@ def update_port_order():
         return jsonify({'success': True, 'message': 'Port order updated successfully'})
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error updating port order: {str(e)}")
+        logger.error(f"Error updating port order: {str(e)}")
         return jsonify({'success': False, 'message': f'Error updating port order: {str(e)}'}), 500
 
 @ports_bp.route('/change_port_number', methods=['POST'])
@@ -441,5 +441,5 @@ def update_ip_order():
         return jsonify({'success': True, 'message': 'IP panel order updated successfully'})
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error updating IP panel order: {str(e)}")
+        logger.error(f"Error updating IP panel order: {str(e)}")
         return jsonify({'success': False, 'message': f'Error updating IP panel order: {str(e)}'}), 500

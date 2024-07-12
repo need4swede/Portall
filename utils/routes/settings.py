@@ -66,7 +66,7 @@ def settings():
             return jsonify({'success': True})
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"Error saving settings: {str(e)}")
+            logger.error(f"Error saving settings: {str(e)}")
             return jsonify({'success': False, 'error': 'Error saving settings'}), 500
 
     # Retrieve unique IP addresses from the database
@@ -97,20 +97,20 @@ def settings():
         try:
             readme_path = os.path.join(os.path.dirname(__file__), '..', '..', 'README.md')
             if not os.path.exists(readme_path):
-                app.logger.error(f"README.md not found at {readme_path}")
+                logger.error(f"README.md not found at {readme_path}")
                 return "Unknown (File Not Found)"
             with open(readme_path, 'r') as file:
                 content = file.read()
             match = re.search(r'version-(\d+\.\d+\.\d+)-blue\.svg', content)
             if match:
                 version = match.group(1)
-                app.logger.info(f"version: {version}")
+                logger.info(f"version: {version}")
                 return version
             else:
-                app.logger.warning("Version pattern not found in README")
+                logger.warning("Version pattern not found in README")
                 return "Unknown (Pattern Not Found)"
         except Exception as e:
-            app.logger.error(f"Error reading version from README: {str(e)}")
+            logger.error(f"Error reading version from README: {str(e)}")
             return f"Unknown (Error: {str(e)})"
 
     # Get app version from README
@@ -160,10 +160,10 @@ def port_settings():
                 else:
                     port_settings[key] = ''
 
-            app.logger.debug(f"Retrieved port settings: {port_settings}")
+            logger.debug(f"Retrieved port settings: {port_settings}")
             return jsonify(port_settings)
         except Exception as e:
-            app.logger.error(f"Error retrieving port settings: {str(e)}", exc_info=True)
+            logger.error(f"Error retrieving port settings: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
     elif request.method == 'POST':
@@ -177,7 +177,7 @@ def port_settings():
                 'copy_format': request.form.get('copy_format', 'port_only')
             }
 
-            app.logger.debug(f"Received port settings: {port_settings}")
+            logger.debug(f"Received port settings: {port_settings}")
 
             # Update or create port settings in the database
             for key, value in port_settings.items():
@@ -189,11 +189,11 @@ def port_settings():
                     db.session.add(new_setting)
 
             db.session.commit()
-            app.logger.info("Port settings updated successfully")
+            logger.info("Port settings updated successfully")
             return jsonify({'success': True, 'message': 'Port settings updated successfully'})
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"Error saving port settings: {str(e)}", exc_info=True)
+            logger.error(f"Error saving port settings: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)}), 500
 
 @settings_bp.route('/static/css/themes/<path:filename>')
@@ -252,7 +252,7 @@ def export_entries():
         filename = f"portall_export_{current_date}.json"
 
         # Log the export
-        app.logger.info(f"Exporting Data to: {filename}")
+        logger.info(f"Exporting Data to: {filename}")
 
         return send_file(
             buffer,
@@ -261,7 +261,7 @@ def export_entries():
             mimetype='application/json'
         )
     except Exception as e:
-        app.logger.error(f"Error in export_entries: {str(e)}")
+        logger.error(f"Error in export_entries: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @settings_bp.route('/purge_entries', methods=['POST'])
@@ -278,11 +278,11 @@ def purge_entries():
     try:
         num_deleted = Port.query.delete()
         db.session.commit()
-        app.logger.info(f"Purged {num_deleted} entries from the database")
+        logger.info(f"Purged {num_deleted} entries from the database")
         return jsonify({'success': True, 'message': f'All entries have been purged. {num_deleted} entries deleted.'})
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error purging entries: {str(e)}")
+        logger.error(f"Error purging entries: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @settings_bp.route('/get_about_content')

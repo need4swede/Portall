@@ -14,7 +14,7 @@ from flask import session                       # For storing session data
 
 # Local Imports
 from utils.database import db, Port             # For accessing the database models
-
+from ...app import logger                       # For Logging
 # Create the blueprint
 imports_bp = Blueprint('imports', __name__)
 
@@ -150,18 +150,22 @@ def import_docker_compose(content):
                             })
 
                             # Log the successfully added entry
-                            print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
+                            logger.info(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
+                            # print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
 
                         except ValueError as e:
                             # Log a warning if we couldn't parse the port
-                            print(f"Warning: {str(e)} for service {service_name}")
+                            logger.error(f"{str(e)} for service {service_name}")
+                            # print(f"Warning: {str(e)} for service {service_name}")
 
         # Log the total number of entries found
-        print(f"Total entries found: {len(entries)}")
+        logger.info(f"Total entries found: {len(entries)}")
+        # print(f"Total entries found: {len(entries)}")
         return entries
 
     except yaml.YAMLError as e:
         # If the YAML is invalid, raise a ValueError with a descriptive message
+        logger.warning(f"Invalid Docker-Compose YAML format: {str(e)}")
         raise ValueError(f"Invalid Docker-Compose YAML format: {str(e)}")
 
 def import_json(content):
@@ -192,6 +196,7 @@ def import_json(content):
             })
         return entries
     except json.JSONDecodeError:
+        logger.warning("Invalid JSON format")
         raise ValueError("Invalid JSON format")
 
 def parse_port_and_protocol(port_value):
@@ -241,4 +246,5 @@ def parse_port_and_protocol(port_value):
         return int(port_value), protocol
 
     # If we can't parse it, raise an error
+    logger.warning(f"Unable to parse port value: {port_value}")
     raise ValueError(f"Unable to parse port value: {port_value}")
