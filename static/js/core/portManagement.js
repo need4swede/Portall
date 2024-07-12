@@ -199,7 +199,7 @@ export function handlePortClick(element) {
  */
 export function checkPortExists(ip, portNumber, protocol, currentPortId) {
     console.log("Checking if port exists:", ip, portNumber, protocol, currentPortId);
-    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol.toUpperCase()}"]`);
+    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol}"]`);
     console.log("Port element found:", portElement.length > 0);
     console.log("Port element data-id:", portElement.data('id'));
     if (currentPortId) {
@@ -555,6 +555,10 @@ function handleAddNewPortNumberInput() {
     const ip = $('#add-port-ip').val();
     const portNumber = $(this).val().trim();
     const protocol = $('#add-port-protocol').val();  // Get the selected protocol
+
+    console.log("IP:", ip);
+    console.log("Port Number:", portNumber);
+    console.log("Protocol:", protocol);  // Log the protocol for debugging
 
     if (portNumber === '') {
         $('#port-exists-disclaimer').hide();
