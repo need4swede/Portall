@@ -26,6 +26,10 @@ app.secret_key = os.environ.get('SECRET_KEY', 'M1Hd4l58YKm2Tqci6ZU65sEgWDexjuSfR
 # Initialize database
 db = init_db(app)
 
+# Create the database tables
+with app.app_context():
+    db.create_all()
+
 # Initialize Flask-Migrate
 migrate = Migrate(app, db)
 
