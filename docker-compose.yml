@@ -7,5 +7,6 @@ services:
       - "8080:8080"
     environment:
       - SECRET_KEY=your_secret_key
+      - LOGLEVEL=info
     volumes:
       - ./instance:/app/instance
