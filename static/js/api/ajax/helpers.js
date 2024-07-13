@@ -181,6 +181,12 @@ export function addPort(formData) {
     });
 }
 
+/**
+ * Generates a new random port for an IP.
+ * Sends an AJAX request to generate a port.
+ *
+ * @param {Object} formData - The form data containing the new port information
+ */
 export function generatePort(formData) {
     // Send AJAX request to generate port
     $.ajax({
