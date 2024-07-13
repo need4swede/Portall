@@ -181,6 +181,38 @@ export function addPort(formData) {
     });
 }
 
+export function generatePort(formData) {
+    // Send AJAX request to generate port
+    $.ajax({
+        url: '/generate_port',
+        method: 'POST',
+        data: formData,
+        success: function (response) {
+            console.log('Port generated successfully:', response);
+            // Display the generated URL with a copy button
+            $('#result').html(`
+                        <div class="alert alert-success" role="alert">
+                            Generated URL: ${response.full_url}
+                            <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${response.full_url}">Copy</button>
+                        </div>
+                    `);
+            // Add click event for the copy button
+            $('.copy-btn').click(function () {
+                copyToClipboard($(this).data('url'));
+            });
+        },
+        error: function (xhr, status, error) {
+            console.error('Error generating port:', status, error);
+            // Display error message
+            $('#result').html(`
+                        <div class="alert alert-danger" role="alert">
+                            Error: ${xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'}
+                        </div>
+                    `);
+        }
+    });
+}
+
 /**
  * Delete a port.
  * Sends an AJAX request to delete a port and removes it from the DOM.
