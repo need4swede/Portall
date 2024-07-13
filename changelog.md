@@ -2,6 +2,8 @@
 ## Added:
 ### Sorting
 You can now quickly sort your ports by port number or by protocol type. Manually sorting your ports via drag-and-drop is still supported.
+### Docker-Compose Anchors
+Added support for anchors in docker-compose imports. Port descriptions are still pulled from the image name.
 ## Changed:
 ### Moved AJAX Calls
 Moved all AJAX calls to their own respective system files
