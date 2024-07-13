@@ -9,7 +9,9 @@ Moved all AJAX calls to their own respective system files
 Imports now skip adding ports that already exists in your database.
 ## Fixed:
 ### Missing Nicknames
-Fixed an issue where nicknames wouldn't get properly parsed when adding or importing ports
+Fixed an issue where nicknames wouldn't get properly parsed when adding or importing ports.
+### Moving Ports Creates Host
+Fixed a bug where moving a port from one host to another would register a new IP address.
 ### New Ports Missing Order
 Fixed a bug where newly added ports wouldn't have their order updated unless explicitly moved.
 ### Protocol detection when adding new Port
