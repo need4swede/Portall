@@ -1,7 +1,7 @@
-// js/api/ajax/helpers.js
+// js/api/ajax.js
 
-import { showNotification } from '../../ui/helpers.js';
-import { cancelDrop } from '../../utils/dragDropUtils.js';
+import { showNotification } from '../ui/helpers.js';
+import { cancelDrop } from '../utils/dragDropUtils.js';
 
 /**
  * Move a port from one IP address to another.

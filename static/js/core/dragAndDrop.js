@@ -3,7 +3,7 @@
 import { updatePortOrder, handlePortClick, checkPortExists } from './portManagement.js';
 import { updateIPPanelOrder } from './ipManagement.js';
 import { showNotification } from '../ui/helpers.js';
-import { movePort, changePortNumber } from '../api/ajax/helpers.js';
+import { movePort, changePortNumber } from '../api/ajax.js';
 import { cancelDrop as cancelDropUtil } from '../utils/dragDropUtils.js';
 import { showLoadingAnimation, hideLoadingAnimation } from '../ui/loadingAnimation.js';
 

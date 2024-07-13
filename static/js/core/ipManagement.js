@@ -1,7 +1,7 @@
 // js/core/ipManagement.js
 
 import { showNotification } from '../ui/helpers.js';
-import { editIp, deleteIp } from '../api/ajax/helpers.js';
+import { editIp, deleteIp } from '../api/ajax.js';
 import { editIpModal } from '../ui/modals.js';
 
 let deleteIpAddress;
