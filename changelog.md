@@ -14,7 +14,7 @@ Fixed an issue where nicknames wouldn't get properly parsed when adding or impor
 Fixed a bug where moving a port from one host to another would register a new IP address.
 ### New Ports Missing Order
 Fixed a bug where newly added ports wouldn't have their order updated unless explicitly moved.
-### Protocol detection when adding new Port
+### Protocol Detection When Adding Ports
 Fixed a bug where port protocols wouldn't get caught for conflicts due to case-sensitivity.
 
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.6" target="_blank">v1.0.6</a>
