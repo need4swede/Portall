@@ -37,15 +37,22 @@ def ports():
 
     # Organize ports by IP address
     ports_by_ip = {}
+
+    # For each port...
     for port in ports:
+
+        # If the port's IP address is not in the dictionary...
         if port.ip_address not in ports_by_ip:
+            # ...add the IP address to the dictionary with an empty list of ports, and set its nickname (if available)
             ports_by_ip[port.ip_address] = {'nickname': port.nickname, 'ports': []}
+
+        # Add the port's details to the list of ports for the given IP address
         ports_by_ip[port.ip_address]['ports'].append({
-            'id': port.id,
-            'port_number': port.port_number,
-            'description': port.description,
-            'port_protocol': (port.port_protocol).upper(),
-            'order': port.order
+            'id': port.id,                                      # Unique identifier for the port
+            'port_number': port.port_number,                    # Port number
+            'description': port.description,                    # Description, usually the service name
+            'port_protocol': (port.port_protocol).upper(),      # Protocol, converted to uppercase
+            'order': port.order                                 # Position of the port within its IP address group
         })
 
     # Get the current theme from the session
