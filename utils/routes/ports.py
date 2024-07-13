@@ -12,6 +12,7 @@ from flask import render_template               # For rendering HTML templates
 from flask import request                       # For handling HTTP requests
 from flask import session                       # For storing session data
 from flask import url_for                       # For generating URLs
+from sqlalchemy import func                     # For using SQL functions
 
 # Local Imports
 from utils.database import db, Port, Setting    # For accessing the database models
@@ -221,9 +222,10 @@ def generate_port():
     # Choose a new port randomly from available ports
     new_port = random.choice([p for p in available_ports if p not in existing_ports])
 
+    # Create and save the new port
     try:
-        # Create and save the new port
-        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol)
+        last_port_position = db.session.query(func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or -1
+        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol, order=last_port_position + 1)
         db.session.add(port)
         db.session.commit()
         app.logger.info(f"Generated new port {new_port} for IP: {ip_address}")
