@@ -5,6 +5,8 @@ You can now quickly sort your ports by port number or by protocol type. Manually
 ## Changed:
 ### Moved AJAX Calls
 Moved all AJAX calls to their own respective system files
+### Skip Existing Ports on Import
+Imports now skip adding ports that already exists in your database.
 ## Fixed:
 ### Missing Nicknames
 Fixed an issue where nicknames wouldn't get properly parsed when adding or importing ports
