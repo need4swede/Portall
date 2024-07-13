@@ -2,11 +2,13 @@
 ## Added:
 ### Sorting
 You can now quickly sort your ports by port number or by protocol type. Manually sorting your ports via drag-and-drop is still supported.
-### Docker-Compose Anchors
+### Database Migration
+Portall will now automatically migrate your database on version changes.
+### <a href="https://github.com/need4swede/Portall/issues/20" target="_blank">Docker-Compose Anchors</a>
 Added support for anchors in docker-compose imports. Port descriptions are still pulled from the image name.
 ## Changed:
-### Moved AJAX Calls
-Moved all AJAX calls to their own respective system files
+### Restructured AJAX Calls
+Renamed and restructured all AJAX calls.
 ### Skip Existing Ports on Import
 Imports now skip adding ports that already exists in your database.
 ## Fixed:
