@@ -355,13 +355,21 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
         $port.attr('data-description', updatedPort.description);
         $port.attr('data-order', updatedPort.order);
         $port.attr('data-id', updatedPort.id);
+        $port.attr('data-nickname', updatedPort.nickname);  // Update the nickname
 
         // Update the port's IP and other attributes
-        const targetNickname = $(targetElement).closest('.network-switch').find('.edit-ip').data('nickname');
+        const targetNickname = updatedPort.nickname;
         $port.attr('data-nickname', targetNickname);
 
+        // Update the visual representation of the port
+        $port.find('.port-number').text(updatedPort.port_number);
+        $port.find('.port-description').text(updatedPort.description);
+        $port.closest('.port-slot').find('.port-protocol').text(updatedPort.protocol);
+
+        // Update the order of ports for both source and target IPs
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
+
         if (isConflictResolution) {
             refreshPageAfterDelay();
         }

@@ -245,9 +245,11 @@ def move_port():
     Move a port from one IP address to another.
 
     This function updates the IP address and order of a port based on the target IP.
+    It also updates the nickname of the port to match the target IP's nickname.
 
     Returns:
         JSON: A JSON response indicating success or failure of the operation.
+              On success, it includes the updated port details.
     """
     port_number = request.form.get('port_number')
     source_ip = request.form.get('source_ip')
@@ -274,15 +276,21 @@ def move_port():
         port = Port.query.filter_by(port_number=port_number, ip_address=source_ip, port_protocol=protocol).first()
         if port:
             app.logger.info(f"Found port to move: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
-            # Update IP address
+
+            # Get the nickname of the target IP
+            target_port = Port.query.filter_by(ip_address=target_ip).first()
+            target_nickname = target_port.nickname if target_port else None
+
+            # Update IP address and nickname
             port.ip_address = target_ip
+            port.nickname = target_nickname
 
             # Update order
             max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=target_ip).scalar() or 0
             port.order = max_order + 1
 
             db.session.commit()
-            app.logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
+            app.logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}, {port.nickname}")
             return jsonify({
                 'success': True,
                 'message': 'Port moved successfully',
@@ -292,7 +300,8 @@ def move_port():
                     'ip_address': port.ip_address,
                     'protocol': port.port_protocol,
                     'description': port.description,
-                    'order': port.order
+                    'order': port.order,
+                    'nickname': port.nickname
                 }
             })
         else:
