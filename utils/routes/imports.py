@@ -136,69 +136,44 @@ def import_caddyfile(content):
     return entries
 
 def import_docker_compose(content):
-    """
-    Parse Docker Compose YAML content and extract port information for non-database services.
-
-    Args:
-    content (str): YAML-formatted string containing Docker Compose configuration
-
-    Returns:
-    list: A list of dictionaries containing extracted port information
-
-    Raises:
-    ValueError: If the YAML format is invalid
-    """
     try:
-        # Parse the YAML content
-        data = yaml.safe_load(content)
+        data = yaml.load(content, Loader=yaml.FullLoader)
         entries = []
 
         if isinstance(data, dict):
-            # Extract the services from the Docker Compose file
             services = data.get('services', {})
 
-            # Iterate through each service in the Docker Compose file
             for service_name, service_config in services.items():
-                # Skip database-related services
                 if any(db in service_name.lower() for db in ['db', 'database', 'mysql', 'postgres', 'mariadb', 'mailhog']):
                     continue
 
-                # Extract ports and image information for the service
                 ports = service_config.get('ports', [])
                 image = service_config.get('image', '')
 
-                # Process each port mapping for the service
                 for port_mapping in ports:
                     if isinstance(port_mapping, str):
                         try:
-                            # Attempt to parse the port and protocol from the mapping
                             parsed_port, protocol = parse_port_and_protocol(port_mapping)
 
-                            # Use the image name as description, or fall back to service name
                             description = image if image else service_name
 
-                            # Add the parsed information to our entries list
                             entries.append({
-                                'ip': '127.0.0.1',  # Assume localhost for all services
+                                'ip': '127.0.0.1',
                                 'nickname': None,
                                 'port': parsed_port,
                                 'description': description,
                                 'port_protocol': protocol
                             })
 
-                            # Log the successfully added entry
                             print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
 
                         except ValueError as e:
-                            # Log a warning if we couldn't parse the port
                             print(f"Warning: {str(e)} for service {service_name}")
 
-        # Log the total number of entries found
         print(f"Total entries found: {len(entries)}")
         return entries
 
     except yaml.YAMLError as e:
-        # If the YAML is invalid, raise a ValueError with a descriptive message
         raise ValueError(f"Invalid Docker-Compose YAML format: {str(e)}")
 
 def import_json(content):
