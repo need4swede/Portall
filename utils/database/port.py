@@ -10,5 +10,6 @@ class Port(db.Model):
     port_protocol = db.Column(db.String(3), nullable=False)
     description = db.Column(db.String(100), nullable=False)
     order = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(15), default='open') # TEST ONLY
 
     __table_args__ = (db.UniqueConstraint('ip_address', 'port_number', 'port_protocol', name='_ip_port_protocol_uc'),)
