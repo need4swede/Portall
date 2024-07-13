@@ -49,7 +49,7 @@ def import_data():
 
         # Process the imported data and add to database
         for item in imported_data:
-            port = Port(ip_address=item['ip'], port_number=item['port'], description=item['description'], port_protocol=item['port_protocol'])
+            port = Port(ip_address=item['ip'], nickname=item['nickname'], port_number=item['port'], description=item['description'], port_protocol=item['port_protocol'])
             db.session.add(port)
         db.session.commit()
 
@@ -186,6 +186,7 @@ def import_json(content):
         for item in data:
             entries.append({
                 'ip': item['ip_address'],
+                'nickname': item['nickname'],
                 'port': int(item['port_number']),
                 'description': item['description'],
                 'port_protocol': item['port_protocol'].upper()
