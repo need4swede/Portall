@@ -73,7 +73,7 @@ def add_port():
         JSON: A JSON response indicating success or failure of the operation.
     """
     ip_address = request.form['ip']
-    ip_nickname = request.form['ip_nickname']
+    ip_nickname = request.form['ip_nickname'] or None
     port_number = request.form['port_number']
     description = request.form['description']
     protocol = request.form['protocol']

@@ -49,7 +49,12 @@ def import_data():
 
         # Process the imported data and add to database
         for item in imported_data:
-            port = Port(ip_address=item['ip'], nickname=item['nickname'], port_number=item['port'], description=item['description'], port_protocol=item['port_protocol'])
+            port = Port(ip_address=item['ip'],
+                        nickname=item['nickname'] if item['nickname'] is not None else None,
+                        port_number=item['port'],
+                        description=item['description'],
+                        port_protocol=item['port_protocol']
+            )
             db.session.add(port)
         db.session.commit()
 
@@ -92,6 +97,7 @@ def import_caddyfile(content):
                     ip, port = ip_port.split(':')
                     entries.append({
                         'ip': ip,
+                        'nickname': None,
                         'port': int(port),
                         'description': current_domain,
                         'port_protocol': 'TCP' # Assume TCP
@@ -144,6 +150,7 @@ def import_docker_compose(content):
                             # Add the parsed information to our entries list
                             entries.append({
                                 'ip': '127.0.0.1',  # Assume localhost for all services
+                                'nickname': None,
                                 'port': parsed_port,
                                 'description': description,
                                 'port_protocol': protocol
