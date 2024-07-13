@@ -2,6 +2,16 @@
 ## Added:
 ### Sorting
 You can now quickly sort your ports by port number or by protocol type. Manually sorting your ports via drag-and-drop is still supported.
+## Changed:
+### Moved AJAX Calls
+Moved all AJAX calls to their own respective system files
+## Fixed:
+### Missing Nicknames
+Fixed an issue where nicknames wouldn't get properly parsed when adding or importing ports
+### New Ports Missing Order
+Fixed a bug where newly added ports wouldn't have their order updated unless explicitly moved.
+### Protocol detection when adding new Port
+Fixed a bug where port protocols wouldn't get caught for conflicts due to case-sensitivity.
 
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.6" target="_blank">v1.0.6</a>
 ## Added:
