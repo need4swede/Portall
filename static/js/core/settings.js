@@ -6,7 +6,7 @@
  * and various UI interactions.
  */
 
-import { exportEntries } from '../api/ajax/helpers.js';
+import { exportEntries } from '../api/ajax.js';
 
 let cssEditor;
 

@@ -7,6 +7,7 @@
  */
 
 import { showNotification } from '../ui/helpers.js';
+import { generatePort } from '../api/ajax.js';
 
 $(document).ready(function () {
     console.log('Document ready');
@@ -64,39 +65,13 @@ $(document).ready(function () {
         }
 
         // Send AJAX request to generate port
-        $.ajax({
-            url: '/generate_port',
-            method: 'POST',
-            data: {
-                ip_address: ipAddress,
-                nickname: nickname,
-                description: $('#description').val(),
-                protocol: portProtocol
-            },
-            success: function (response) {
-                console.log('Port generated successfully:', response);
-                // Display the generated URL with a copy button
-                $('#result').html(`
-                    <div class="alert alert-success" role="alert">
-                        Generated URL: ${response.full_url}
-                        <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${response.full_url}">Copy</button>
-                    </div>
-                `);
-                // Add click event for the copy button
-                $('.copy-btn').click(function () {
-                    copyToClipboard($(this).data('url'));
-                });
-            },
-            error: function (xhr, status, error) {
-                console.error('Error generating port:', status, error);
-                // Display error message
-                $('#result').html(`
-                    <div class="alert alert-danger" role="alert">
-                        Error: ${xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'}
-                    </div>
-                `);
-            }
-        });
+        const formData = {
+            ip_address: ipAddress,
+            nickname: nickname,
+            description: $('#description').val(),
+            protocol: portProtocol
+        }
+        generatePort(formData)
     });
 });
 

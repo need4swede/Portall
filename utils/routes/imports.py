@@ -23,21 +23,27 @@ imports_bp = Blueprint('imports', __name__)
 @imports_bp.route('/import', methods=['GET', 'POST'])
 def import_data():
     """
-    Handle data import requests.
+    Handle data import requests for various file types.
 
-    This route function manages both GET and POST requests for data import.
-    For GET requests, it renders the import template.
-    For POST requests, it processes the uploaded file based on the import type.
+    This function processes both GET and POST requests:
+    - GET: Renders the import template.
+    - POST: Processes the uploaded file based on the import type.
+
+    The function supports importing from Caddyfile, JSON, and Docker-Compose formats.
+    It checks for existing entries in the database to avoid duplicates and
+    provides a summary of added and skipped entries.
 
     Returns:
         For GET: Rendered HTML template
-        For POST: JSON response indicating success or failure of the import
+        For POST: JSON response indicating success or failure of the import,
+                    including counts of added and skipped entries.
     """
     if request.method == 'POST':
+        # Extract import type and file content from the form data
         import_type = request.form.get('import_type')
         file_content = request.form.get('file_content')
 
-        # Determine the import function based on the file type
+        # Determine the appropriate import function based on the file type
         if import_type == 'Caddyfile':
             imported_data = import_caddyfile(file_content)
         elif import_type == 'JSON':
@@ -45,20 +51,49 @@ def import_data():
         elif import_type == 'Docker-Compose':
             imported_data = import_docker_compose(file_content)
         else:
+            # Return an error response for unsupported import types
             return jsonify({'success': False, 'message': 'Unsupported import type'}), 400
 
-        # Process the imported data and add to database
+        # Initialize counters for added and skipped entries
+        added_count = 0
+        skipped_count = 0
+
+        # Process each item in the imported data
         for item in imported_data:
-            port = Port(ip_address=item['ip'], port_number=item['port'], description=item['description'], port_protocol=item['port_protocol'])
-            db.session.add(port)
+            # Check if the entry already exists in the database
+            existing_port = Port.query.filter_by(
+                ip_address=item['ip'],
+                port_number=item['port'],
+                port_protocol=item['port_protocol']
+            ).first()
+
+            if existing_port is None:
+                # If the entry doesn't exist, create a new Port object
+                port = Port(
+                    ip_address=item['ip'],
+                    nickname=item['nickname'] if item['nickname'] is not None else None,
+                    port_number=item['port'],
+                    description=item['description'],
+                    port_protocol=item['port_protocol']
+                )
+                # Add the new port to the database session
+                db.session.add(port)
+                added_count += 1
+            else:
+                # If the entry already exists, skip it
+                skipped_count += 1
+
+        # Commit all changes to the database
         db.session.commit()
 
-        # Return a success response
-        return jsonify({'success': True, 'message': f'Imported {len(imported_data)} entries'})
+        # Return a success response with summary of the import operation
+        return jsonify({
+            'success': True,
+            'message': f'Imported {added_count} entries, skipped {skipped_count} existing entries'
+        })
 
-    # For GET requests, render the template
+    # For GET requests, render the import template
     return render_template('import.html', theme=session.get('theme', 'light'))
-
 ## Import Types ##
 
 def import_caddyfile(content):
@@ -92,6 +127,7 @@ def import_caddyfile(content):
                     ip, port = ip_port.split(':')
                     entries.append({
                         'ip': ip,
+                        'nickname': None,
                         'port': int(port),
                         'description': current_domain,
                         'port_protocol': 'TCP' # Assume TCP
@@ -100,68 +136,44 @@ def import_caddyfile(content):
     return entries
 
 def import_docker_compose(content):
-    """
-    Parse Docker Compose YAML content and extract port information for non-database services.
-
-    Args:
-    content (str): YAML-formatted string containing Docker Compose configuration
-
-    Returns:
-    list: A list of dictionaries containing extracted port information
-
-    Raises:
-    ValueError: If the YAML format is invalid
-    """
     try:
-        # Parse the YAML content
-        data = yaml.safe_load(content)
+        data = yaml.load(content, Loader=yaml.FullLoader)
         entries = []
 
         if isinstance(data, dict):
-            # Extract the services from the Docker Compose file
             services = data.get('services', {})
 
-            # Iterate through each service in the Docker Compose file
             for service_name, service_config in services.items():
-                # Skip database-related services
                 if any(db in service_name.lower() for db in ['db', 'database', 'mysql', 'postgres', 'mariadb', 'mailhog']):
                     continue
 
-                # Extract ports and image information for the service
                 ports = service_config.get('ports', [])
                 image = service_config.get('image', '')
 
-                # Process each port mapping for the service
                 for port_mapping in ports:
                     if isinstance(port_mapping, str):
                         try:
-                            # Attempt to parse the port and protocol from the mapping
                             parsed_port, protocol = parse_port_and_protocol(port_mapping)
 
-                            # Use the image name as description, or fall back to service name
                             description = image if image else service_name
 
-                            # Add the parsed information to our entries list
                             entries.append({
-                                'ip': '127.0.0.1',  # Assume localhost for all services
+                                'ip': '127.0.0.1',
+                                'nickname': None,
                                 'port': parsed_port,
                                 'description': description,
                                 'port_protocol': protocol
                             })
 
-                            # Log the successfully added entry
                             print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
 
                         except ValueError as e:
-                            # Log a warning if we couldn't parse the port
                             print(f"Warning: {str(e)} for service {service_name}")
 
-        # Log the total number of entries found
         print(f"Total entries found: {len(entries)}")
         return entries
 
     except yaml.YAMLError as e:
-        # If the YAML is invalid, raise a ValueError with a descriptive message
         raise ValueError(f"Invalid Docker-Compose YAML format: {str(e)}")
 
 def import_json(content):
@@ -186,6 +198,7 @@ def import_json(content):
         for item in data:
             entries.append({
                 'ip': item['ip_address'],
+                'nickname': item['nickname'],
                 'port': int(item['port_number']),
                 'description': item['description'],
                 'port_protocol': item['port_protocol'].upper()

@@ -1,7 +1,7 @@
-// js/api/ajax/helpers.js
+// js/api/ajax.js
 
-import { showNotification } from '../../ui/helpers.js';
-import { cancelDrop } from '../../utils/dragDropUtils.js';
+import { showNotification } from '../ui/helpers.js';
+import { cancelDrop } from '../utils/dragDropUtils.js';
 
 /**
  * Move a port from one IP address to another.
@@ -182,6 +182,44 @@ export function addPort(formData) {
 }
 
 /**
+ * Generates a new random port for an IP.
+ * Sends an AJAX request to generate a port.
+ *
+ * @param {Object} formData - The form data containing the new port information
+ */
+export function generatePort(formData) {
+    // Send AJAX request to generate port
+    $.ajax({
+        url: '/generate_port',
+        method: 'POST',
+        data: formData,
+        success: function (response) {
+            console.log('Port generated successfully:', response);
+            // Display the generated URL with a copy button
+            $('#result').html(`
+                        <div class="alert alert-success" role="alert">
+                            Generated URL: ${response.full_url}
+                            <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${response.full_url}">Copy</button>
+                        </div>
+                    `);
+            // Add click event for the copy button
+            $('.copy-btn').click(function () {
+                copyToClipboard($(this).data('url'));
+            });
+        },
+        error: function (xhr, status, error) {
+            console.error('Error generating port:', status, error);
+            // Display error message
+            $('#result').html(`
+                        <div class="alert alert-danger" role="alert">
+                            Error: ${xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'}
+                        </div>
+                    `);
+        }
+    });
+}
+
+/**
  * Delete a port.
  * Sends an AJAX request to delete a port and removes it from the DOM.
  *
@@ -281,4 +319,35 @@ export function exportEntries() {
             console.error('Error:', error);
             showNotification('Error exporting data: ' + error.message, 'error');
         });
+}
+
+/**
+ * Update the order of ports for a specific IP address.
+ * Sends an AJAX request to update the port order on the server.
+ *
+ * @param {string} ip - The IP address for which to update the port order
+ * @param {Array<number>} portOrder - An array of port numbers in the new order
+ */
+export function updatePortOrder(ip, portOrder) {
+    $.ajax({
+        url: '/update_port_order',
+        method: 'POST',
+        data: JSON.stringify({
+            ip: ip,
+            port_order: portOrder
+        }),
+        contentType: 'application/json',
+        success: function (response) {
+            if (response.success) {
+                console.log('Port order updated successfully');
+            } else {
+                console.error('Error updating port order:', response.message);
+                showNotification('Error updating port order: ' + response.message, 'error');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error updating port order:', error);
+            showNotification('Error updating port order: ' + error, 'error');
+        }
+    });
 }

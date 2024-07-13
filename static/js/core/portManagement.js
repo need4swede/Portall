@@ -2,6 +2,7 @@
 
 import { showNotification } from '../ui/helpers.js';
 import { editPortModal, addPortModal, deletePortModal } from '../ui/modals.js';
+import { updatePortOrder as updatePortOrderAjax } from '../api/ajax.js';
 
 /**
  * The IP address of the port to be deleted.
@@ -34,6 +35,19 @@ let originalPortId;
 let originalProtocol;
 
 /**
+ * The current sort type being used.
+ * @type {string|null}
+ */
+let currentSortType = null;
+
+/**
+ * The current sort order being used.
+ * @type {string|null}
+ */
+let currentSortOrder = null;
+
+
+/**
  * Initialize event handlers for port management.
  * Sets up event listeners for port number inputs, and handles add, save, and delete port actions.
  */
@@ -52,6 +66,80 @@ export function init() {
     $('#port-protocol').on('change', handleNewPortNumberInput);
     $('#new-port-number').on('input', handleNewPortNumberInput);
     $('#port-protocol').on('change', handleProtocolChange);
+    initSortButtons();
+}
+
+/**
+ * Initialize event handlers for sort buttons.
+ * Sets up click event listeners on elements with the class 'sort-btn'.
+ */
+function initSortButtons() {
+    $('.sort-btn').on('click', handleSortButtonClick);
+}
+
+/**
+ * Handle click event on a sort button.
+ * Toggles the sort order or resets it if clicking a different sort type,
+ * updates button icons, sorts the ports, and updates the port order in the database.
+ *
+ * @param {Event} e - The click event object
+ */
+function handleSortButtonClick(e) {
+    const $button = $(e.currentTarget);
+    const sortType = $button.data('sort');
+    const ip = $button.data('ip');
+    const $panel = $button.closest('.network-switch').find('.switch-panel');
+
+    // Toggle sort order or reset if clicking a different sort type
+    if (sortType === currentSortType) {
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortType = sortType;
+        currentSortOrder = 'asc';
+    }
+
+    // Update all button icons
+    $('.sort-btn').each(function () {
+        const $btn = $(this);
+        const $icon = $btn.find('i:last-child');
+        if ($btn.data('sort') === sortType) {
+            $icon.removeClass('fa-sort fa-sort-up fa-sort-down')
+                .addClass(currentSortOrder === 'asc' ? 'fa-sort-up' : 'fa-sort-down')
+                .show();
+        } else {
+            $icon.removeClass('fa-sort-up fa-sort-down').addClass('fa-sort').hide();
+        }
+    });
+
+    // Sort the ports
+    const $ports = $panel.find('.port-slot:not(.add-port-slot)').detach().sort((a, b) => {
+        const aValue = getSortValue($(a), sortType);
+        const bValue = getSortValue($(b), sortType);
+        return currentSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+    // Reattach sorted ports
+    $panel.prepend($ports);
+
+    // Update port order in the database
+    updatePortOrder(ip);
+}
+
+/**
+ * Get the value to sort by for a given port element and sort type.
+ * Retrieves the relevant data attribute based on the sort type.
+ *
+ * @param {jQuery} $el - The jQuery element representing the port slot
+ * @param {string} sortType - The type of sorting ('port' or 'protocol')
+ * @returns {number} - The value to sort by
+ */
+function getSortValue($el, sortType) {
+    const $port = $el.find('.port');
+    if (sortType === 'port') {
+        return parseInt($port.data('port'), 10);
+    } else if (sortType === 'protocol') {
+        return $port.data('protocol') === 'TCP' ? 0 : 1;
+    }
 }
 
 /**
@@ -111,7 +199,7 @@ export function handlePortClick(element) {
  */
 export function checkPortExists(ip, portNumber, protocol, currentPortId) {
     console.log("Checking if port exists:", ip, portNumber, protocol, currentPortId);
-    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol.toUpperCase()}"]`);
+    const portElement = $(`.port[data-ip="${ip}"][data-port="${portNumber}"][data-protocol="${protocol}"]`);
     console.log("Port element found:", portElement.length > 0);
     console.log("Port element data-id:", portElement.data('id'));
     if (currentPortId) {
@@ -134,27 +222,7 @@ export function updatePortOrder(ip) {
         return $(this).data('port');
     }).get();
 
-    $.ajax({
-        url: '/update_port_order',
-        method: 'POST',
-        data: JSON.stringify({
-            ip: ip,
-            port_order: portOrder
-        }),
-        contentType: 'application/json',
-        success: function (response) {
-            if (response.success) {
-                console.log('Port order updated successfully');
-            } else {
-                console.error('Error updating port order:', response.message);
-                showNotification('Error updating port order: ' + response.message, 'error');
-            }
-        },
-        error: function (xhr, status, error) {
-            console.error('Error updating port order:', error);
-            showNotification('Error updating port order: ' + error, 'error');
-        }
-    });
+    updatePortOrderAjax(ip, portOrder);
 }
 
 /**
@@ -169,6 +237,11 @@ export function verifyPortData() {
     });
 }
 
+/**
+ * Check for port conflicts when editing a port.
+ * Validates the new port number and protocol, checks for existing conflicts,
+ * and updates the disclaimer and save button states accordingly.
+ */
 function checkPortConflict() {
     const ip = $('#edit-port-ip').val();
     const portNumber = $('#new-port-number').val().trim();
@@ -260,8 +333,11 @@ function handlePortNumberInput(isEdit) {
  */
 function handleAddPortClick() {
     const ip = $(this).data('ip');
+    const $networkSwitch = $(this).closest('.network-switch');
+    const ipNickname = $networkSwitch.find('.switch-label').text().trim().match(/\((.*?)\)/)?.[1] || '';
     $('#add-port-ip').val(ip);
     $('#display-add-port-ip').text(ip);
+    $('#add-port-ip-nickname').val(ipNickname);
     $('#add-new-port-number').val('');
     $('#add-port-description').val('');
     $('#add-port-protocol').val('TCP');  // Reset to TCP by default
@@ -277,15 +353,17 @@ function handleAddPortClick() {
 function handleSavePortClick() {
     console.log("Save port button clicked");
     const ip = $('#edit-port-ip').val();
+    const ipNickname = $('#add-port-ip-nickname').val();
     const portNumber = $('#new-port-number').val().trim();
     const description = $('#port-description').val().trim();
     const currentPortId = $('#port-id').val();
-    const protocol = $('#port-protocol').val(); // Add this line
+    const protocol = $('#port-protocol').val();
 
     console.log("IP:", ip);
+    console.log("IP Nickname:", ipNickname);
     console.log("Port Number:", portNumber);
     console.log("Description:", description);
-    console.log("Protocol:", protocol); // Add this line
+    console.log("Protocol:", protocol);
 
     if (portNumber === '') {
         console.log("Port number is empty");
@@ -482,6 +560,10 @@ function handleAddNewPortNumberInput() {
     const ip = $('#add-port-ip').val();
     const portNumber = $(this).val().trim();
     const protocol = $('#add-port-protocol').val();  // Get the selected protocol
+
+    console.log("IP:", ip);
+    console.log("Port Number:", portNumber);
+    console.log("Protocol:", protocol);  // Log the protocol for debugging
 
     if (portNumber === '') {
         $('#port-exists-disclaimer').hide();

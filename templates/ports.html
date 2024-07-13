@@ -6,6 +6,14 @@
 <div class="network-switch" draggable="true" data-ip="{{ ip }}">
     <h2 class="switch-label">
         {{ ip }}{% if data.nickname %} ({{ data.nickname }}){% endif %}
+        <div class="sort-buttons">
+            <button class="sort-btn" data-sort="port" data-ip="{{ ip }}" title="Sort by Port Number">
+                <i class="fas fa-hashtag"></i><i class="fas fa-sort" style="display:none;"></i>
+            </button>
+            <button class="sort-btn" data-sort="protocol" data-ip="{{ ip }}" title="Sort by Protocol">
+                <i class="fas fa-network-wired"></i><i class="fas fa-sort" style="display:none;"></i>
+            </button>
+        </div>
         <a href="#" class="edit-ip" data-ip="{{ ip }}" data-nickname="{{ data.nickname or '' }}">
             <i class="fas fa-pencil-alt"></i>
         </a>
@@ -114,6 +122,7 @@
             <div class="modal-body">
                 <form id="add-port-form">
                     <input type="hidden" id="add-port-ip" name="ip">
+                    <input type="hidden" id="add-port-ip-nickname" name="ip_nickname">
                     <div class="mb-3">
                         <label for="add-new-port-number" class="form-label">Port Number</label>
                         <input type="number" class="form-control" id="add-new-port-number" name="port_number" required>

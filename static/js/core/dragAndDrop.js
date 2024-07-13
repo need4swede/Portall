@@ -3,7 +3,7 @@
 import { updatePortOrder, handlePortClick, checkPortExists } from './portManagement.js';
 import { updateIPPanelOrder } from './ipManagement.js';
 import { showNotification } from '../ui/helpers.js';
-import { movePort, changePortNumber } from '../api/ajax/helpers.js';
+import { movePort, changePortNumber } from '../api/ajax.js';
 import { cancelDrop as cancelDropUtil } from '../utils/dragDropUtils.js';
 import { showLoadingAnimation, hideLoadingAnimation } from '../ui/loadingAnimation.js';
 
@@ -322,6 +322,19 @@ function finalizeDrop(targetElement) {
     sourceIp = null;
 }
 
+/**
+ * Proceed with moving a port from one IP address to another.
+ * Inserts the dragged element before the target element, updates the server,
+ * and adjusts the port order.
+ *
+ * @param {number} portNumber - The port number being moved
+ * @param {string} protocol - The protocol of the port (e.g., 'TCP', 'UDP')
+ * @param {string} sourceIp - The source IP address
+ * @param {string} targetIp - The target IP address
+ * @param {HTMLElement} targetElement - The target element for insertion
+ * @param {HTMLElement} draggingElement - The element being dragged
+ * @param {boolean} [isConflictResolution=false] - Flag indicating if this is part of conflict resolution
+ */
 function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement, isConflictResolution = false) {
     console.log(`Proceeding with move: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
     console.log('Dragging element:', draggingElement);
@@ -342,13 +355,21 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
         $port.attr('data-description', updatedPort.description);
         $port.attr('data-order', updatedPort.order);
         $port.attr('data-id', updatedPort.id);
+        $port.attr('data-nickname', updatedPort.nickname);  // Update the nickname
 
         // Update the port's IP and other attributes
-        const targetNickname = $(targetElement).closest('.network-switch').find('.edit-ip').data('nickname');
+        const targetNickname = updatedPort.nickname;
         $port.attr('data-nickname', targetNickname);
 
+        // Update the visual representation of the port
+        $port.find('.port-number').text(updatedPort.port_number);
+        $port.find('.port-description').text(updatedPort.description);
+        $port.closest('.port-slot').find('.port-protocol').text(updatedPort.protocol);
+
+        // Update the order of ports for both source and target IPs
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
+
         if (isConflictResolution) {
             refreshPageAfterDelay();
         }

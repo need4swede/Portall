@@ -12,6 +12,7 @@ from flask import render_template               # For rendering HTML templates
 from flask import request                       # For handling HTTP requests
 from flask import session                       # For storing session data
 from flask import url_for                       # For generating URLs
+from sqlalchemy import func                     # For using SQL functions
 
 # Local Imports
 from utils.database import db, Port, Setting    # For accessing the database models
@@ -37,15 +38,22 @@ def ports():
 
     # Organize ports by IP address
     ports_by_ip = {}
+
+    # For each port...
     for port in ports:
+
+        # If the port's IP address is not in the dictionary...
         if port.ip_address not in ports_by_ip:
+            # ...add the IP address to the dictionary with an empty list of ports, and set its nickname (if available)
             ports_by_ip[port.ip_address] = {'nickname': port.nickname, 'ports': []}
+
+        # Add the port's details to the list of ports for the given IP address
         ports_by_ip[port.ip_address]['ports'].append({
-            'id': port.id,
-            'port_number': port.port_number,
-            'description': port.description,
-            'port_protocol': (port.port_protocol).upper(),
-            'order': port.order
+            'id': port.id,                                      # Unique identifier for the port
+            'port_number': port.port_number,                    # Port number
+            'description': port.description,                    # Description, usually the service name
+            'port_protocol': (port.port_protocol).upper(),      # Protocol, converted to uppercase
+            'order': port.order                                 # Position of the port within its IP address group
         })
 
     # Get the current theme from the session
@@ -65,13 +73,14 @@ def add_port():
         JSON: A JSON response indicating success or failure of the operation.
     """
     ip_address = request.form['ip']
+    ip_nickname = request.form['ip_nickname'] or None
     port_number = request.form['port_number']
     description = request.form['description']
-    protocol = request.form['protocol']  # New line
+    protocol = request.form['protocol']
 
     try:
         max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or 0
-        port = Port(ip_address=ip_address, port_number=port_number, description=description,
+        port = Port(ip_address=ip_address, nickname=ip_nickname, port_number=port_number, description=description,
                     port_protocol=protocol, order=max_order + 1)  # Updated
         db.session.add(port)
         db.session.commit()
@@ -214,9 +223,10 @@ def generate_port():
     # Choose a new port randomly from available ports
     new_port = random.choice([p for p in available_ports if p not in existing_ports])
 
+    # Create and save the new port
     try:
-        # Create and save the new port
-        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol)
+        last_port_position = db.session.query(func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or -1
+        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol, order=last_port_position + 1)
         db.session.add(port)
         db.session.commit()
         app.logger.info(f"Generated new port {new_port} for IP: {ip_address}")
@@ -235,9 +245,11 @@ def move_port():
     Move a port from one IP address to another.
 
     This function updates the IP address and order of a port based on the target IP.
+    It also updates the nickname of the port to match the target IP's nickname.
 
     Returns:
         JSON: A JSON response indicating success or failure of the operation.
+              On success, it includes the updated port details.
     """
     port_number = request.form.get('port_number')
     source_ip = request.form.get('source_ip')
@@ -264,15 +276,21 @@ def move_port():
         port = Port.query.filter_by(port_number=port_number, ip_address=source_ip, port_protocol=protocol).first()
         if port:
             app.logger.info(f"Found port to move: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
-            # Update IP address
+
+            # Get the nickname of the target IP
+            target_port = Port.query.filter_by(ip_address=target_ip).first()
+            target_nickname = target_port.nickname if target_port else None
+
+            # Update IP address and nickname
             port.ip_address = target_ip
+            port.nickname = target_nickname
 
             # Update order
             max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=target_ip).scalar() or 0
             port.order = max_order + 1
 
             db.session.commit()
-            app.logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
+            app.logger.info(f"Port moved successfully: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}, {port.nickname}")
             return jsonify({
                 'success': True,
                 'message': 'Port moved successfully',
@@ -282,7 +300,8 @@ def move_port():
                     'ip_address': port.ip_address,
                     'protocol': port.port_protocol,
                     'description': port.description,
-                    'order': port.order
+                    'order': port.order,
+                    'nickname': port.nickname
                 }
             })
         else:
