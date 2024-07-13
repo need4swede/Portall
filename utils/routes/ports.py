@@ -73,13 +73,14 @@ def add_port():
         JSON: A JSON response indicating success or failure of the operation.
     """
     ip_address = request.form['ip']
+    ip_nickname = request.form['ip_nickname']
     port_number = request.form['port_number']
     description = request.form['description']
-    protocol = request.form['protocol']  # New line
+    protocol = request.form['protocol']
 
     try:
         max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or 0
-        port = Port(ip_address=ip_address, port_number=port_number, description=description,
+        port = Port(ip_address=ip_address, nickname=ip_nickname, port_number=port_number, description=description,
                     port_protocol=protocol, order=max_order + 1)  # Updated
         db.session.add(port)
         db.session.commit()

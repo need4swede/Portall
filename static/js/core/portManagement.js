@@ -333,8 +333,11 @@ function handlePortNumberInput(isEdit) {
  */
 function handleAddPortClick() {
     const ip = $(this).data('ip');
+    const $networkSwitch = $(this).closest('.network-switch');
+    const ipNickname = $networkSwitch.find('.switch-label').text().trim().match(/\((.*?)\)/)?.[1] || '';
     $('#add-port-ip').val(ip);
     $('#display-add-port-ip').text(ip);
+    $('#add-port-ip-nickname').val(ipNickname);
     $('#add-new-port-number').val('');
     $('#add-port-description').val('');
     $('#add-port-protocol').val('TCP');  // Reset to TCP by default
@@ -350,15 +353,17 @@ function handleAddPortClick() {
 function handleSavePortClick() {
     console.log("Save port button clicked");
     const ip = $('#edit-port-ip').val();
+    const ipNickname = $('#add-port-ip-nickname').val();
     const portNumber = $('#new-port-number').val().trim();
     const description = $('#port-description').val().trim();
     const currentPortId = $('#port-id').val();
-    const protocol = $('#port-protocol').val(); // Add this line
+    const protocol = $('#port-protocol').val();
 
     console.log("IP:", ip);
+    console.log("IP Nickname:", ipNickname);
     console.log("Port Number:", portNumber);
     console.log("Description:", description);
-    console.log("Protocol:", protocol); // Add this line
+    console.log("Protocol:", protocol);
 
     if (portNumber === '') {
         console.log("Port number is empty");
