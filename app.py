@@ -6,8 +6,9 @@ import os
 
 # External Imports
 from flask import Flask
-from flask_migrate import Migrate, upgrade, stamp
+from flask_migrate import Migrate, upgrade, stamp, current
 from sqlalchemy.exc import OperationalError
+from alembic.util import CommandError
 
 # Local Imports
 from utils.database import init_db
@@ -21,7 +22,7 @@ def create_app():
     Create and configure the Flask application.
 
     Returns:
-        Flask: The configured Flask application instance.
+        tuple: The configured Flask application instance and SQLAlchemy database instance.
     """
     # Create the Flask app
     app = Flask(__name__)
@@ -46,29 +47,61 @@ def init_or_migrate_db(app, db):
     """
     Initialize a new database or migrate an existing one.
 
-    This function attempts to connect to the database. If successful, it applies
-    any pending migrations. If unsuccessful (likely due to the database not existing),
-    it creates all tables and stamps the database with the latest migration version.
+    This function handles four scenarios:
+    1. Database does not exist: Creates it and all tables.
+    2. Database exists, but no migration folder: Ensures all tables exist.
+    3. Database exists, migration folder exists, but no changes: No action needed.
+    4. Database exists, migration folder exists, and changes detected: Updates database.
 
     Args:
         app (Flask): The Flask application instance.
         db (SQLAlchemy): The SQLAlchemy database instance.
     """
     with app.app_context():
+        # Check if migrations folder exists
+        migrations_folder = os.path.join(os.path.dirname(__file__), 'migrations')
+        migrations_exist = os.path.exists(migrations_folder)
+
         try:
             # Try to access the database
             db.engine.connect()
-            logging.info("Existing database found. Applying migrations...")
-            # If successful, run migrations
-            upgrade()
-            logging.info("Migrations applied successfully.")
+            logging.info("Existing database found.")
+
+            if migrations_exist:
+                logging.info("Migrations folder found. Checking for pending migrations...")
+                try:
+                    # Get current migration version
+                    current_version = current(directory=migrations_folder)
+
+                    # Try to upgrade
+                    upgrade(directory=migrations_folder)
+                    new_version = current(directory=migrations_folder)
+
+                    if new_version != current_version:
+                        logging.info("Database updated successfully.")
+                    else:
+                        logging.info("Database is up-to-date. No migration needed.")
+                except CommandError as e:
+                    if "Target database is not up to date" in str(e):
+                        logging.warning("Database schema has changed. Applying migrations...")
+                        upgrade(directory=migrations_folder)
+                        logging.info("Migrations applied successfully.")
+                    else:
+                        raise
+            else:
+                logging.info("No migrations folder found. Ensuring all tables exist...")
+                db.create_all()
+                logging.info("Database tables verified/created.")
         except OperationalError:
-            logging.info("No existing database found. Creating new database...")
-            # If the database doesn't exist, create it
+            logging.info("No existing database found. Creating new database and tables...")
+            # If the database doesn't exist, create it and all tables
             db.create_all()
-            # Then stamp it as the latest migration
-            stamp()
-            logging.info("New database created and stamped with latest migration version.")
+            if migrations_exist:
+                # If migrations exist, stamp the database
+                stamp(directory=migrations_folder)
+                logging.info("New database created, all tables created, and stamped with latest migration version.")
+            else:
+                logging.info("New database and all tables created. No migrations to apply.")
 
 # Create the app and get the db instance
 app, db = create_app()
