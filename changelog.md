@@ -1,3 +1,8 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.8" target="_blank">v1.0.8</a>
+## Changed:
+### Overhauled Docker-Compose Imports
+Complete rewrite of how docker-compose data is imported to make the import logic more versititle.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.7" target="_blank">v1.0.7</a>
 ## Added:
 ### Sorting
