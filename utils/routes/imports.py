@@ -135,46 +135,90 @@ def import_caddyfile(content):
 
     return entries
 
+def parse_docker_compose(content):
+    result = {}
+    current_service = None
+    current_image = None
+    in_services = False
+    in_ports = False
+    indent_level = 0
+
+    def add_port(image, port, protocol):
+        image_parts = image.split('/')
+        image_name = image_parts[-1].split(':')[0]
+        if image_name not in result:
+            result[image_name] = []
+        result[image_name].append((port, protocol))
+
+    lines = content.split('\n')
+    for line_number, line in enumerate(lines, 1):
+        original_line = line
+        line = line.strip()
+        current_indent = len(original_line) - len(original_line.lstrip())
+
+        if line.startswith('services:'):
+            in_services = True
+            indent_level = current_indent
+            continue
+
+        if in_services and current_indent == indent_level + 2:
+            if ':' in line and not line.startswith('-'):
+                current_service = line.split(':')[0].strip()
+                current_image = None
+                in_ports = False
+
+        if in_services and current_indent == indent_level + 4:
+            if line.startswith('image:'):
+                current_image = line.split('image:')[1].strip()
+            if line.startswith('ports:'):
+                in_ports = True
+                continue
+
+        if in_ports and current_indent == indent_level + 6:
+            if line.startswith('-'):
+                port_mapping = line.split('-')[1].strip().strip('"').strip("'")
+                if ':' in port_mapping:
+                    host_port = port_mapping.split(':')[0]
+                    protocol = 'UDP' if '/udp' in port_mapping else 'TCP'
+                    host_port = host_port.split('/')[0]  # Remove any protocol specification from the port
+                    if current_image:
+                        add_port(current_image, host_port, protocol)
+        elif in_ports and current_indent <= indent_level + 4:
+            in_ports = False
+
+    return result
+
+def convert_to_json(parsed_data):
+    json_data = []
+    for image, ports in parsed_data.items():
+        for port, protocol in ports:
+            json_entry = {
+                "ip_address": "127.0.0.1",
+                "nickname": None,
+                "port_number": int(port),
+                "description": image,
+                "port_protocol": protocol,
+                "order": 0
+            }
+            json_data.append(json_entry)
+    return json_data
+
 def import_docker_compose(content):
     try:
-        data = yaml.load(content, Loader=yaml.FullLoader)
-        entries = []
+        parsed_data = parse_docker_compose(content)
+        json_data = convert_to_json(parsed_data)
 
-        if isinstance(data, dict):
-            services = data.get('services', {})
+        # Convert the JSON data to a string
+        json_content = json.dumps(json_data)
 
-            for service_name, service_config in services.items():
-                if any(db in service_name.lower() for db in ['db', 'database', 'mysql', 'postgres', 'mariadb', 'mailhog']):
-                    continue
-
-                ports = service_config.get('ports', [])
-                image = service_config.get('image', '')
-
-                for port_mapping in ports:
-                    if isinstance(port_mapping, str):
-                        try:
-                            parsed_port, protocol = parse_port_and_protocol(port_mapping)
-
-                            description = image if image else service_name
-
-                            entries.append({
-                                'ip': '127.0.0.1',
-                                'nickname': None,
-                                'port': parsed_port,
-                                'description': description,
-                                'port_protocol': protocol
-                            })
-
-                            print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
-
-                        except ValueError as e:
-                            print(f"Warning: {str(e)} for service {service_name}")
+        # Use the existing import_json function to process the data
+        entries = import_json(json_content)
 
         print(f"Total entries found: {len(entries)}")
         return entries
 
-    except yaml.YAMLError as e:
-        raise ValueError(f"Invalid Docker-Compose YAML format: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Error parsing Docker-Compose file: {str(e)}")
 
 def import_json(content):
     """
