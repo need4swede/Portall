@@ -353,3 +353,7 @@ code {
 .show-more:hover {
     color: var(--color-blue-dark);
 }
+
+.enabled-plugin {
+    background-color: var(--color-gray-dark);
+}

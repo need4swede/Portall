@@ -22,6 +22,7 @@
     --color-blue: #3a80d2;
     --color-blue-dark: #2980b9;
     --color-blue-light: #3498db;
+    --color-blue-lighter: #3a80d230;
     --color-blue-shadow: #4a90e240;
 
     /* Other Colors */
@@ -341,6 +342,14 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.plugin-form {
+    margin-top: 2em;
+}
+
+#plugins {
+    background-color: transparent;
+}
+
 #delete-port {
     margin-right: auto;
 }
@@ -526,6 +535,85 @@ h1 {
 
 .show-more:hover {
     text-decoration: underline;
+}
+
+/* Checkbox styling */
+.form-check-input {
+    width: 1.25em;
+    height: 1.25em;
+    margin-top: 0.25em;
+    vertical-align: top;
+    background-color: var(--color-white);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    border: 1px solid var(--color-gray-light);
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    transition: background-color 0.15s ease-in-out, background-position 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer;
+}
+
+.form-check-input:checked {
+    background-color: var(--color-blue);
+    border-color: var(--color-blue);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
+}
+
+.form-check-input:focus {
+    border-color: var(--color-blue-light);
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem var(--color-blue-shadow);
+}
+
+.form-check-label {
+    margin-left: 0.5em;
+    cursor: pointer;
+}
+
+/* Enabled Plugins styling */
+#enabled-plugins {
+    border-radius: var(--border-radius);
+    padding: 1rem;
+}
+
+.enabled-plugin {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: var(--border-radius);
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all var(--transition-duration) ease;
+}
+
+.enabled-plugin:last-child {
+    margin-bottom: 0;
+}
+
+.enabled-plugin:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.disable-plugin {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+
+.disable-plugin:hover {
+    background-color: var(--color-red);
+    border-color: var(--color-red);
+}
+
+.plugin-info .plugin-description {
+    font-size: 0.9em;
+    font-style: italic;
+    color: var(--text-color-placeholder);
 }
 
 @keyframes wave {

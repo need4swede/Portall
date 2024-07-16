@@ -217,7 +217,7 @@ $(document).ready(function () {
             url: '/port_settings',
             method: 'GET',
             success: function (data) {
-                console.log("Received port settings:", data);  // Add this line for debugging
+                console.log("Loaded Port Settings:", data);  // Add this line for debugging
 
                 // Clear all fields first
                 $('#port-start, #port-end, #port-exclude').val('');
@@ -235,8 +235,6 @@ $(document).ready(function () {
                 // Always set a value for copy_format
                 const copyFormat = data.copy_format || 'port_only';
                 $(`input[name="copy_format"][value="${copyFormat}"]`).prop('checked', true);
-
-                console.log("Copy format set to:", copyFormat);  // Add this line for debugging
 
                 updatePortLengthStatus();
             },
@@ -366,6 +364,36 @@ $(document).ready(function () {
             }
         });
     }
+
+    function updateEnabledPlugins() {
+        const $enabledPlugins = $('#enabled-plugins');
+        $enabledPlugins.empty(); // Clear existing entries
+        if ($('#portainer-enabled').is(':checked')) {
+            $enabledPlugins.append(`
+                <div class="enabled-plugin">
+                    <div class="plugin-info">
+                        <span class="plugin-name">Portainer</span>: <span class="plugin-description">Connects Portall to your Portainer instance</span>
+                    </div>
+                    <button class="btn btn-sm btn-danger disable-plugin" data-plugin="portainer-enabled">Disable</button>
+                </div>
+            `);
+        }
+    }
+
+    // Handle the Portainer checkbox
+    $('#portainer-enabled').on('change', function () {
+        updateEnabledPlugins();
+    });
+
+    // Handle the Disable button click
+    $(document).on('click', '.disable-plugin', function () {
+        const pluginId = $(this).data('plugin');
+        $(`#${pluginId}`).prop('checked', false);
+        updateEnabledPlugins();
+    });
+
+    // Initial update of Enabled Plugins
+    updateEnabledPlugins();
 
     // Force a refresh on window load
     $(window).on('load', function () {

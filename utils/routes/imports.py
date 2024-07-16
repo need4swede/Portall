@@ -140,68 +140,6 @@ def import_caddyfile(content):
 
     return entries
 
-def parse_docker_compose(content):
-    """
-    Parse Docker Compose file content and extract service information.
-
-    Args:
-        content (str): The content of the Docker Compose file
-
-    Returns:
-        dict: A dictionary with service names as keys and lists of (port, protocol) tuples as values
-    """
-    result = {}
-    current_service = None
-    current_image = None
-    in_services = False
-    in_ports = False
-    indent_level = 0
-
-    def add_port(image, port, protocol):
-        image_parts = image.split('/')
-        image_name = image_parts[-1].split(':')[0]
-        if image_name not in result:
-            result[image_name] = []
-        result[image_name].append((port, protocol))
-
-    lines = content.split('\n')
-    for line in lines:
-        original_line = line
-        line = line.strip()
-        current_indent = len(original_line) - len(original_line.lstrip())
-
-        if line.startswith('services:'):
-            in_services = True
-            indent_level = current_indent
-            continue
-
-        if in_services and current_indent == indent_level + 2:
-            if ':' in line and not line.startswith('-'):
-                current_service = line.split(':')[0].strip()
-                current_image = None
-                in_ports = False
-
-        if in_services and current_indent == indent_level + 4:
-            if line.startswith('image:'):
-                current_image = line.split('image:')[1].strip()
-            if line.startswith('ports:'):
-                in_ports = True
-                continue
-
-        if in_ports and current_indent == indent_level + 6:
-            if line.startswith('-'):
-                port_mapping = line.split('-')[1].strip().strip('"').strip("'")
-                if ':' in port_mapping:
-                    host_port = port_mapping.split(':')[0]
-                    protocol = 'UDP' if '/udp' in port_mapping else 'TCP'
-                    host_port = host_port.split('/')[0]  # Remove any protocol specification from the port
-                    if current_image:
-                        add_port(current_image, host_port, protocol)
-        elif in_ports and current_indent <= indent_level + 4:
-            in_ports = False
-
-    return result
-
 def import_docker_compose(content):
     """
     Parse a Docker Compose file and extract port information.
@@ -271,6 +209,68 @@ def import_json(content):
         raise ValueError("Invalid JSON format")
 
 # Import Helpers
+
+def parse_docker_compose(content):
+    """
+    Parse Docker Compose file content and extract service information.
+
+    Args:
+        content (str): The content of the Docker Compose file
+
+    Returns:
+        dict: A dictionary with service names as keys and lists of (port, protocol) tuples as values
+    """
+    result = {}
+    current_service = None
+    current_image = None
+    in_services = False
+    in_ports = False
+    indent_level = 0
+
+    def add_port(image, port, protocol):
+        image_parts = image.split('/')
+        image_name = image_parts[-1].split(':')[0]
+        if image_name not in result:
+            result[image_name] = []
+        result[image_name].append((port, protocol))
+
+    lines = content.split('\n')
+    for line in lines:
+        original_line = line
+        line = line.strip()
+        current_indent = len(original_line) - len(original_line.lstrip())
+
+        if line.startswith('services:'):
+            in_services = True
+            indent_level = current_indent
+            continue
+
+        if in_services and current_indent == indent_level + 2:
+            if ':' in line and not line.startswith('-'):
+                current_service = line.split(':')[0].strip()
+                current_image = None
+                in_ports = False
+
+        if in_services and current_indent == indent_level + 4:
+            if line.startswith('image:'):
+                current_image = line.split('image:')[1].strip()
+            if line.startswith('ports:'):
+                in_ports = True
+                continue
+
+        if in_ports and current_indent == indent_level + 6:
+            if line.startswith('-'):
+                port_mapping = line.split('-')[1].strip().strip('"').strip("'")
+                if ':' in port_mapping:
+                    host_port = port_mapping.split(':')[0]
+                    protocol = 'UDP' if '/udp' in port_mapping else 'TCP'
+                    host_port = host_port.split('/')[0]  # Remove any protocol specification from the port
+                    if current_image:
+                        add_port(current_image, host_port, protocol)
+        elif in_ports and current_indent <= indent_level + 4:
+            in_ports = False
+
+    return result
 
 def parse_port_and_protocol(port_value):
     """

@@ -30,6 +30,12 @@
             aria-controls="data" aria-selected="false">Data Management</button>
     </li>
 
+    <!-- PLugins -->
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="plugins-tab" data-bs-toggle="tab" data-bs-target="#plugins" type="button"
+            role="tab" aria-controls="plugins" aria-selected="false">Plugins</button>
+    </li>
+
     <!-- About -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="about-tab" data-bs-toggle="tab" data-bs-target="#about" type="button" role="tab"
@@ -176,6 +182,41 @@
         </div>
     </div>
 
+    <!-- Plugin Settings -->
+    <div class="tab-pane fade" id="plugins" role="tabpanel" aria-labelledby="plugins-tab">
+        <h2 class="section-title mb-4">Plugins</h2>
+        <!-- Enabled Plugins -->
+        <div class="info-card mb-4">
+            <div class="card-content">
+                <h3 class="card-title">Enabled Plugins</h3>
+                <div id="enabled-plugins" class="mb-3">
+                    <!-- Enabled plugins will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+        <!-- Portainer -->
+        <div class="info-card mb-4">
+            <div class="card-content">
+                <h3 class="card-title">Portainer</h3>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="portainer-enabled">
+                    <label class="form-check-label" for="portainer-enabled">Enabled</label>
+                </div>
+                <div class="mb-3">
+                    <label for="portainer-url">URL</label>
+                    <input type="text" id="portainer-url" class="form-control" placeholder="http://localhost:9443">
+                </div>
+                <div class="mb-3">
+                    <label for="portainer-token">Access Token</label>
+                    <input type="password" id="portainer-token" class="form-control"
+                        placeholder="ptr_cBqeD5bb/25LxELr155bmA9tdknSxTwwBCr9fQWyGc=">
+                </div>
+                <button id="save-portainer-settings" class="btn btn-primary">Save Portainer Settings</button>
+                <button id="test-portainer-connection" class="btn btn-secondary">Test Connection</button>
+            </div>
+        </div>
+    </div>
+
     <!-- About -->
     <div class="tab-pane fade" id="about" role="tabpanel" aria-labelledby="about-tab">
         <h2 class="section-title mb-4">About Portall</h2>
@@ -231,4 +272,5 @@
 
 {% block scripts %}
 <script type="module" src="{{ url_for('static', filename='js/core/settings.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/plugins/portainer.js') }}"></script>
 {% endblock %}
