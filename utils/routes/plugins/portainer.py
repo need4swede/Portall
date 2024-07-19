@@ -16,6 +16,33 @@ from utils.database import db, Setting
 # Create the blueprint
 portainer_bp = Blueprint('portainer', __name__)
 
+@portainer_bp.route('/get_portainer_config', methods=['GET'])
+def get_portainer_config():
+    """
+    Retrieve the current Portainer configuration.
+
+    This function fetches the Portainer URL, token, and enabled status from the database.
+
+    Returns:
+        JSON: A JSON response containing the Portainer configuration or an error message.
+    """
+    try:
+        url_setting = Setting.query.filter_by(key='portainer_url').first()
+        token_setting = Setting.query.filter_by(key='portainer_token').first()
+        enabled_setting = Setting.query.filter_by(key='portainer_enabled').first()
+
+        config = {
+            'url': url_setting.value if url_setting else '',
+            'token': token_setting.value if token_setting else '',
+            'enabled': enabled_setting.value.lower() == 'true' if enabled_setting else False
+        }
+
+        app.logger.info("Portainer configuration retrieved successfully")
+        return jsonify({'success': True, 'config': config})
+    except Exception as e:
+        app.logger.error(f"Error retrieving Portainer configuration: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error retrieving configuration'}), 500
+
 @portainer_bp.route('/save_portainer_config', methods=['POST'])
 def save_portainer_config():
     """

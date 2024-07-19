@@ -7,12 +7,22 @@
  */
 
 import { exportEntries } from '../api/ajax.js';
+import { initPortainerSettings } from '../plugins/portainer.js';
 
 let cssEditor;
 
 $(document).ready(function () {
     // Initialize Bootstrap modal for confirmation dialogs
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+
+    // Initialize tooltips
+    let tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    let tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+
+    // Initialize Portainer settings
+    initPortainerSettings();
 
     /**
      * Initializes the CodeMirror editor for custom CSS editing.
@@ -163,24 +173,41 @@ $(document).ready(function () {
         }
     });
 
-    // Load port settings on page load
-    $.ajax({
-        url: '/port_settings',
-        method: 'GET',
-        success: function (data) {
-            $('#port-start').val(data.port_start || '');
-            $('#port-end').val(data.port_end || '');
-            $('#port-exclude').val(data.port_exclude || '');
-            if (data.port_length) {
-                $(`input[name="port_length"][value="${data.port_length}"]`).prop('checked', true);
+    /**
+     * Loads and updates the port settings UI.
+     */
+    function loadPortSettings() {
+        $.ajax({
+            url: '/port_settings',
+            method: 'GET',
+            success: function (data) {
+                console.log("Loaded Port Settings:", data);
+
+                // Clear all fields first
+                $('#port-start, #port-end, #port-exclude').val('');
+                $('input[name="port_length"]').prop('checked', false);
+                $('input[name="copy_format"]').prop('checked', false);
+
+                // Then set values only if they exist in the data
+                if (data.port_start) $('#port-start').val(data.port_start);
+                if (data.port_end) $('#port-end').val(data.port_end);
+                if (data.port_exclude) $('#port-exclude').val(data.port_exclude);
+                if (data.port_length) {
+                    $(`input[name="port_length"][value="${data.port_length}"]`).prop('checked', true);
+                }
+
+                // Always set a value for copy_format
+                const copyFormat = data.copy_format || 'port_only';
+                $(`input[name="copy_format"][value="${copyFormat}"]`).prop('checked', true);
+
+                updatePortLengthStatus();
+            },
+            error: function (xhr, status, error) {
+                console.error('Error loading port settings:', status, error);
+                showNotification('Error loading port settings.', 'error');
             }
-            updatePortLengthStatus();
-        },
-        error: function (xhr, status, error) {
-            console.error('Error loading port settings:', status, error);
-            showNotification('Error loading port settings.', 'error');
-        }
-    });
+        });
+    }
 
     // Handle port settings form submission
     $('#port-settings-form').submit(function (e) {
@@ -208,42 +235,6 @@ $(document).ready(function () {
             }
         });
     });
-
-    /**
-     * Loads and updates the port settings UI.
-     */
-    function loadPortSettings() {
-        $.ajax({
-            url: '/port_settings',
-            method: 'GET',
-            success: function (data) {
-                console.log("Loaded Port Settings:", data);  // Add this line for debugging
-
-                // Clear all fields first
-                $('#port-start, #port-end, #port-exclude').val('');
-                $('input[name="port_length"]').prop('checked', false);
-                $('input[name="copy_format"]').prop('checked', false);
-
-                // Then set values only if they exist in the data
-                if (data.port_start) $('#port-start').val(data.port_start);
-                if (data.port_end) $('#port-end').val(data.port_end);
-                if (data.port_exclude) $('#port-exclude').val(data.port_exclude);
-                if (data.port_length) {
-                    $(`input[name="port_length"][value="${data.port_length}"]`).prop('checked', true);
-                }
-
-                // Always set a value for copy_format
-                const copyFormat = data.copy_format || 'port_only';
-                $(`input[name="copy_format"][value="${copyFormat}"]`).prop('checked', true);
-
-                updatePortLengthStatus();
-            },
-            error: function (xhr, status, error) {
-                console.error('Error loading port settings:', status, error);
-                showNotification('Error loading port settings.', 'error');
-            }
-        });
-    }
 
     /**
      * Updates the UI state of port length controls based on start/end port values.
@@ -284,7 +275,6 @@ $(document).ready(function () {
 
     // Handle clear port settings button
     $('#clear-port-settings').click(function () {
-
         // Clear all input fields
         $('#port-start, #port-end, #port-exclude').val('');
 
@@ -364,36 +354,6 @@ $(document).ready(function () {
             }
         });
     }
-
-    function updateEnabledPlugins() {
-        const $enabledPlugins = $('#enabled-plugins');
-        $enabledPlugins.empty(); // Clear existing entries
-        if ($('#portainer-enabled').is(':checked')) {
-            $enabledPlugins.append(`
-                <div class="enabled-plugin">
-                    <div class="plugin-info">
-                        <span class="plugin-name">Portainer</span>: <span class="plugin-description">Connects Portall to your Portainer instance</span>
-                    </div>
-                    <button class="btn btn-sm btn-danger disable-plugin" data-plugin="portainer-enabled">Disable</button>
-                </div>
-            `);
-        }
-    }
-
-    // Handle the Portainer checkbox
-    $('#portainer-enabled').on('change', function () {
-        updateEnabledPlugins();
-    });
-
-    // Handle the Disable button click
-    $(document).on('click', '.disable-plugin', function () {
-        const pluginId = $(this).data('plugin');
-        $(`#${pluginId}`).prop('checked', false);
-        updateEnabledPlugins();
-    });
-
-    // Initial update of Enabled Plugins
-    updateEnabledPlugins();
 
     // Force a refresh on window load
     $(window).on('load', function () {

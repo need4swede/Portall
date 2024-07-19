@@ -197,22 +197,27 @@
         <!-- Portainer -->
         <div class="info-card mb-4">
             <div class="card-content">
-                <h3 class="card-title">Portainer</h3>
+                <h3 id="portainer" class="card-title">Portainer</h3>
                 <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="portainer-enabled">
-                    <label class="form-check-label" for="portainer-enabled">Enabled</label>
+                    <input type="checkbox" class="form-check-input" id="portainer-enabled" name="portainer_enabled"
+                        disabled>
+                    <label class="form-check-label" for="portainer-enabled" data-bs-toggle="tooltip"
+                        data-bs-placement="right"
+                        title="Please configure Portainer first before enabling it.">Enabled</label>
                 </div>
                 <div class="mb-3">
-                    <label for="portainer-url">URL</label>
-                    <input type="text" id="portainer-url" class="form-control" placeholder="http://localhost:9443">
+                    <label for="portainer-url" class="form-label">URL</label>
+                    <input type="text" class="form-control" id="portainer-url" name="portainer_url"
+                        placeholder="http://localhost:9443">
                 </div>
                 <div class="mb-3">
-                    <label for="portainer-token">Access Token</label>
-                    <input type="password" id="portainer-token" class="form-control"
+                    <label for="portainer-token" class="form-label">Access Token</label>
+                    <input type="password" class="form-control" id="portainer-token" name="portainer_token"
                         placeholder="ptr_cBqeD5bb/25LxELr155bmA9tdknSxTwwBCr9fQWyGc=">
                 </div>
-                <button id="save-portainer-settings" class="btn btn-primary">Save Portainer Settings</button>
-                <button id="test-portainer-connection" class="btn btn-secondary">Test Connection</button>
+                <button type="button" class="btn btn-primary" id="save-portainer-settings">Save Portainer
+                    Settings</button>
+                <button type="button" class="btn btn-secondary" id="test-portainer-connection">Test Connection</button>
             </div>
         </div>
     </div>
