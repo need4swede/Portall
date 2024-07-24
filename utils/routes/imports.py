@@ -3,7 +3,6 @@
 # Standard Imports
 import json                                     # For parsing JSON data
 import re                                       # For regular expressions
-import yaml                                     # For parsing YAML data
 
 # External Imports
 from flask import Blueprint                     # For creating a blueprint
@@ -19,26 +18,31 @@ from utils.database import db, Port             # For accessing the database mod
 # Create the blueprint
 imports_bp = Blueprint('imports', __name__)
 
-## Import Route ##
+# Import to Database
 
 @imports_bp.route('/import', methods=['GET', 'POST'])
 def import_data():
     """
-    Handle data import requests.
+    Handle data import requests for various file types.
 
-    This route function manages both GET and POST requests for data import.
-    For GET requests, it renders the import template.
-    For POST requests, it processes the uploaded file based on the import type.
+    This function processes both GET and POST requests:
+    - GET: Renders the import template.
+    - POST: Processes the uploaded file based on the import type.
+
+    The function supports importing from Caddyfile, JSON, and Docker-Compose formats.
+    It checks for existing entries in the database to avoid duplicates and
+    provides a summary of added and skipped entries.
+    The order is reset for each unique IP address.
 
     Returns:
         For GET: Rendered HTML template
-        For POST: JSON response indicating success or failure of the import
+        For POST: JSON response indicating success or failure of the import,
+                  including counts of added and skipped entries.
     """
     if request.method == 'POST':
         import_type = request.form.get('import_type')
         file_content = request.form.get('file_content')
 
-        # Determine the import function based on the file type
         if import_type == 'Caddyfile':
             imported_data = import_caddyfile(file_content)
         elif import_type == 'JSON':
@@ -50,19 +54,55 @@ def import_data():
         else:
             return jsonify({'success': False, 'message': 'Unsupported import type'}), 400
 
-        # Process the imported data and add to database
+        added_count = 0
+        skipped_count = 0
+        ip_order_map = {}  # To keep track of the current order for each IP
+
+        # Group imported data by IP address
+        grouped_data = {}
         for item in imported_data:
-            port = Port(ip_address=item['ip'], port_number=item['port'], description=item['description'], port_protocol=item['port_protocol'])
-            db.session.add(port)
+            ip = item['ip']
+            if ip not in grouped_data:
+                grouped_data[ip] = []
+            grouped_data[ip].append(item)
+
+        for ip, items in grouped_data.items():
+            # Get the maximum order for this IP
+            max_order = db.session.query(db.func.max(Port.order)).filter(Port.ip_address == ip).scalar()
+            current_order = max_order if max_order is not None else -1
+
+            for item in items:
+                existing_port = Port.query.filter_by(
+                    ip_address=item['ip'],
+                    port_number=item['port'],
+                    port_protocol=item['port_protocol']
+                ).first()
+
+                if existing_port is None:
+                    current_order += 1
+                    port = Port(
+                        ip_address=item['ip'],
+                        nickname=item['nickname'] if item['nickname'] is not None else None,
+                        port_number=item['port'],
+                        description=item['description'],
+                        port_protocol=item['port_protocol'],
+                        order=current_order
+                    )
+                    db.session.add(port)
+                    added_count += 1
+                else:
+                    skipped_count += 1
+
         db.session.commit()
 
-        # Return a success response
-        return jsonify({'success': True, 'message': f'Imported {len(imported_data)} entries'})
+        return jsonify({
+            'success': True,
+            'message': f'Imported {added_count} entries, skipped {skipped_count} existing entries'
+        })
 
-    # For GET requests, render the template
     return render_template('import.html', theme=session.get('theme', 'light'))
 
-## Import Types ##
+# Import Types
 
 def import_caddyfile(content):
     """
@@ -95,77 +135,112 @@ def import_caddyfile(content):
                     ip, port = ip_port.split(':')
                     entries.append({
                         'ip': ip,
+                        'nickname': None,
                         'port': int(port),
                         'description': current_domain,
-                        'port_protocol': 'TCP' # Assume TCP
+                        'port_protocol': 'TCP'  # Assume TCP
                     })
 
     return entries
 
-def import_docker_compose(content):
+def parse_docker_compose(content):
     """
-    Parse Docker Compose YAML content and extract port information for non-database services.
+    Parse Docker Compose file content and extract service information.
 
     Args:
-    content (str): YAML-formatted string containing Docker Compose configuration
+        content (str): The content of the Docker Compose file
 
     Returns:
-    list: A list of dictionaries containing extracted port information
+        dict: A dictionary with service names as keys and lists of (port, protocol) tuples as values
+    """
+    result = {}
+    current_service = None
+    current_image = None
+    in_services = False
+    in_ports = False
+    indent_level = 0
+
+    def add_port(image, port, protocol):
+        image_parts = image.split('/')
+        image_name = image_parts[-1].split(':')[0]
+        if image_name not in result:
+            result[image_name] = []
+        result[image_name].append((port, protocol))
+
+    lines = content.split('\n')
+    for line in lines:
+        original_line = line
+        line = line.strip()
+        current_indent = len(original_line) - len(original_line.lstrip())
+
+        if line.startswith('services:'):
+            in_services = True
+            indent_level = current_indent
+            continue
+
+        if in_services and current_indent == indent_level + 2:
+            if ':' in line and not line.startswith('-'):
+                current_service = line.split(':')[0].strip()
+                current_image = None
+                in_ports = False
+
+        if in_services and current_indent == indent_level + 4:
+            if line.startswith('image:'):
+                current_image = line.split('image:')[1].strip()
+            if line.startswith('ports:'):
+                in_ports = True
+                continue
+
+        if in_ports and current_indent == indent_level + 6:
+            if line.startswith('-'):
+                port_mapping = line.split('-')[1].strip().strip('"').strip("'")
+                if ':' in port_mapping:
+                    host_port = port_mapping.split(':')[0]
+                    protocol = 'UDP' if '/udp' in port_mapping else 'TCP'
+                    host_port = host_port.split('/')[0]  # Remove any protocol specification from the port
+                    if current_image:
+                        add_port(current_image, host_port, protocol)
+        elif in_ports and current_indent <= indent_level + 4:
+            in_ports = False
+
+    return result
+
+def import_docker_compose(content):
+    """
+    Parse a Docker Compose file and extract port information.
+
+    This function processes Docker Compose file content, extracting service names,
+    ports, and protocols.
+
+    Args:
+        content (str): The content of the Docker Compose file
+
+    Returns:
+        list: A list of dictionaries containing extracted port information
 
     Raises:
-    ValueError: If the YAML format is invalid
+        ValueError: If there's an error parsing the Docker Compose file
     """
     try:
-        # Parse the YAML content
-        data = yaml.safe_load(content)
+        parsed_data = parse_docker_compose(content)
+
         entries = []
+        for image, ports in parsed_data.items():
+            for port, protocol in ports:
+                entry = {
+                    "ip": "127.0.0.1",
+                    "nickname": None,
+                    "port": int(port),
+                    "description": image,
+                    "port_protocol": protocol
+                }
+                entries.append(entry)
 
-        if isinstance(data, dict):
-            # Extract the services from the Docker Compose file
-            services = data.get('services', {})
-
-            # Iterate through each service in the Docker Compose file
-            for service_name, service_config in services.items():
-                # Skip database-related services
-                if any(db in service_name.lower() for db in ['db', 'database', 'mysql', 'postgres', 'mariadb', 'mailhog']):
-                    continue
-
-                # Extract ports and image information for the service
-                ports = service_config.get('ports', [])
-                image = service_config.get('image', '')
-
-                # Process each port mapping for the service
-                for port_mapping in ports:
-                    if isinstance(port_mapping, str):
-                        try:
-                            # Attempt to parse the port and protocol from the mapping
-                            parsed_port, protocol = parse_port_and_protocol(port_mapping)
-
-                            # Use the image name as description, or fall back to service name
-                            description = image if image else service_name
-
-                            # Add the parsed information to our entries list
-                            entries.append({
-                                'ip': '127.0.0.1',  # Assume localhost for all services
-                                'port': parsed_port,
-                                'description': description,
-                                'port_protocol': protocol
-                            })
-
-                            # Log the successfully added entry
-                            print(f"Added entry: IP: 127.0.0.1, Port: {parsed_port}, Protocol: {protocol}, Description: {description}")
-
-                        except ValueError as e:
-                            # Log a warning if we couldn't parse the port
-                            print(f"Warning: {str(e)} for service {service_name}")
-
-        # Log the total number of entries found
         print(f"Total entries found: {len(entries)}")
         return entries
 
-    except yaml.YAMLError as e:
-        # If the YAML is invalid, raise a ValueError with a descriptive message
-        raise ValueError(f"Invalid Docker-Compose YAML format: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"Error parsing Docker-Compose file: {str(e)}")
 
 def import_json(content):
     """
@@ -189,6 +264,7 @@ def import_json(content):
         for item in data:
             entries.append({
                 'ip': item['ip_address'],
+                'nickname': item['nickname'],
                 'port': int(item['port_number']),
                 'description': item['description'],
                 'port_protocol': item['port_protocol'].upper()
@@ -234,6 +310,8 @@ def import_docker_socket():
 
     return entries
   
+
+# Import Helpers
 
 def parse_port_and_protocol(port_value):
     """
@@ -284,3 +362,13 @@ def parse_port_and_protocol(port_value):
 
     # If we can't parse it, raise an error
     raise ValueError(f"Unable to parse port value: {port_value}")
+
+def get_max_order():
+    """
+    Retrieve the maximum order value from the Port table.
+
+    Returns:
+        int: The maximum order value, or -1 if the table is empty.
+    """
+    max_order = db.session.query(db.func.max(Port.order)).scalar()
+    return max_order if max_order is not None else -1

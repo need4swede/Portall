@@ -164,7 +164,7 @@ h1 {
     font-size: 1.2em;
     margin-bottom: 15px;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
 }
 
@@ -325,6 +325,10 @@ h1 {
     transition: background-color var(--transition-duration) ease;
 }
 
+.switch-label .edit-ip {
+    margin-left: 10px;
+}
+
 #settingsTabs {
     margin-bottom: 2rem;
 }
@@ -344,6 +348,29 @@ h1 {
 #delete-port:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.sort-buttons {
+    display: inline-flex;
+    margin-left: auto;
+    margin-right: 10px;
+}
+
+.sort-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 5px;
+    font-size: 0.8em;
+    color: var(--color-gray-light);
+}
+
+.sort-btn:hover {
+    color: var(--color-gray-very-light);
+}
+
+.sort-btn i {
+    margin-right: 2px;
 }
 
 /* CodeMirror Styles */

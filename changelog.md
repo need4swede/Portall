@@ -1,3 +1,31 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.8" target="_blank">v1.0.8</a>
+## Changed:
+### Overhauled Docker-Compose Imports
+Complete rewrite of how docker-compose data is imported to make the import logic more versititle.
+
+# <a href="https://github.com/need4swede/portall/releases/tag/v1.0.7" target="_blank">v1.0.7</a>
+## Added:
+### Sorting
+You can now quickly sort your ports by port number or by protocol type. Manually sorting your ports via drag-and-drop is still supported.
+### Database Migration
+Portall will now automatically migrate your database on version changes.
+### <a href="https://github.com/need4swede/Portall/issues/20" target="_blank">Docker-Compose Anchors</a>
+Added support for anchors in docker-compose imports. Port descriptions are still pulled from the image name.
+## Changed:
+### Restructured AJAX Calls
+Renamed and restructured all AJAX calls.
+### Skip Existing Ports on Import
+Imports now skip adding ports that already exists in your database.
+## Fixed:
+### Missing Nicknames
+Fixed an issue where nicknames wouldn't get properly parsed when adding or importing ports.
+### Moving Ports Creates Host
+Fixed a bug where moving a port from one host to another would register a new IP address.
+### New Ports Missing Order
+Fixed a bug where newly added ports wouldn't have their order updated unless explicitly moved.
+### Protocol Detection When Adding Ports
+Fixed a bug where port protocols wouldn't get caught for conflicts due to case-sensitivity.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.6" target="_blank">v1.0.6</a>
 ## Added:
 ### Port Protocols
