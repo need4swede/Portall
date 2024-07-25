@@ -301,10 +301,16 @@ def import_docker_socket():
                   description = str(container.labels["com.portall.description"])
               except:
                   description = str(container.name)
+              try:
+                  nickname = str(container.labels["com.portall.nickname"])
+              except:
+                  nickname = None
               entries.append({
                   'ip': ip,
-                  'port': container.ports[key][0]['HostPort'] + key[-4:],
-                  'description': description
+                  'nickname': nickname,
+                  'port': int(container.ports[key][0]['HostPort']),
+                  'description': description,
+                  'port_protocol':  key[-3:] 
               })
 
 
