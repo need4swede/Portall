@@ -13,7 +13,7 @@ jobs:
           packages: write
         defaults:
           run:
-            working-directory: './Store'
+            working-directory: '.'
         steps:
           - name: 'Checkout GitHub Action'
             uses: actions/checkout@main
@@ -27,5 +27,5 @@ jobs:
 
           - name: 'Build Inventory Image'
             run: |
-              docker build . --tag ghcr.io/Idleite/store:latest
-              docker push ghcr.io/Idleite/store:latest
+              docker build . --tag ghcr.io/Idleite/Portall:latest
+              docker push ghcr.io/Idleite/Portall:latest
