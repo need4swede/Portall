@@ -2,22 +2,21 @@
 from flask import current_app as app            # For accessing the Flask app
 import docker
 from utils.database import db, Port, Setting    # For accessing the database models
-def access_docker_socket():
-    client = docker.from_env()
+def access_docker_socket(url = "unix://var/run/docker.sock", ip = "127.0.0.1" ):
+    client = docker.DockerClient(base_url=url, version="auto")
     for container in client.containers.list():
         for key in container.ports:
             if container.ports[key] == None:
                 continue
             else:
-              try:
-                  ip = str(container.labels["com.portall.ip"])
-              except:
-                  ip = "127.0.0.1"
-              try:
-                  description = str(container.labels["com.portall.description"])
-              except:
-                  description = str(container.name)
-              write_port(ip, int(container.ports[key][0]['HostPort']), description, container.id)
+                if bool(container.labels.get("com.portall.ip")):
+                    ip = str(container.labels["com.portall.ip"])
+
+                if bool(container.labels["com.portall.description"]):
+                    description = str(container.labels["com.portall.description"])
+                else:
+                    description = str(container.name)
+                write_port(ip, int(container.ports[key][0]['HostPort']), description, container.id)
 
 def write_port(ip, port, description, docker_id):
     try:

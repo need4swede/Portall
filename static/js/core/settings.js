@@ -182,6 +182,32 @@ $(document).ready(function () {
         }
     });
 
+    // Handle docker settings form submission
+    $('#docker-form').submit(function (e) {
+        e.preventDefault();
+        var formData = $(this).serializeArray();
+
+        // Filter out empty values
+        formData = formData.filter(function (item) {
+            return item.value !== "";
+        });
+
+        $.ajax({
+            url: '/docker_settings',
+            method: 'POST',
+            data: $.param(formData),
+            success: function (response) {
+                console.log('Docker settings saved successfully:', response);
+                showNotification('Docker settings saved successfully!');
+
+            },
+            error: function (xhr, status, error) {
+                console.error('Error saving docker settings:', status, error);
+                showNotification('Error saving docker settings: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'), 'error');
+            }
+        });
+    });
+
     // Handle port settings form submission
     $('#port-settings-form').submit(function (e) {
         e.preventDefault();

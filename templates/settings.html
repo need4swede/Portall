@@ -35,7 +35,11 @@
         <button class="nav-link" id="about-tab" data-bs-toggle="tab" data-bs-target="#about" type="button" role="tab"
             aria-controls="about" aria-selected="false">About</button>
     </li>
-
+    <!-- Docker Socket -->
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="Docker-tab" data-bs-toggle="tab" data-bs-target="#docker" type="button" role="tab"
+            aria-controls="Docker" aria-selected="false">Docker</button>
+    </li>
 </ul>
 
 <!-- Pages -->
@@ -152,6 +156,40 @@
                 <label for="custom-css" class="form-label">Custom CSS</label>
                 <div id="custom-css-editor"></div>
                 <input type="hidden" id="custom-css" name="custom_css" value="{{ custom_css }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+    <!-- Docker Settings -->
+    <div class="tab-pane fade show active" id="docker" role="tabpanel" aria-labelledby="docker-tab">
+        <h2>Docker Settings</h2>
+        <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">URL</th>
+                <th scope="col">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for socket in sockets %}
+            <tr>
+                <th scope="row">{{ socket.id }}</th>
+                <td>{{ socket.ip_address }}</td>
+                <td>{{ socket.docker_url }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <form action="/docker_settings" id="docker-form">
+            <div class="mb-3">
+                <label for="docker-ip" class="form-label">Docker Host IP</label>
+                <input type="text" class="form-control" id="docker-ip" name="docker_ip">
+            </div>
+            <div class="mb-3">
+                <label for="docker-url" class="form-label">Docker Socket URL</label>
+                <input type="text" class="form-control" id="docker-url" name="docker_url">
             </div>
             <button type="submit" class="btn btn-primary">Save</button>
         </form>

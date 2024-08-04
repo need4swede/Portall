@@ -19,7 +19,7 @@ from flask import session                       # For storing session data
 import markdown                                 # For rendering Markdown text
 
 # Local Imports
-from utils.database import db, Port, Setting  # For accessing the database models
+from utils.database import db, Port, Setting, Sockets # For accessing the database models
 
 # Create the blueprint
 settings_bp = Blueprint('settings', __name__)
@@ -72,6 +72,9 @@ def settings():
     # Retrieve unique IP addresses from the database
     ip_addresses = [ip[0] for ip in db.session.query(Port.ip_address).distinct()]
 
+    # Get List of sockets from database
+    sockets = [socket for socket in db.session.query(Sockets)]
+
     # Get the default IP address from settings
     default_ip = Setting.query.filter_by(key='default_ip').first()
     default_ip = default_ip.value if default_ip else ''
@@ -119,7 +122,44 @@ def settings():
     # Render the settings template with all necessary data
     return render_template('settings.html', ip_addresses=ip_addresses, default_ip=default_ip,
                            current_theme=theme, themes=themes, theme=theme, custom_css=custom_css,
-                           version=version)
+                           version=version, sockets=sockets)
+
+@settings_bp.route('/docker_settings', methods=['POST'])
+def docker_settings():
+    """
+    Handle  POST requests for docker settings.
+
+    POST: Update docker settings in the database with values from the form.
+
+    Returns:
+    - For POST: JSON object indicating success or failure of the update operation
+
+    Raises:
+    - Logs any exceptions and returns a 500 error response
+    """
+
+    if request.method == 'POST':
+        try:
+            # Extract Docker settings from form data
+            Docker_Socket = {
+                'docker_ip': request.form.get('docker_ip', '127.0.0.1'),
+                'docker_url': request.form.get('docker_url', 'unix://var/run/docker.sock')
+            }
+
+            app.logger.debug(f"Received Docker Socket: {Docker_Socket}")
+
+            # Create Docker settings in the database
+            DockerSocket = Sockets(ip_address=Docker_Socket['docker_ip'], docker_url=Docker_Socket['docker_url'])
+            db.session.add(DockerSocket)
+                           
+            db.session.commit()
+            app.logger.info("Docker settings updated successfully")
+            return jsonify({'success': True, 'message': 'Docker settings updated successfully'})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error saving Docker settings: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @settings_bp.route('/port_settings', methods=['GET', 'POST'])
 def port_settings():
