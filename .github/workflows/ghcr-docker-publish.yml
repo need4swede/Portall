@@ -27,5 +27,5 @@ jobs:
 
           - name: 'Build Inventory Image'
             run: |
-              docker build . --tag ghcr.io/Idleite/Portall:latest
-              docker push ghcr.io/Idleite/Portall:latest
+              docker build . --tag ghcr.io/Idleite/portall:latest
+              docker push ghcr.io/Idleite/portall:latest
