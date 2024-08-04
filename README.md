@@ -15,9 +15,10 @@ Portall provides an intuitive web-interface for generating, tracking, and organi
 ```bash
 docker run -p 8080:8080 \
   -e SECRET_KEY=your_secret_key \
-  -e PORT=8080 \
+  -e DOCKER_HOST=unix:///var/run/docker.sock \
   -v ./instance:/app/instance \
-  Portall
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  need4swede/portall
 ```
 
 ### Docker Compose
@@ -28,10 +29,10 @@ services:
     image: need4swede/portall:latest
     container_name: portall
     ports:
-      - "8982:8080"
+      - "8080:8080"
     environment:
       - SECRET_KEY=your_secret_key
-      - DOCKER_HOST=/var/run/docker.sock 
+      - DOCKER_HOST=unix://var/run/docker.sock
     volumes:
       - ./instance:/app/instance
       - /var/run/docker.sock:/var/run/docker.sock
