@@ -1,8 +1,5 @@
 name: Deploy Images to GHCR
 
-env:
-  DOTNET_VERSION: '6.0.x'
-
 on:
   push:
     branches:
@@ -12,6 +9,8 @@ on:
 jobs:
       push-store-image:
         runs-on: ubuntu-latest
+        permissions:
+          packages: write
         defaults:
           run:
             working-directory: './Store'
