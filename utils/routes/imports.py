@@ -10,6 +10,7 @@ from flask import jsonify                       # For returning JSON responses
 from flask import render_template               # For rendering HTML templates
 from flask import request                       # For handling HTTP requests
 from flask import session                       # For storing session data
+import docker              # For accessing Docker socket
 
 # Local Imports
 from utils.database import db, Port             # For accessing the database models
@@ -48,6 +49,8 @@ def import_data():
             imported_data = import_json(file_content)
         elif import_type == 'Docker-Compose':
             imported_data = import_docker_compose(file_content)
+        elif import_type == "Docker-Socket":
+            imported_data = import_docker_socket()
         else:
             return jsonify({'success': False, 'message': 'Unsupported import type'}), 400
 
@@ -269,6 +272,50 @@ def import_json(content):
         return entries
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format")
+def import_docker_socket():
+    """
+    Parse a Caddyfile and extract port information.
+
+    This function processes a Caddyfile content, extracting domain names and
+    their associated reverse proxy configurations.
+
+    Args:
+        content (str): The content of the Caddyfile
+
+
+    Returns:
+        list: A list of dictionaries containing extracted port information
+    """
+    entries = []
+    client = docker.from_env()
+    for container in client.containers.list():
+        for key in container.ports:
+            if container.ports[key] == None:
+                continue
+            else:
+              try:
+                  ip = str(container.labels["com.portall.ip"])
+              except:
+                  ip = "127.0.0.1"
+              try:
+                  description = str(container.labels["com.portall.description"])
+              except:
+                  description = str(container.name)
+              try:
+                  nickname = str(container.labels["com.portall.nickname"])
+              except:
+                  nickname = None
+              entries.append({
+                  'ip': ip,
+                  'nickname': nickname,
+                  'port': int(container.ports[key][0]['HostPort']),
+                  'description': description,
+                  'port_protocol':  key[-3:] 
+              })
+
+
+    return entries
+  
 
 # Import Helpers
 
@@ -306,6 +353,7 @@ def parse_port_and_protocol(port_value):
         after_colon = port_value[last_colon_index + 1:]
         number_match = re.search(r'(\d+)', after_colon)
         if number_match:
+
             return int(number_match.group(1)), protocol
 
     # If no number found after the last colon, check for other patterns

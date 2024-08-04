@@ -10,5 +10,6 @@ class Port(db.Model):
     port_protocol = db.Column(db.String(3), nullable=False)
     description = db.Column(db.String(100), nullable=False)
     order = db.Column(db.Integer, default=0)
+    docker_id = db.Column(db.String(20), nullable=True)
 
     __table_args__ = (db.UniqueConstraint('ip_address', 'port_number', 'port_protocol', name='_ip_port_protocol_uc'),)

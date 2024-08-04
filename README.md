@@ -15,14 +15,15 @@ Portall provides an intuitive web-interface for generating, tracking, and organi
 ```bash
 docker run -p 8080:8080 \
   -e SECRET_KEY=your_secret_key \
-  -e PORT=8080 \
+  -e DOCKER_HOST=unix:///var/run/docker.sock \
   -v ./instance:/app/instance \
-  Portall
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  need4swede/portall
 ```
 
 ### Docker Compose
 ```yml
-version: '3'
+
 services:
   portall:
     image: need4swede/portall:latest
@@ -31,8 +32,11 @@ services:
       - "8080:8080"
     environment:
       - SECRET_KEY=your_secret_key
+      - DOCKER_HOST=unix://var/run/docker.sock
     volumes:
       - ./instance:/app/instance
+      - /var/run/docker.sock:/var/run/docker.sock
+
 ```
 
 ## ✨ Core Functionality
@@ -44,7 +48,7 @@ services:
    - Quickly generate unique port numbers to host your applications.
 
 **Import Tools**
-   - Import existing configurations by pasting your Caddyfile, Docker-Compose or JSON data.
+   - Import existing configurations by pasting your Caddyfile, Docker-Compose, JSON data or docker socket.
 
 **Custom Rules**
    - Define your own port ranges and set exclusions for the port generator.
