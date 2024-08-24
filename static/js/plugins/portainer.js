@@ -9,7 +9,6 @@ import { logPluginsConfig } from '../utils/logger.js';
  * and performs initial checks and logging if the plugin is enabled.
  */
 export function initPortainerSettings() {
-    console.log('Initializing Portainer settings...');
     const saveButton = document.getElementById('save-portainer-settings');
     const testButton = document.getElementById('test-portainer-connection');
     const portainerUrl = document.getElementById('portainer-url');
@@ -35,6 +34,8 @@ export function initPortainerSettings() {
 
     if (portainerEnabled) {
         portainerEnabled.addEventListener('change', handlePortainerEnabledChange);
+    } else {
+        console.error('Portainer enabled checkbox not found');
     }
 
     // Load saved configuration
@@ -42,7 +43,7 @@ export function initPortainerSettings() {
         if (config) {
             portainerUrl.value = config.url || '';
             portainerToken.value = config.token || '';
-            portainerEnabled.checked = config.enabled || false;
+            portainerEnabled.checked = config.enabled;
             checkPortainerFields();
             updateEnabledPlugins();
             if (config.enabled) {
@@ -77,14 +78,9 @@ function showNotification(message, type = 'success') {
  * Retrieves URL and token from input fields and calls the savePortainerConfig function.
  */
 function handleSavePortainerSettings() {
-    console.log('Save Portainer settings clicked');
     const url = document.getElementById('portainer-url').value;
     const token = document.getElementById('portainer-token').value;
     const enabled = document.getElementById('portainer-enabled').checked;
-
-    console.log('URL:', url);
-    console.log('Token:', token);
-    console.log('Enabled:', enabled);
 
     if (!url || !token) {
         showNotification('Please enter both URL and token', 'error');
@@ -134,6 +130,7 @@ function handlePortainerEnabledChange() {
     if (isEnabled && (!url || !token)) {
         showNotification('Please enter both URL and token before enabling Portainer', 'error');
         document.getElementById('portainer-enabled').checked = false;
+        updateEnabledPlugins();
         return;
     }
 
@@ -169,7 +166,8 @@ function checkPortainerFields() {
 function updateEnabledPlugins() {
     const $enabledPlugins = $('#enabled-plugins');
     $enabledPlugins.empty(); // Clear existing entries
-    if ($('#portainer-enabled').is(':checked')) {
+    const isEnabled = $('#portainer-enabled').is(':checked');
+    if (isEnabled) {
         $enabledPlugins.append(`
             <div class="enabled-plugin">
                 <div class="plugin-info">
@@ -186,8 +184,12 @@ function updateEnabledPlugins() {
     }
 
     // Add event listener for the disable button
-    $('.disable-plugin').on('click', function () {
+    $('.disable-plugin').off('click').on('click', function () {
         const pluginId = $(this).data('plugin');
-        $(`#${pluginId}`).prop('checked', false).trigger('change');
+        const checkbox = $(`#${pluginId}`);
+        checkbox.prop('checked', false);
+        checkbox.trigger('change');
+        updateEnabledPlugins();
+        handlePortainerEnabledChange();
     });
 }

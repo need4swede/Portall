@@ -28,11 +28,11 @@ function showNotification(message, type = 'success') {
  * @param {string} url - The Portainer URL.
  * @param {string} token - The Portainer access token.
  */
-export function savePortainerConfig(url, token) {
+export function savePortainerConfig(url, token, enabled) {
     $.ajax({
         url: '/save_portainer_config',
         method: 'POST',
-        data: JSON.stringify({ url: url, token: token }),
+        data: JSON.stringify({ url: url, token: token, enabled: enabled }),
         contentType: 'application/json',
         success: function (response) {
             if (response.success) {
@@ -95,11 +95,13 @@ export function fetchPortainerConfig(callback) {
             } else {
                 console.error('Error fetching Portainer config:', response.message);
                 showNotification('Error fetching Portainer configuration', 'error');
+                callback(null);
             }
         },
         error: function (xhr, status, error) {
             console.error('Error fetching Portainer config:', error);
             showNotification('Error fetching Portainer configuration', 'error');
+            callback(null);
         }
     });
 }

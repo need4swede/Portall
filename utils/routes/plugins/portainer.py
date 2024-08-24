@@ -37,7 +37,7 @@ def get_portainer_config():
             'enabled': enabled_setting.value.lower() == 'true' if enabled_setting else False
         }
 
-        app.logger.info("Portainer configuration retrieved successfully")
+        app.logger.debug(f"Retrieved Portainer config: {config}")
         return jsonify({'success': True, 'config': config})
     except Exception as e:
         app.logger.error(f"Error retrieving Portainer configuration: {str(e)}")
@@ -56,6 +56,9 @@ def save_portainer_config():
     data = request.json
     url = data.get('url')
     token = data.get('token')
+    enabled = data.get('enabled', False)
+
+    app.logger.debug(f"Saving Portainer config: URL={url}, Token={token[:5]}..., Enabled={enabled}")
 
     if not url or not token:
         return jsonify({'success': False, 'message': 'Missing URL or token'}), 400
@@ -76,6 +79,14 @@ def save_portainer_config():
         else:
             token_setting = Setting(key='portainer_token', value=token)
             db.session.add(token_setting)
+
+        # Save enabled state
+        enabled_setting = Setting.query.filter_by(key='portainer_enabled').first()
+        if enabled_setting:
+            enabled_setting.value = str(enabled)
+        else:
+            enabled_setting = Setting(key='portainer_enabled', value=str(enabled))
+            db.session.add(enabled_setting)
 
         db.session.commit()
         app.logger.info("Portainer configuration saved successfully")
