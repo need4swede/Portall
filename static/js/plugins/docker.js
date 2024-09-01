@@ -12,11 +12,12 @@ let isInitialized = false;
  */
 export function initDockerSettings() {
     const saveButton = document.getElementById('save-docker-settings');
-    const testButton = document.getElementById('test-docker-connection');
+    const configureButton = document.getElementById('configure-docker');
     const dockerHostIp = document.getElementById('docker-host-ip');
     const dockerSocketUrl = document.getElementById('docker-socket-url');
     const dockerEnabledButton = document.getElementById('docker-enabled');
     const discoverPortsButton = document.getElementById('discover-docker-ports');
+    const addDockerSettingButton = document.getElementById('docker-add-btn');
 
     if (saveButton) {
         saveButton.addEventListener('click', handleSaveDockerSettings);
@@ -24,10 +25,10 @@ export function initDockerSettings() {
         console.error('Save button not found');
     }
 
-    if (testButton) {
-        testButton.addEventListener('click', handleTestDockerConnection);
+    if (configureButton) {
+        configureButton.addEventListener('click', handleConfigureDocker);
     } else {
-        console.error('Test button not found');
+        console.error('Configure button not found');
     }
 
     if (dockerHostIp && dockerSocketUrl) {
@@ -47,6 +48,25 @@ export function initDockerSettings() {
         console.error('Discover ports button not found');
     }
 
+    if (addDockerSettingButton) {
+        addDockerSettingButton.addEventListener('click', handleAddDockerSetting);
+    } else {
+        console.error('Add Docker setting button not found');
+    }
+
+    // Add event listener for tab changes
+    const tabLinks = document.querySelectorAll('#settingsTabs button[data-bs-toggle="tab"]');
+    tabLinks.forEach(tabLink => {
+        tabLink.addEventListener('shown.bs.tab', (event) => {
+            if (event.target.id !== 'docker-tab') {
+                hideDockerConfig();
+            }
+        });
+    });
+
+    // Add event listener for window location changes
+    window.addEventListener('hashchange', hideDockerConfig);
+
     // Load saved configuration
     fetchDockerConfig((config) => {
         if (config) {
@@ -57,8 +77,12 @@ export function initDockerSettings() {
             if (config.enabled) {
                 logPluginsConfig("docker", { hostIP: config.hostIP, socketURL: config.socketURL });
             }
+            populateDockerSettingsTable(config.settings || []);
         }
     });
+
+    // Initial update of Docker tab visibility
+    updateDockerTabVisibility();
 }
 
 /**
@@ -95,11 +119,7 @@ function handleSaveDockerSettings() {
         return;
     }
 
-    // Save Docker configuration
-    saveDockerConfig(hostIP, socketURL, enabled);
-
-    // Save Docker settings
-    saveDockerSettings(hostIP, socketURL);
+    saveDockerSettings();
 }
 
 /**
@@ -145,10 +165,7 @@ export function handleDockerEnabledChange() {
         return;
     }
 
-    saveDockerConfig(hostIP, socketURL, isEnabled);
-    if (isEnabled) {
-        logPluginsConfig("docker", { hostIP, socketURL });
-    }
+    saveDockerSettings();
 }
 
 /**
@@ -172,46 +189,109 @@ function checkDockerFields() {
 }
 
 /**
- * Update the list of enabled plugins in the UI.
- * This function updates the UI to reflect the current state of the Docker plugin
- * (enabled or disabled) and logs the configuration if the plugin is enabled.
- */
-function updateEnabledPlugins() {
-    const $enabledPlugins = $('#enabled-plugins');
-    $enabledPlugins.empty(); // Clear existing entries
-    const isEnabled = $('#docker-enabled').is(':checked');
-    if (isEnabled) {
-        $enabledPlugins.append(`
-            <div class="enabled-plugin">
-                <div class="plugin-info">
-                    <span class="plugin-name">Docker</span>: <span class="plugin-description">Connects Portall to your Docker instance</span>
-                </div>
-                <button class="btn btn-sm btn-danger disable-plugin" data-plugin="docker-enabled">Disable</button>
-            </div>
-        `);
-
-        // Log plugin info when enabled
-        const hostIP = document.getElementById('docker-host-ip').value;
-        const socketURL = document.getElementById('docker-socket-url').value;
-        logPluginsConfig("docker", { hostIP: hostIP, socketURL: socketURL });
-    }
-
-    $('.disable-plugin').off('click').on('click', function () {
-        const pluginId = $(this).data('plugin');
-        const checkbox = $(`#${pluginId}`);
-        checkbox.prop('checked', false);
-        checkbox.trigger('change');
-        updateEnabledPlugins();
-        handleDockerEnabledChange();
-    });
-}
-
-/**
  * Handle discovering Docker ports.
  * Calls the discoverDockerPorts function when the discover ports button is clicked.
  */
 function handleDiscoverDockerPorts() {
     discoverDockerPorts();
+}
+
+/**
+ * Handle the Configure Docker button click.
+ * Toggles the visibility of the Docker configuration section.
+ */
+function handleConfigureDocker() {
+    const dockerConfig = document.getElementById('docker-config');
+    if (dockerConfig) {
+        dockerConfig.classList.toggle('hidden');
+        const configureButton = document.getElementById('configure-docker');
+        configureButton.textContent = dockerConfig.classList.contains('hidden') ? 'Configure' : 'Hide Configuration';
+    } else {
+        console.error('Docker configuration section not found');
+    }
+}
+
+/**
+ * Hide the Docker configuration section.
+ */
+function hideDockerConfig() {
+    const dockerConfig = document.getElementById('docker-config');
+    if (dockerConfig && !dockerConfig.classList.contains('hidden')) {
+        dockerConfig.classList.add('hidden');
+        const configureButton = document.getElementById('configure-docker');
+        if (configureButton) {
+            configureButton.textContent = 'Configure';
+        }
+    }
+}
+
+/**
+ * Handle adding a new Docker setting.
+ * Adds a new row to the Docker settings table and saves the settings.
+ */
+function handleAddDockerSetting() {
+    const hostIP = document.getElementById('new-docker-host-ip').value;
+    const socketURL = document.getElementById('new-docker-socket-url').value;
+
+    if (hostIP && socketURL) {
+        addDockerSettingToTable(hostIP, socketURL);
+        document.getElementById('new-docker-host-ip').value = '';
+        document.getElementById('new-docker-socket-url').value = '';
+        saveDockerSettings();
+    } else {
+        showNotification('Please enter both Host IP and Socket URL', 'error');
+    }
+}
+
+/**
+ * Add a new Docker setting to the table.
+ * @param {string} hostIP - The Docker host IP.
+ * @param {string} socketURL - The Docker socket URL.
+ */
+function addDockerSettingToTable(hostIP, socketURL) {
+    const table = document.getElementById('docker-settings-table').getElementsByTagName('tbody')[0];
+    const newRow = table.insertRow();
+    newRow.innerHTML = `
+        <td>${hostIP}</td>
+        <td>${socketURL}</td>
+        <td>
+            <button class="btn btn-sm btn-danger delete-docker-setting">Delete</button>
+        </td>
+    `;
+    newRow.querySelector('.delete-docker-setting').addEventListener('click', function () {
+        table.removeChild(newRow);
+        saveDockerSettings();
+    });
+}
+
+/**
+ * Populate the Docker settings table with saved settings.
+ * @param {Array} settings - Array of saved Docker settings.
+ */
+function populateDockerSettingsTable(settings) {
+    const table = document.getElementById('docker-settings-table').getElementsByTagName('tbody')[0];
+    table.innerHTML = '';
+    settings.forEach(setting => addDockerSettingToTable(setting.hostIP, setting.socketURL));
+}
+
+/**
+ * Save all Docker settings, including the main settings and the table of additional settings.
+ */
+function saveDockerSettings() {
+    const settings = [];
+    const rows = document.getElementById('docker-settings-table').getElementsByTagName('tbody')[0].rows;
+    for (let row of rows) {
+        settings.push({
+            hostIP: row.cells[0].textContent,
+            socketURL: row.cells[1].textContent
+        });
+    }
+    saveDockerConfig(
+        document.getElementById('docker-host-ip').value,
+        document.getElementById('docker-socket-url').value,
+        document.getElementById('docker-enabled').checked,
+        settings
+    );
 }
 
 export { saveDockerConfig, updateDockerTabVisibility };

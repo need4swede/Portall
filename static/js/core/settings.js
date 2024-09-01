@@ -36,6 +36,9 @@ $(document).ready(function () {
 
 // Function definitions
 
+/**
+ * Initializes UI components such as Bootstrap modals and tooltips.
+ */
 function initializeUIComponents() {
     // Initialize Bootstrap modal for confirmation dialogs
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
@@ -47,11 +50,18 @@ function initializeUIComponents() {
     })
 }
 
+/**
+ * Initializes settings for various plugins.
+ */
 function initializePluginSettings() {
     initPortainerSettings();
     initDockerSettings();
 }
 
+/**
+ * Updates the UI to reflect the currently enabled plugins.
+ * This function also sets up event listeners for enabling/disabling plugins.
+ */
 function updateEnabledPlugins() {
     const $enabledPlugins = $('#enabled-plugins');
     $enabledPlugins.empty(); // Clear existing entries
@@ -115,6 +125,9 @@ function updateEnabledPlugins() {
     });
 }
 
+/**
+ * Initializes CodeMirror for custom CSS editing.
+ */
 function initializeCodeMirror() {
     cssEditor = CodeMirror(document.getElementById("custom-css-editor"), {
         value: $('#custom-css').val(),
@@ -142,6 +155,9 @@ function initializeCodeMirror() {
     });
 }
 
+/**
+ * Loads initial settings including port settings, custom CSS, and enabled plugins.
+ */
 function loadInitialSettings() {
     // Load port settings on page load
     loadPortSettings(updatePortLengthStatus);
@@ -153,6 +169,11 @@ function loadInitialSettings() {
     updateEnabledPlugins();
 }
 
+/**
+ * Displays a notification message to the user.
+ * @param {string} message - The message to display
+ * @param {string} [type='success'] - The type of notification ('success' or 'error')
+ */
 function showNotification(message, type = 'success') {
     const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
     const notification = `
@@ -188,6 +209,10 @@ function showNotification(message, type = 'success') {
     }, 5000);
 }
 
+/**
+ * Updates the UI to reflect the current port length status.
+ * Disables port length radio buttons if start/end values are set.
+ */
 function updatePortLengthStatus() {
     const portStart = $('#port-start').val();
     const portEnd = $('#port-end').val();
@@ -216,6 +241,10 @@ function updatePortLengthStatus() {
     }
 }
 
+/**
+ * Applies custom CSS to the page.
+ * @param {string} css - The CSS string to apply
+ */
 function applyCustomCSS(css) {
     let styleElement = $('#custom-style');
     if (styleElement.length === 0) {
@@ -225,6 +254,9 @@ function applyCustomCSS(css) {
     styleElement.text(css);
 }
 
+/**
+ * Activates the tab corresponding to the current URL hash.
+ */
 function activateTabFromHash() {
     let hash = window.location.hash;
     if (hash) {
@@ -232,6 +264,25 @@ function activateTabFromHash() {
     }
 }
 
+/**
+ * Updates the Docker tab visibility based on the enabled state.
+ */
+function updateDockerTabVisibility() {
+    const isEnabled = $('#docker-enabled').is(':checked');
+    if (isEnabled) {
+        $('.docker-tab').removeClass('hidden');
+    } else {
+        $('.docker-tab').addClass('hidden');
+        // If Docker tab is currently active, switch to Plugins tab
+        if ($('#docker-tab').hasClass('active')) {
+            $('#settingsTabs button[data-bs-target="#plugins"]').tab('show');
+        }
+    }
+}
+
+/**
+ * Sets up all event listeners for the settings page.
+ */
 function setupEventListeners() {
     // Handle settings and theme form submissions
     $('#settings-form, #theme-form').submit(function (e) {
@@ -330,5 +381,23 @@ function setupEventListeners() {
         if (cssEditor) {
             cssEditor.refresh();
         }
+    });
+
+    // Handle Docker configuration button
+    $('#configure-docker').on('click', function (e) {
+        e.preventDefault();
+        $('#settingsTabs button[data-bs-target="#docker"]').tab('show');
+    });
+
+    // Handle returning to Plugins tab when leaving Docker tab
+    $('#settingsTabs button').on('shown.bs.tab', function (e) {
+        if (e.relatedTarget && e.relatedTarget.id === 'docker-tab') {
+            $('.docker-tab').addClass('hidden');
+        }
+    });
+
+    // Handle Docker enabled checkbox
+    $('#docker-enabled').on('change', function () {
+        updateDockerTabVisibility();
     });
 }

@@ -30,13 +30,12 @@
             aria-controls="data" aria-selected="false">Data Management</button>
     </li>
 
-    <!-- PLugins -->
+    <!-- Plugins -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="plugins-tab" data-bs-toggle="tab" data-bs-target="#plugins" type="button"
             role="tab" aria-controls="plugins" aria-selected="false">Plugins</button>
     </li>
 
-    <!-- Docker Socket -->
     <li class="nav-item docker-tab hidden" role="presentation">
         <button class="nav-link" id="docker-tab" data-bs-toggle="tab" data-bs-target="#docker" type="button" role="tab"
             aria-controls="Docker" aria-selected="false">Docker</button>
@@ -170,8 +169,8 @@
     </div>
 
     <!-- Docker Settings -->
-    <div class="tab-pane fade" id="docker" role="tabpanel" aria-labelledby="docker-tab">
-        <h2 class="section-title mb-4">Docker Settings</h2>
+    <div id="docker-config" class="hidden">
+        <h2 class="section-title mb-4">Docker Configuration</h2>
         <table class="table" id="docker-settings-table">
             <thead>
                 <tr>
@@ -230,17 +229,14 @@
         <!-- Docker -->
         <div class="info-card mb-4">
             <div class="card-content">
-                <h3 id="docker" class="card-title">Docker</h3>
+                <h3 class="card-title">Docker</h3>
                 <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="docker-enabled" name="docker_enabled" disabled>
-                    <label class="form-check-label" for="docker-enabled" data-bs-toggle="tooltip"
-                        data-bs-placement="right"
-                        title="Please configure Docker first before enabling it.">Enabled</label>
+                    <input type="checkbox" class="form-check-input" id="docker-enabled">
+                    <label class="form-check-label" for="docker-enabled">Enabled</label>
                 </div>
                 <div class="mb-3">
                     <label for="docker-host-ip" class="form-label">Host IP</label>
-                    <input type="text" class="form-control" id="docker-host-ip" name="docker_host_ip"
-                        placeholder="'localhost' or remote host IP">
+                    <input type="text" class="form-control" id="docker-host-ip">
                 </div>
                 <div class="mb-3">
                     <label for="docker-socket-url" class="form-label">Socket URL</label>
@@ -254,37 +250,36 @@
                         <input type="text" class="form-control" id="docker-socket-url" name="docker_socket_url"
                             placeholder="unix:///var/run/docker.sock">
                     </div>
-                    <button type="button" class="btn btn-primary" id="save-docker-settings">Save Docker
-                        Settings</button>
-                    <button type="button" class="btn btn-secondary" id="test-docker-connection">Test Connection</button>
                 </div>
+                <button id="save-docker-settings" class="btn btn-primary">Save Docker Settings</button>
+                <button id="configure-docker" class="btn btn-secondary">Configure</button>
             </div>
-            <!-- Portainer -->
-            <div class="info-card mb-4">
-                <div class="card-content">
-                    <h3 id="portainer" class="card-title">Portainer</h3>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="portainer-enabled" name="portainer_enabled"
-                            disabled>
-                        <label class="form-check-label" for="portainer-enabled" data-bs-toggle="tooltip"
-                            data-bs-placement="right"
-                            title="Please configure Portainer first before enabling it.">Enabled</label>
-                    </div>
-                    <div class="mb-3">
-                        <label for="portainer-url" class="form-label">URL</label>
-                        <input type="text" class="form-control" id="portainer-url" name="portainer_url"
-                            placeholder="http://localhost:9443">
-                    </div>
-                    <div class="mb-3">
-                        <label for="portainer-token" class="form-label">Access Token</label>
-                        <input type="password" class="form-control" id="portainer-token" name="portainer_token"
-                            placeholder="ptr_cBqeD5bb/25LxELr155bmA9tdknSxTwwBCr9fQWyGc=">
-                    </div>
-                    <button type="button" class="btn btn-primary" id="save-portainer-settings">Save Portainer
-                        Settings</button>
-                    <button type="button" class="btn btn-secondary" id="test-portainer-connection">Test
-                        Connection</button>
+        </div>
+        <!-- Portainer -->
+        <div class="info-card mb-4">
+            <div class="card-content">
+                <h3 id="portainer" class="card-title">Portainer</h3>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="portainer-enabled" name="portainer_enabled"
+                        disabled>
+                    <label class="form-check-label" for="portainer-enabled" data-bs-toggle="tooltip"
+                        data-bs-placement="right"
+                        title="Please configure Portainer first before enabling it.">Enabled</label>
                 </div>
+                <div class="mb-3">
+                    <label for="portainer-url" class="form-label">URL</label>
+                    <input type="text" class="form-control" id="portainer-url" name="portainer_url"
+                        placeholder="http://localhost:9443">
+                </div>
+                <div class="mb-3">
+                    <label for="portainer-token" class="form-label">Access Token</label>
+                    <input type="password" class="form-control" id="portainer-token" name="portainer_token"
+                        placeholder="ptr_cBqeD5bb/25LxELr155bmA9tdknSxTwwBCr9fQWyGc=">
+                </div>
+                <button type="button" class="btn btn-primary" id="save-portainer-settings">Save Portainer
+                    Settings</button>
+                <button type="button" class="btn btn-secondary" id="test-portainer-connection">Test
+                    Connection</button>
             </div>
         </div>
     </div>
