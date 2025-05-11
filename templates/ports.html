@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Registered Ports</h1>
-<div id="notification-area"></div>
+<div class="glass-card">
+    <h1>Registered Ports</h1>
+    <div id="notification-area"></div>
+</div>
+
 {% for ip, data in ports_by_ip.items() %}
 <div class="network-switch" draggable="true" data-ip="{{ ip }}">
     <h2 class="switch-label">
-        {{ ip }}{% if data.nickname %} ({{ data.nickname }}){% endif %}
+        {{ ip }}{% if data.nickname %} <span class="text-secondary">({{ data.nickname }})</span>{% endif %}
         <div class="sort-buttons">
             <button class="sort-btn" data-sort="port" data-ip="{{ ip }}" title="Sort by Port Number">
                 <i class="fas fa-hashtag"></i><i class="fas fa-sort" style="display:none;"></i>
@@ -94,7 +97,8 @@
                         <input type="text" class="form-control" id="port-description" name="description" required>
                     </div>
                     <div class="mb-3">
-                        <select id="port-protocol" name="protocol" class="modern-select">
+                        <label for="port-protocol" class="form-label">Protocol</label>
+                        <select id="port-protocol" name="protocol" class="form-select">
                             <option value="TCP">TCP</option>
                             <option value="UDP">UDP</option>
                         </select>
@@ -132,7 +136,8 @@
                         <input type="text" class="form-control" id="add-port-description" name="description" required>
                     </div>
                     <div class="mb-3">
-                        <select id="add-port-protocol" name="protocol" class="modern-select">
+                        <label for="add-port-protocol" class="form-label">Protocol</label>
+                        <select id="add-port-protocol" name="protocol" class="form-select">
                             <option value="TCP">TCP</option>
                             <option value="UDP">UDP</option>
                         </select>

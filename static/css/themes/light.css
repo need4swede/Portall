@@ -4,63 +4,107 @@
 body {
     background-color: var(--bg-color);
     color: var(--text-color-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* Navigation */
 .navbar {
-    background-color: var(--bg-color);
-    box-shadow: 0 2px 4px var(--shadow-color);
+    background-color: var(--nav-bg-color);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--sidebar-shadow);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .navbar .navbar-brand {
     color: var(--accent-color);
+    font-weight: 600;
+    letter-spacing: -0.02em;
 }
 
 .navbar .nav-link {
-    color: var(--text-color-secondary);
+    color: var(--text-color-primary);
+    border-radius: 8px;
+    transition: all var(--transition-fast) var(--ease-out);
 }
 
 .navbar .nav-link:hover {
+    background-color: rgba(0, 0, 0, 0.05);
     color: var(--accent-color);
 }
 
+.navbar .nav-link.active {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+/* Glass Card Effect */
+.glass-card {
+    background-color: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow);
+    transition: all var(--transition-medium) var(--ease-out);
+}
+
+.glass-card:hover {
+    box-shadow: var(--hover-shadow);
+    transform: translateY(-3px);
+}
+
 /* Buttons */
+.btn {
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all var(--transition-fast) var(--ease-out);
+    box-shadow: var(--button-shadow);
+    border: none;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--hover-shadow);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
 .btn-primary {
     background-color: var(--accent-color);
     border-color: var(--accent-color);
 }
 
 .btn-primary:hover {
-    background-color: var(--color-blue);
-    border-color: var(--color-blue);
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
 }
 
 .btn-danger {
-    background-color: var(--color-red-light);
-    border-color: var(--color-red-light);
-}
-
-.btn-danger:hover {
-    background-color: var(--color-red);
-    border-color: var(--color-red);
+    background-color: var(--danger-color);
+    border-color: var(--danger-color);
 }
 
 .btn-secondary {
-    background-color: var(--color-gray);
-    border-color: var(--color-gray);
-}
-
-.btn-secondary:hover {
-    background-color: var(--color-gray-dark);
-    border-color: var(--color-gray-darker);
+    background-color: var(--text-secondary);
+    border-color: var(--text-secondary);
 }
 
 /* Forms */
 .form-control,
 .form-select {
-    border: 1px solid var(--text-color-secondary);
-    background-color: var(--bg-color);
+    border-radius: 10px;
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    background-color: rgba(255, 255, 255, 0.8);
     color: var(--text-color-primary);
+    transition: all var(--transition-fast) var(--ease-out);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
 }
 
 .form-control::placeholder {
@@ -69,33 +113,43 @@ body {
 
 .form-control:focus,
 .form-select:focus {
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.25);
     border-color: var(--accent-color);
-    box-shadow: 0 0 0 0.2rem var(--color-blue-shadow);
+    background-color: rgba(255, 255, 255, 0.95);
 }
 
 .form-label {
+    font-weight: 500;
+    margin-bottom: 8px;
     color: var(--text-color-primary);
 }
 
 /* Modal */
 .modal-content {
-    background-color: var(--bg-color);
-    color: var(--text-color-primary);
+    border-radius: 16px;
+    border: none;
+    background-color: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--card-shadow);
 }
 
 .modal-header {
-    background-color: var(--accent-color);
-    color: var(--color-white);
-    border-bottom: 1px solid var(--text-color-secondary);
-}
-
-.modal-title {
-    color: var(--color-white);
+    border-bottom-color: var(--border-color);
+    padding: 20px 25px;
+    background-color: var(--bg-sidebar);
 }
 
 .modal-footer {
-    background-color: var(--bg-color-secondary);
-    border-top: 1px solid var(--text-color-secondary);
+    border-top-color: var(--border-color);
+    padding: 20px 25px;
+    background-color: var(--bg-sidebar);
+}
+
+.modal-title {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-color-primary);
 }
 
 /* Alerts */
