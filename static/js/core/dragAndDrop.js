@@ -194,7 +194,7 @@ function initiateDrag(e, element) {
         'pointer-events': 'none',
         'width': $(draggingElement).width() + 'px',
         'height': $(draggingElement).height() + 10 + 'px'
-    }).appendTo('body');
+    }).addClass('dragging').appendTo('body');
 
     // Handle mouse movement during drag
     function mouseMoveHandler(e) {
@@ -234,7 +234,7 @@ function initiateDrag(e, element) {
             'pointer-events': '',
             'width': '',
             'height': ''
-        }).insertBefore(placeholder);
+        }).removeClass('dragging').insertBefore(placeholder);
         placeholder.remove();
         draggingElement = null;
         placeholder = null;
@@ -383,6 +383,7 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
  * Cancels the drop operation and reverts the dragged element to its original position
  */
 function cancelDrop() {
+    $(draggingElement).removeClass('dragging');
     cancelDropUtil(draggingElement, placeholder);
 }
 
