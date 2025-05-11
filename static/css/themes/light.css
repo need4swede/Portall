@@ -1,10 +1,84 @@
-@import '../global/styles.css';
-@import '../global/light.css';
+/* Light Theme for Portall */
+:root {
+    /* Font */
+    --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+
+    /* Light theme variables */
+    --bg-color: #f5f5f7;
+    --bg-color-secondary: #f8f9fa;
+    --nav-bg-color: rgba(245, 245, 247, 0.8);
+    --text-color-primary: #1d1d1f;
+    --text-color-secondary: #86868b;
+    --text-color-placeholder: #00000066;
+    --accent-color: #0066cc;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+
+    /* Additional variables */
+    --bg-primary: #f5f5f7;
+    --bg-card: rgba(255, 255, 255, 0.7);
+    --bg-sidebar: rgba(245, 245, 247, 0.8);
+    --border-color: rgba(0, 0, 0, 0.1);
+    --accent-hover: #0056b3;
+    --warning-color: #ff9500;
+    --success-color: #34c759;
+    --danger-color: #ff3b30;
+    --text-primary: #1d1d1f;
+    --text-secondary: #86868b;
+
+    /* Enhanced shadows for depth */
+    --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    --sidebar-shadow: 0 0 30px rgba(0, 0, 0, 0.08);
+    --button-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --hover-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+
+    /* Animation timing */
+    --transition-fast: 0.2s;
+    --transition-medium: 0.3s;
+    --transition-slow: 0.5s;
+    --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --transition-duration: 0.3s;
+
+    /* Colors from styles.css */
+    --color-white: #ffffff;
+    --color-black: #000000;
+    --color-gray: #969696;
+    --color-gray-light: #b9b9b9;
+    --color-gray-lighter: #f8f8f8;
+    --color-gray-dark: #333333;
+    --color-gray-darker: #2c2c2c;
+    --color-gray-very-dark: #2c3e50;
+    --color-gray-very-dark-2: #34495e;
+    --color-gray-very-light: #ecf0f1;
+    --color-gray-medium: #95a5a6;
+    --color-gray-medium-dark: #555;
+
+    /* Blue */
+    --color-blue: #3a80d2;
+    --color-blue-dark: #2980b9;
+    --color-blue-light: #3498db;
+    --color-blue-shadow: #4a90e240;
+
+    /* Other Colors */
+    --color-green: #2ecc71;
+    --color-red: #c82333;
+    --color-red-light: #dc3545;
+    --color-orange: #f39c12;
+    --color-yellow: #f1c40f;
+    --color-purple: #9b59b6;
+    --color-purple-light: #c76bec;
+    --color-purple-dark: #8e44ad;
+    --color-teal: #1abc9c;
+    --color-teal-dark: #16a085;
+
+    /* Layout */
+    --border-radius: 0.5rem;
+    --box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
 
 body {
     background-color: var(--bg-color);
     color: var(--text-color-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-family: var(--font-family);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
