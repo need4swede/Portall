@@ -253,17 +253,19 @@ h1 {
 /* Port Styles */
 .port-slot {
     background-color: var(--bg-card);
-    border-radius: 12px;
-    padding: 10px;
+    border-radius: 22px;
+    /* Increased corner radius for iOS-like appearance */
+    padding: 8px;
     transition: all var(--transition-fast) var(--ease-out);
     border: 1px solid var(--border-color);
-    box-shadow: var(--button-shadow);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    /* Subtle shadow */
     position: relative;
 }
 
 .port-slot:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--hover-shadow);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
 }
 
 .port-slot.dragging {
@@ -273,8 +275,10 @@ h1 {
 }
 
 .port {
-    background-color: var(--bg-card);
-    border-radius: 8px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.15) 0%, rgba(0, 0, 0, 0.05) 100%);
+    /* Subtle gradient */
+    border-radius: 18px;
+    /* Slightly smaller radius than the slot */
     padding: 12px;
     text-align: center;
     transition: all var(--transition-medium) var(--ease-out);
@@ -284,12 +288,36 @@ h1 {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 80px;
+    min-height: 90px;
+    /* Slightly taller */
     z-index: 1;
 }
 
+.port.clicked {
+    transform: scale(0.95);
+    opacity: 0.8;
+    transition: transform 0.1s ease-in-out, opacity 0.1s ease-in-out;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .port {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+.port::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 18px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    z-index: -1;
+}
+
 .port.active {
-    background: linear-gradient(135deg, var(--success-color) 0%, var(--success-color) 100%);
+    background: linear-gradient(145deg, #34c759 0%, #32b350 100%);
     color: white;
     box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
 }
@@ -297,10 +325,11 @@ h1 {
 .port-number {
     display: block;
     font-weight: 700;
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     color: var(--text-primary);
-    margin-bottom: 5px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+    /* iOS typically uses tighter letter-spacing */
 }
 
 .port.active .port-number {
@@ -316,6 +345,20 @@ h1 {
     text-overflow: ellipsis;
     margin-top: 5px;
     max-width: 100%;
+    font-weight: 500;
+    /* Slightly bolder */
+}
+
+.port-status-indicator {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--success-color);
+    box-shadow: 0 0 5px var(--success-color);
+    animation: pulse 2s infinite;
 }
 
 .port.active .port-description {
@@ -326,7 +369,7 @@ h1 {
     position: absolute;
     top: 0;
     right: 0;
-    font-size: 0.75rem;
+    font-size: 0.55rem;
     font-weight: 700;
     padding: 4px 8px;
     border-radius: 0 0 0 8px;
@@ -334,15 +377,16 @@ h1 {
     letter-spacing: 0.5px;
     z-index: 1;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 0 8px 0 0;
 }
 
 .port-protocol.tcp {
-    background-color: rgba(0, 102, 204, 0.8);
+    background-color: var(--accent-color);
     color: white;
 }
 
 .port-protocol.udp {
-    background-color: rgba(255, 149, 0, 0.8);
+    background-color: var(--warning-color);
     color: white;
 }
 
@@ -496,8 +540,8 @@ h1 {
 }
 
 .add-port {
-    background-color: var(--accent-color);
-    border-radius: 8px;
+    background: linear-gradient(145deg, var(--accent-color) 0%, var(--accent-hover) 100%);
+    border-radius: 18px;
     padding: 10px;
     text-align: center;
     transition: all var(--transition-medium) var(--ease-out);
@@ -511,8 +555,8 @@ h1 {
 }
 
 .add-port:hover {
-    background-color: var(--accent-hover);
     transform: translateY(-2px);
+    background: linear-gradient(145deg, var(--accent-hover) 0%, var(--accent-color) 100%);
     box-shadow: var(--hover-shadow);
 }
 
