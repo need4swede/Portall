@@ -29,9 +29,26 @@
                 data-order="{{ port.order }}" data-id="{{ port.id }}" data-protocol="{{ port.port_protocol }}">
                 <span class="port-number">{{ port.port_number }}</span>
                 <span class="port-description">{{ port.description }}</span>
-                <div class="port-tooltip">{{ port.description }}</div>
+                <div class="port-status-indicator"></div>
+                <div class="port-tooltip">
+                    <div class="tooltip-header">
+                        <span class="tooltip-title">Port {{ port.port_number }}</span>
+                        <span class="tooltip-protocol {{ port.port_protocol|lower }}">{{ port.port_protocol }}</span>
+                    </div>
+                    <div class="tooltip-content">
+                        <div class="tooltip-label">Description</div>
+                        <div class="tooltip-value">{{ port.description }}</div>
+
+                        <div class="tooltip-label">IP Address</div>
+                        <div class="tooltip-value">{{ ip }}{% if data.nickname %} ({{ data.nickname }}){% endif %}</div>
+                    </div>
+                    <div class="tooltip-footer">
+                        <span>Click to edit</span>
+                        <span>ID: {{ port.id }}</span>
+                    </div>
+                </div>
             </div>
-            <p class="port-protocol">{{ port.port_protocol }}</p>
+            <p class="port-protocol {{ port.port_protocol|lower }}">{{ port.port_protocol }}</p>
         </div>
         {% endfor %}
         <div class="port-slot add-port-slot">

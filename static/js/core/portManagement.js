@@ -67,6 +67,32 @@ export function init() {
     $('#new-port-number').on('input', handleNewPortNumberInput);
     $('#port-protocol').on('change', handleProtocolChange);
     initSortButtons();
+    initPortHoverEvents();
+}
+
+/**
+ * Initialize hover events for port elements.
+ * Sets up mouseenter and mouseleave event listeners for port elements.
+ */
+function initPortHoverEvents() {
+    // Use event delegation to handle hover events for all ports (including dynamically added ones)
+    $(document).on('mouseenter', '.port', function () {
+        // Show tooltip on hover
+        $(this).find('.port-tooltip').css({
+            'visibility': 'visible',
+            'opacity': '1',
+            'transform': 'translateY(0) scale(1)'
+        });
+    });
+
+    $(document).on('mouseleave', '.port', function () {
+        // Hide tooltip when mouse leaves
+        $(this).find('.port-tooltip').css({
+            'visibility': 'hidden',
+            'opacity': '0',
+            'transform': 'translateY(10px) scale(0.95)'
+        });
+    });
 }
 
 /**
@@ -157,6 +183,12 @@ export function handlePortClick(element) {
     const protocol = port.data('protocol');
 
     console.log("Port clicked - ID:", portId);
+
+    // Add a subtle animation to the port when clicked
+    port.addClass('clicked');
+    setTimeout(() => {
+        port.removeClass('clicked');
+    }, 300);
 
     // Store the original port number and ID
     originalPortNumber = portNumber;
@@ -463,16 +495,33 @@ function handleSaveNewPortClick() {
             if (response.success) {
                 showNotification('Port added successfully', 'success');
 
-                // Create the new port element
+                // Create the new port element with enhanced tooltip
                 const newPortElement = `
                 <div class="port-slot" draggable="true" data-port="${portNumber}" data-order="${response.order}">
                     <div class="port active" data-ip="${ip}" data-port="${portNumber}" data-description="${description}"
                         data-order="${response.order}" data-id="${response.id}" data-protocol="${protocol}">
                         <span class="port-number">${portNumber}</span>
                         <span class="port-description">${description}</span>
-                        <div class="port-tooltip">${description}</div>
+                        <div class="port-status-indicator"></div>
+                        <div class="port-tooltip">
+                            <div class="tooltip-header">
+                                <span class="tooltip-title">Port ${portNumber}</span>
+                                <span class="tooltip-protocol ${protocol.toLowerCase()}">${protocol}</span>
+                            </div>
+                            <div class="tooltip-content">
+                                <div class="tooltip-label">Description</div>
+                                <div class="tooltip-value">${description}</div>
+
+                                <div class="tooltip-label">IP Address</div>
+                                <div class="tooltip-value">${ip}</div>
+                            </div>
+                            <div class="tooltip-footer">
+                                <span>Click to edit</span>
+                                <span>ID: ${response.id}</span>
+                            </div>
+                        </div>
                     </div>
-                    <p class="port-protocol">${protocol}</p>
+                    <p class="port-protocol ${protocol.toLowerCase()}">${protocol}</p>
                 </div>
                 `;
 

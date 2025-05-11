@@ -258,6 +258,7 @@ h1 {
     transition: all var(--transition-fast) var(--ease-out);
     border: 1px solid var(--border-color);
     box-shadow: var(--button-shadow);
+    position: relative;
 }
 
 .port-slot:hover {
@@ -274,23 +275,32 @@ h1 {
 .port {
     background-color: var(--bg-card);
     border-radius: 8px;
-    padding: 10px;
+    padding: 12px;
     text-align: center;
     transition: all var(--transition-medium) var(--ease-out);
     position: relative;
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    z-index: 1;
 }
 
 .port.active {
-    background-color: var(--success-color);
+    background: linear-gradient(135deg, var(--success-color) 0%, var(--success-color) 100%);
     color: white;
+    box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
 }
 
 .port-number {
     display: block;
-    font-weight: 600;
-    font-size: 1.2rem;
+    font-weight: 700;
+    font-size: 1.4rem;
     color: var(--text-primary);
+    margin-bottom: 5px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .port.active .port-number {
@@ -305,6 +315,7 @@ h1 {
     overflow: hidden;
     text-overflow: ellipsis;
     margin-top: 5px;
+    max-width: 100%;
 }
 
 .port.active .port-description {
@@ -312,38 +323,56 @@ h1 {
 }
 
 .port-protocol {
-    color: var(--accent-color);
-    text-align: center;
-    font-weight: 600;
-    margin: 8px 0 0;
-    font-size: 0.9rem;
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 0 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.port-protocol.tcp {
+    background-color: rgba(0, 102, 204, 0.8);
+    color: white;
+}
+
+.port-protocol.udp {
+    background-color: rgba(255, 149, 0, 0.8);
+    color: white;
 }
 
 .port-tooltip {
     visibility: hidden;
-    width: 200px;
+    width: 280px;
     background-color: var(--bg-card);
     color: var(--text-primary);
-    text-align: center;
-    border-radius: 8px;
-    padding: 10px;
+    text-align: left;
+    border-radius: 12px;
+    padding: 15px;
     position: absolute;
-    z-index: 1;
-    bottom: 125%;
+    z-index: 1000;
+    bottom: 130%;
     left: 50%;
-    margin-left: -100px;
+    margin-left: -140px;
     opacity: 0;
-    transition: opacity var(--transition-medium), transform var(--transition-medium);
-    box-shadow: var(--card-shadow);
+    transition: opacity 0.3s, transform 0.3s;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
+    transform: translateY(10px) scale(0.95);
+    pointer-events: none;
 }
 
 .port:hover .port-tooltip {
     visibility: visible;
     opacity: 1;
-    transform: translateY(-5px);
+    transform: translateY(0) scale(1);
 }
 
 .port-tooltip::after {
@@ -355,6 +384,109 @@ h1 {
     border-width: 8px;
     border-style: solid;
     border-color: var(--bg-card) transparent transparent transparent;
+}
+
+.tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tooltip-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.tooltip-protocol {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+
+.tooltip-protocol.tcp {
+    background-color: rgba(0, 102, 204, 0.8);
+    color: white;
+}
+
+.tooltip-protocol.udp {
+    background-color: rgba(255, 149, 0, 0.8);
+    color: white;
+}
+
+.tooltip-content {
+    margin-bottom: 10px;
+}
+
+.tooltip-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 3px;
+}
+
+.tooltip-value {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.tooltip-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.port-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, 0.1);
+    color: var(--text-secondary);
+}
+
+.port-status-indicator {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--success-color);
+    box-shadow: 0 0 5px var(--success-color);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(52, 199, 89, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(52, 199, 89, 0);
+    }
+}
+
+/* Click animation for ports */
+.port.clicked {
+    transform: scale(0.95);
+    transition: transform 0.15s ease-in-out;
 }
 
 .add-port-slot {
