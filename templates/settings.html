@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Settings</h1>
-<div class="glass-card">
+<div>
     <div id="notification-area" class="mb-3"></div>
 
     <!-- Tabs -->
-    <ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+    <ul class="nav nav-tabs mb-4 glass-card" id="settingsTabs" role="tablist">
 
         <!-- General -->
         <li class="nav-item" role="presentation">
@@ -45,7 +45,7 @@
         <!-- General Settings -->
         <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
             <h2>General Settings</h2>
-            <form id="settings-form">
+            <form id="settings-form" class="glass-card">
                 <div class="mb-3">
                     <label for="default-ip" class="form-label">Default IP Address</label>
                     <select class="form-select" id="default-ip" name="default_ip">
@@ -61,7 +61,7 @@
         <!-- Port Settings -->
         <div class="tab-pane fade" id="ports" role="tabpanel" aria-labelledby="ports-tab">
             <h2>Port Generation Settings</h2>
-            <form id="port-settings-form">
+            <form id="port-settings-form" class="glass-card">
 
                 <!-- Port Start -->
                 <div class="mb-3">
@@ -139,7 +139,7 @@
         <!-- Appearance Settings -->
         <div class="tab-pane fade" id="appearance" role="tabpanel" aria-labelledby="appearance-tab">
             <h2>Appearance</h2>
-            <form id="theme-form">
+            <form id="theme-form" class="glass-card">
                 <div class="mb-3">
                     <label for="theme" class="form-label">Theme</label>
                     <select class="form-select" id="theme" name="theme">
@@ -164,14 +164,14 @@
             <h2>Data Management</h2>
 
             <!-- Export Data Section -->
-            <div class="mb-4">
+            <div class="mb-4 glass-card">
                 <h3>Export Data</h3>
                 <p>Export all Port entries to a file.</p>
                 <button id="export-entries-button" class="btn btn-primary">Export Entries</button>
             </div>
 
             <!-- Purge Data Section -->
-            <div>
+            <div class="mb-4 glass-card">
                 <h3>Purge Data</h3>
                 <p>Purge all entries from the database. This action cannot be undone.</p>
                 <button id="purge-button" class="btn btn-danger">Purge All Entries</button>

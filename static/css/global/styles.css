@@ -509,6 +509,12 @@ h1 {
     color: var(--text-secondary);
 }
 
+.tab-pane h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
 
 @keyframes pulse {
     0% {
