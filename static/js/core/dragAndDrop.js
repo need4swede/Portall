@@ -20,6 +20,10 @@ const clickThreshold = 200;
 // For dragging IP panels
 let draggingIPPanel = null;
 let ipPanelPlaceholder = null;
+let ipDragStartX, ipDragStartY, ipDragStartTime;
+let isIPDragging = false;
+const ipDragThreshold = 5;
+const ipClickThreshold = 200;
 
 // For port conflict handling
 let conflictingPortData = null;
@@ -30,9 +34,7 @@ let conflictingPortData = null;
  */
 export function init() {
     $('.port-slot:not(.add-port-slot)').on('mousedown', handleMouseDown);
-    $('.network-switch').on('dragstart', handleNetworkSwitchDragStart);
-    $('.network-switch').on('dragover', handleNetworkSwitchDragOver);
-    $('.network-switch').on('dragend', handleNetworkSwitchDragEnd);
+    $('.network-switch').on('mousedown', handleNetworkSwitchMouseDown);
     $('body').on('drop', handleBodyDrop);
 }
 
@@ -79,58 +81,141 @@ function handleMouseDown(e) {
 }
 
 /**
- * Handle drag start event for IP panels.
- * Prepares the drag operation and creates a placeholder.
+ * Handle mousedown event on a network switch.
+ * Initiates drag detection and handles click vs. drag distinction.
  *
- * @param {Event} e - The dragstart event object
+ * @param {Event} e - The mousedown event object
  */
-function handleNetworkSwitchDragStart(e) {
-    draggingIPPanel = this;
-    e.originalEvent.dataTransfer.effectAllowed = 'move';
-    e.originalEvent.dataTransfer.setData('text/html', this.outerHTML);
+function handleNetworkSwitchMouseDown(e) {
+    if (e.which !== 1) return; // Only respond to left mouse button
+    if ($(e.target).closest('.edit-ip, .sort-btn').length) return; // Don't initiate drag if clicking on buttons
 
+    ipDragStartX = e.clientX;
+    ipDragStartY = e.clientY;
+    ipDragStartTime = new Date().getTime();
+    const element = this;
+
+    $(document).on('mousemove.ipdragdetect', function (e) {
+        if (!isIPDragging &&
+            (Math.abs(e.clientX - ipDragStartX) > ipDragThreshold ||
+                Math.abs(e.clientY - ipDragStartY) > ipDragThreshold)) {
+            isIPDragging = true;
+            initiateIPDrag(e, element);
+        }
+    });
+
+    $(document).on('mouseup.ipdragdetect', function (e) {
+        $(document).off('mousemove.ipdragdetect mouseup.ipdragdetect');
+        isIPDragging = false;
+    });
+
+    e.preventDefault();
+}
+
+/**
+ * Initiates the drag operation for a network switch (IP panel)
+ * @param {Event} e - The event object
+ * @param {HTMLElement} element - The element being dragged
+ */
+function initiateIPDrag(e, element) {
+    draggingIPPanel = element;
+    console.log('Dragging IP panel:', draggingIPPanel);
+
+    const rect = draggingIPPanel.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    // Get the exact dimensions of the element before cloning
+    const originalWidth = $(draggingIPPanel).outerWidth();
+    const originalHeight = $(draggingIPPanel).outerHeight();
+
+    // Create a placeholder for the dragged element with exact same dimensions
     ipPanelPlaceholder = document.createElement('div');
     ipPanelPlaceholder.className = 'network-switch-placeholder';
-    ipPanelPlaceholder.style.height = `${this.offsetHeight}px`;
-    this.parentNode.insertBefore(ipPanelPlaceholder, this.nextSibling);
+    ipPanelPlaceholder.style.width = originalWidth + 'px';
+    ipPanelPlaceholder.style.height = originalHeight + 'px';
+    ipPanelPlaceholder.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+    ipPanelPlaceholder.style.border = '2px dashed #ccc';
+    ipPanelPlaceholder.style.borderRadius = '16px';
+    ipPanelPlaceholder.style.margin = '0 0 30px 0';
+    draggingIPPanel.parentNode.insertBefore(ipPanelPlaceholder, draggingIPPanel.nextSibling);
 
-    setTimeout(() => {
-        this.style.display = 'none';
-    }, 0);
-}
+    // Style the dragging element
+    $(draggingIPPanel).css({
+        'position': 'fixed',
+        'zIndex': 1000,
+        'pointer-events': 'none',
+        'width': originalWidth + 'px',
+        'height': originalHeight + 'px',
+        'opacity': '0.8',
+        'transform': 'scale(1.02)',
+        'box-shadow': 'var(--hover-shadow)'
+    }).addClass('dragging');
 
-/**
- * Handle drag over event for IP panels.
- * Adjusts the placeholder position based on the drag location.
- *
- * @param {Event} e - The dragover event object
- */
-function handleNetworkSwitchDragOver(e) {
-    e.preventDefault();
-    e.originalEvent.dataTransfer.dropEffect = 'move';
+    // Handle mouse movement during drag
+    function mouseMoveHandler(e) {
+        $(draggingIPPanel).css({
+            'left': e.clientX - offsetX + 'px',
+            'top': e.clientY - offsetY + 'px'
+        });
 
-    const rect = this.getBoundingClientRect();
-    const midpoint = rect.top + rect.height / 2;
+        const targetElement = getIPTargetElement(e.clientX, e.clientY);
+        if (targetElement && targetElement !== draggingIPPanel) {
+            const targetRect = targetElement.getBoundingClientRect();
+            const targetMidpoint = targetRect.top + targetRect.height / 2;
 
-    if (e.originalEvent.clientY < midpoint) {
-        this.parentNode.insertBefore(ipPanelPlaceholder, this);
-    } else {
-        this.parentNode.insertBefore(ipPanelPlaceholder, this.nextSibling);
+            if (e.clientY < targetMidpoint) {
+                targetElement.parentNode.insertBefore(ipPanelPlaceholder, targetElement);
+            } else {
+                targetElement.parentNode.insertBefore(ipPanelPlaceholder, targetElement.nextSibling);
+            }
+        }
     }
+
+    // Handle mouse up to end drag
+    function mouseUpHandler(e) {
+        $(document).off('mousemove', mouseMoveHandler);
+        $(document).off('mouseup', mouseUpHandler);
+
+        finalizeIPDrop();
+    }
+
+    $(document).on('mousemove', mouseMoveHandler);
+    $(document).on('mouseup', mouseUpHandler);
 }
 
 /**
- * Handle drag end event for IP panels.
- * Finalizes the drag operation, updates the order of panels,
- * shows a loading animation, and refreshes the page.
- *
- * @param {Event} e - The dragend event object
+ * Determines the target element for dropping an IP panel
+ * @param {number} x - The x-coordinate of the mouse
+ * @param {number} y - The y-coordinate of the mouse
+ * @returns {HTMLElement|null} The target element or null if invalid
  */
-function handleNetworkSwitchDragEnd(e) {
-    this.style.display = 'block';
+function getIPTargetElement(x, y) {
+    const elements = document.elementsFromPoint(x, y);
+    return elements.find(el => el.classList.contains('network-switch') && el !== draggingIPPanel);
+}
 
+/**
+ * Finalizes the drop operation for an IP panel
+ */
+function finalizeIPDrop() {
+    // Reset the dragging element's style
+    $(draggingIPPanel).css({
+        'position': '',
+        'zIndex': '',
+        'left': '',
+        'top': '',
+        'pointer-events': '',
+        'width': '',
+        'height': '',
+        'opacity': '',
+        'transform': '',
+        'box-shadow': ''
+    }).removeClass('dragging');
+
+    // Move the dragging element to the placeholder position
     if (ipPanelPlaceholder && ipPanelPlaceholder.parentNode) {
-        ipPanelPlaceholder.parentNode.insertBefore(this, ipPanelPlaceholder);
+        ipPanelPlaceholder.parentNode.insertBefore(draggingIPPanel, ipPanelPlaceholder);
         ipPanelPlaceholder.parentNode.removeChild(ipPanelPlaceholder);
     }
 
@@ -144,6 +229,9 @@ function handleNetworkSwitchDragEnd(e) {
             location.reload();
         }, 1500); // 1.5 seconds delay
     });
+
+    draggingIPPanel = null;
+    ipPanelPlaceholder = null;
 }
 
 /**
@@ -154,13 +242,6 @@ function handleNetworkSwitchDragEnd(e) {
  */
 function handleBodyDrop(e) {
     e.preventDefault();
-    if (draggingIPPanel !== null) {
-        if (ipPanelPlaceholder && ipPanelPlaceholder.parentNode) {
-            ipPanelPlaceholder.parentNode.insertBefore(draggingIPPanel, ipPanelPlaceholder);
-            ipPanelPlaceholder.parentNode.removeChild(ipPanelPlaceholder);
-        }
-        draggingIPPanel = null;
-    }
 }
 
 /**

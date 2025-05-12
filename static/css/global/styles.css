@@ -208,6 +208,25 @@ h1 {
     transform: translateY(-3px);
 }
 
+.network-switch.dragging {
+    opacity: 0.8;
+    transform: scale(1.02);
+    box-shadow: var(--hover-shadow);
+}
+
+.network-switch-placeholder {
+    background-color: rgba(0, 0, 0, 0.1);
+    border: 2px dashed #ccc;
+    border-radius: 16px;
+    margin-bottom: 30px;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+[data-theme="dark"] .network-switch-placeholder {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 2px dashed #444;
+}
+
 .switch-label {
     color: var(--text-primary);
     font-size: 1.3rem;
