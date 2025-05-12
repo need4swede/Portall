@@ -3,6 +3,9 @@
 # Standard Imports
 import json                                     # For parsing JSON data
 import random                                   # For generating random ports
+import socket                                   # For checking port status
+import threading                                # For concurrent port checks
+import time                                     # For timeouts
 
 # External Imports
 from flask import Blueprint                     # For creating a blueprint
@@ -433,6 +436,78 @@ def delete_ip():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error deleting IP: {str(e)}'}), 500
+
+@ports_bp.route('/check_port_status')
+def check_port_status():
+    """
+    Check if a port is up or down.
+
+    This function checks if a port is open on a given IP address using socket connection.
+    It returns a JSON response indicating if the port is up or down.
+
+    Returns:
+        JSON: A JSON response with the port status ('up' or 'down').
+    """
+    ip = request.args.get('ip')
+    port = request.args.get('port')
+    protocol = request.args.get('protocol', 'TCP')
+    
+    if not ip or not port:
+        return jsonify({'status': 'down', 'error': 'Missing IP or port'}), 400
+    
+    try:
+        port = int(port)
+        status = is_port_open(ip, port, protocol)
+        return jsonify({'status': 'up' if status else 'down'})
+    except ValueError:
+        return jsonify({'status': 'down', 'error': 'Invalid port number'}), 400
+    except Exception as e:
+        app.logger.error(f"Error checking port status: {str(e)}")
+        return jsonify({'status': 'down', 'error': str(e)}), 500
+
+def is_port_open(ip, port, protocol='TCP', timeout=1):
+    """
+    Check if a port is open on a given IP address.
+    
+    Args:
+        ip (str): The IP address to check
+        port (int): The port number to check
+        protocol (str): The protocol to use (TCP or UDP)
+        timeout (float): The timeout in seconds
+        
+    Returns:
+        bool: True if the port is open, False otherwise
+    """
+    # For TCP protocol
+    if protocol.upper() == 'TCP':
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((ip, port))
+        sock.close()
+        return result == 0
+    
+    # For UDP protocol
+    elif protocol.upper() == 'UDP':
+        # UDP is connectionless, so we need a different approach
+        # This is a simple check that may not be 100% accurate
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+        try:
+            sock.sendto(b'', (ip, port))
+            sock.recvfrom(1024)  # Try to receive data
+            return True
+        except socket.timeout:
+            # No response, but the port might still be open
+            # UDP is harder to check reliably
+            return False
+        except Exception:
+            return False
+        finally:
+            sock.close()
+    
+    # Unsupported protocol
+    else:
+        return False
 
 @ports_bp.route('/update_ip_order', methods=['POST'])
 def update_ip_order():
