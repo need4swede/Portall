@@ -2,7 +2,7 @@
 
 import { showNotification } from '../ui/helpers.js';
 import { editPortModal, addPortModal, deletePortModal } from '../ui/modals.js';
-import { updatePortOrder as updatePortOrderAjax } from '../api/ajax.js';
+import { updatePortOrder as updatePortOrderAjax, copyToClipboard } from '../api/ajax.js';
 
 /**
  * The IP address of the port to be deleted.
@@ -69,6 +69,11 @@ export function init() {
     $('#port-protocol').on('change', handleProtocolChange);
     initSortButtons();
     initPortHoverEvents();
+    $(document).off('click', '.copy-btn').on('click', '.copy-btn', function () {
+        const url = $(this).data('url');
+        console.log("Copy button clicked with URL:", url);
+        copyToClipboard(url);
+    });
 }
 
 
@@ -674,17 +679,6 @@ function handleGeneratePortClick() {
                             <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${fullUrl.split('Generated URL: ')[1].split(' Copy')[0]}">Copy URL</button>
                         </div>
                     `);
-
-                    // Add click event for the copy button
-                    $('.copy-btn').click(function () {
-                        const url = $(this).data('url');
-                        navigator.clipboard.writeText(url).then(function () {
-                            showNotification('Copied to clipboard!');
-                        }).catch(function (err) {
-                            console.error('Could not copy text: ', err);
-                            showNotification('Failed to copy to clipboard', 'error');
-                        });
-                    });
 
                     // Clear the original result
                     $('#result').empty();

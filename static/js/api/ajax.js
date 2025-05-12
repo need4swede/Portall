@@ -212,9 +212,10 @@ export function generatePortNumber(formData) {
                             <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${response.full_url}">Copy</button>
                         </div>
                     `);
-            // Add click event for the copy button
-            $('.copy-btn').click(function () {
-                copyToClipboard($(this).data('url'));
+            $(document).off('click', '.copy-btn').on('click', '.copy-btn', function () {
+                const url = $(this).data('url');
+                console.log("Copy button clicked with URL:", url);
+                copyToClipboard(url);
             });
         },
         error: function (xhr, status, error) {
@@ -229,26 +230,92 @@ export function generatePortNumber(formData) {
     });
 }
 
+// Port Only or Full URL Copy Format
+function getCopyFormat() {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/port_settings',
+            method: 'GET',
+            success: function (data) {
+                resolve(data.copy_format || 'port_only');   // Default to 'port_only' if not set
+            },
+            error: function (xhr, status, error) {
+                console.error('Error getting copy format:', status, error);
+                reject(error);
+            }
+        });
+    });
+}
+
 /**
- * Helper function to copy text to clipboard
- * 
- * @param {string} text - The text to copy to clipboard
+ * Copies the given URL to the clipboard.
+ * Uses the Clipboard API if available, otherwise falls back to a manual method.
+ * @param {string} url - The URL to copy to the clipboard.
  */
-function copyToClipboard(text) {
-    // Create a temporary input element
-    const tempInput = document.createElement('input');
-    tempInput.value = text;
-    document.body.appendChild(tempInput);
+export function copyToClipboard(url) {
+    // Return the promise to ensure proper resolution
+    return getCopyFormat().then(format => {
+        let textToCopy;
+        if (format === 'port_only') {
+            const port = url.split(':').pop();
+            textToCopy = port;
+        } else {
+            textToCopy = url;
+        }
 
-    // Select and copy the text
-    tempInput.select();
-    document.execCommand('copy');
+        // Use Promise.resolve to standardize the return value
+        if (navigator.clipboard) {
+            return navigator.clipboard.writeText(textToCopy)
+                .then(() => {
+                    showNotification('Copied to clipboard!', 'success');
+                    return true; // explicit resolution
+                })
+                .catch(err => {
+                    console.error('Could not copy text: ', err);
+                    return fallbackCopyTextToClipboard(textToCopy);
+                });
+        } else {
+            return Promise.resolve(fallbackCopyTextToClipboard(textToCopy));
+        }
+    }).catch(error => {
+        console.error('Error getting copy format:', error);
+        showNotification('Error getting copy format', 'error');
+        return Promise.reject(error); // explicit rejection
+    });
+}
 
-    // Remove the temporary element
-    document.body.removeChild(tempInput);
+/**
+ * Fallback method to copy text to clipboard for browsers that don't support the Clipboard API.
+ * Creates a temporary textarea element, selects its content, and uses document.execCommand('copy').
+ * @param {string} text - The text to copy to the clipboard.
+ */
+function fallbackCopyTextToClipboard(text) {
+    var textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
 
-    // Show a notification
-    showNotification('URL copied to clipboard!', 'success');
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    let successful = false;
+    try {
+        successful = document.execCommand('copy');
+        console.log('Fallback: Copying text command was ' + (successful ? 'successful' : 'unsuccessful'));
+        if (successful) {
+            showNotification('Copied to clipboard!', 'success');
+        } else {
+            showNotification('Failed to copy to clipboard. Please copy manually.', 'error');
+        }
+    } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        showNotification('Failed to copy to clipboard. Please copy manually.', 'error');
+    }
+
+    document.body.removeChild(textArea);
+    return successful; // Return result for promise chaining
 }
 
 /**
@@ -272,9 +339,12 @@ export function generatePort(formData) {
                             <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${response.full_url}">Copy</button>
                         </div>
                     `);
-            // Add click event for the copy button
-            $('.copy-btn').click(function () {
-                copyToClipboard($(this).data('url'));
+            // Use event delegation for the copy button
+            // This ensures the event is bound even for dynamically added buttons
+            $(document).off('click', '.copy-btn').on('click', '.copy-btn', function () {
+                const url = $(this).data('url');
+                console.log("Copy button clicked with URL:", url);
+                copyToClipboard(url);
             });
         },
         error: function (xhr, status, error) {
