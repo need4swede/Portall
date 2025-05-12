@@ -2,7 +2,7 @@
 
 import { showNotification } from '../ui/helpers.js';
 import { editIp, deleteIp } from '../api/ajax.js';
-import { editIpModal } from '../ui/modals.js';
+import { editIpModal, addIpModal } from '../ui/modals.js';
 
 let deleteIpAddress;
 
@@ -17,6 +17,8 @@ export function init() {
     $('#delete-ip').click(handleDeleteIpClick);
     $('#confirm-delete-ip').click(handleConfirmDeleteIpClick);
     $('#deleteIpModal').on('hidden.bs.modal', handleDeleteIpModalHidden);
+    $('#add-ip-btn').click(handleAddIpClick);
+    $('#save-new-ip').click(handleSaveNewIpClick);
 }
 
 /**
@@ -123,6 +125,64 @@ function handleConfirmDeleteIpClick() {
  */
 function handleDeleteIpModalHidden() {
     deleteIpAddress = null;
+}
+
+/**
+ * Handle click event on the "Add IP" button.
+ * Shows the add IP modal.
+ */
+function handleAddIpClick() {
+    // Reset form fields
+    $('#add-ip').val('');
+    $('#add-nickname').val('');
+    addIpModal.show();
+}
+
+/**
+ * Handle click event on the "Save New IP" button in the add IP modal.
+ * Validates the IP address and sends an AJAX request to add the IP with a default port.
+ */
+function handleSaveNewIpClick() {
+    const ip = $('#add-ip').val().trim();
+    const nickname = $('#add-nickname').val().trim();
+
+    if (!ip) {
+        showNotification('Please enter an IP address', 'error');
+        return;
+    }
+
+    // Validate IP address format (simple validation)
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$|^localhost$/;
+    if (!ipRegex.test(ip)) {
+        showNotification('Please enter a valid IP address', 'error');
+        return;
+    }
+
+    // Send AJAX request to add the IP with a default port
+    $.ajax({
+        url: '/add_ip',
+        method: 'POST',
+        data: {
+            ip: ip,
+            nickname: nickname,
+            port_number: 8080,
+            description: 'Generic',
+            protocol: 'TCP'
+        },
+        success: function (response) {
+            if (response.success) {
+                showNotification('IP added successfully with port 8080', 'success');
+                location.reload(); // Reload the page to show the new IP
+            } else {
+                showNotification('Error adding IP: ' + response.message, 'error');
+            }
+            addIpModal.hide();
+        },
+        error: function (xhr, status, error) {
+            showNotification('Error adding IP: ' + error, 'error');
+            addIpModal.hide();
+        }
+    });
 }
 
 /**

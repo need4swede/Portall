@@ -411,6 +411,48 @@ def edit_ip():
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error updating IP: {str(e)}'}), 500
 
+@ports_bp.route('/add_ip', methods=['POST'])
+def add_ip():
+    """
+    Add a new IP address with a default port.
+
+    This function creates a new IP address entry with a default port (8080) and description ('Generic').
+
+    Returns:
+        JSON: A JSON response indicating success or failure of the operation.
+    """
+    ip_address = request.form['ip']
+    nickname = request.form.get('nickname', '')
+    port_number = request.form.get('port_number', 8080)  # Default to 8080
+    description = request.form.get('description', 'Generic')  # Default to 'Generic'
+    protocol = request.form.get('protocol', 'TCP')  # Default to TCP
+
+    try:
+        # Check if the IP already exists
+        existing_ip = Port.query.filter_by(ip_address=ip_address).first()
+        if existing_ip:
+            return jsonify({'success': False, 'message': 'IP address already exists'}), 400
+
+        # Create a new port entry for the IP
+        port = Port(
+            ip_address=ip_address,
+            nickname=nickname if nickname else None,
+            port_number=port_number,
+            description=description,
+            port_protocol=protocol,
+            order=0  # First port for this IP
+        )
+
+        db.session.add(port)
+        db.session.commit()
+
+        app.logger.info(f"Added new IP {ip_address} with port {port_number}")
+        return jsonify({'success': True, 'message': 'IP added successfully with default port'})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding new IP: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error adding IP: {str(e)}'}), 500
+
 @ports_bp.route('/delete_ip', methods=['POST'])
 def delete_ip():
     """
