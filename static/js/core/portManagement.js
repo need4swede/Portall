@@ -2,7 +2,7 @@
 
 import { showNotification } from '../ui/helpers.js';
 import { editPortModal, addPortModal, deletePortModal } from '../ui/modals.js';
-import { updatePortOrder as updatePortOrderAjax, copyToClipboard } from '../api/ajax.js';
+import { updatePortOrder as updatePortOrderAjax } from '../api/ajax.js';
 
 /**
  * The IP address of the port to be deleted.
@@ -669,16 +669,6 @@ function handleGeneratePortClick() {
                     // Update the port number field
                     $('#add-new-port-number').val(generatedPort);
                     $('#save-new-port').prop('disabled', false);
-
-                    // Copy the result to the modal with a clear message that the port is only generated, not added
-                    $('#port-generation-result').html(`
-                        <div class="alert alert-success" role="alert">
-                            <strong>Port Generated:</strong> ${generatedPort} (${protocol})<br>
-                            <small class="text-muted">URL: ${fullUrl.split('Generated URL: ')[1].split(' Copy')[0]}</small><br>
-                            <small class="text-muted">Click "Add Port" to save this port.</small>
-                            <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${fullUrl.split('Generated URL: ')[1].split(' Copy')[0]}">Copy URL</button>
-                        </div>
-                    `);
 
                     // Clear the original result
                     $('#result').empty();
