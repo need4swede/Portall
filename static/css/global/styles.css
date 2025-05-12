@@ -377,7 +377,7 @@ h1 {
     letter-spacing: 0.5px;
     z-index: 1;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border-radius: 0 8px 0 0;
+    border-radius: 0 8px 0;
 }
 
 .port-protocol.tcp {
@@ -661,6 +661,11 @@ h1 {
 .btn-secondary {
     background-color: var(--text-secondary);
     border-color: var(--text-secondary);
+}
+
+#add-ip-btn {
+    background-color: var(--accent-color);
+    color: var(--color-white);
 }
 
 /* Forms */

@@ -372,7 +372,6 @@ code {
 }
 
 .tab-content>.tab-pane {
-    background-color: var(--color-gray-lighter);
     border-radius: 0 0 var(--border-radius) var(--border-radius);
 }
 
@@ -395,9 +394,6 @@ code {
 }
 
 /* About section styles */
-#about {
-    background-color: var(--color-gray-lighter);
-}
 
 .section-title {
     color: var(--color-blue-dark);
