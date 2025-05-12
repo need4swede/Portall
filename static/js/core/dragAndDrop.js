@@ -180,20 +180,31 @@ function initiateDrag(e, element) {
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
 
-    // Create a placeholder for the dragged element
+    // Get the exact dimensions of the element before cloning
+    const originalWidth = $(draggingElement).outerWidth();
+    const originalHeight = $(draggingElement).outerHeight();
+
+    // Create a placeholder for the dragged element with exact same dimensions
     placeholder = $(draggingElement).clone().empty().css({
-        'height': $(draggingElement).height(),
+        'width': originalWidth + 'px',
+        'height': originalHeight + 'px',
         'background-color': 'rgba(0, 0, 0, 0.1)',
         'border': '2px dashed #ccc'
     }).insertAfter(draggingElement);
 
-    // Style the dragging element
+    // Hide any visible tooltips
+    $(draggingElement).find('.port-tooltip').css({
+        'visibility': 'hidden',
+        'opacity': '0'
+    });
+
+    // Style the dragging element with exact dimensions
     $(draggingElement).css({
         'position': 'fixed',
         'zIndex': 1000,
         'pointer-events': 'none',
-        'width': $(draggingElement).width() + 'px',
-        'height': $(draggingElement).height() + 10 + 'px'
+        'width': originalWidth + 'px',
+        'height': originalHeight + 'px'
     }).addClass('dragging').appendTo('body');
 
     // Handle mouse movement during drag
@@ -369,6 +380,37 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
         // Update the order of ports for both source and target IPs
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
+
+        // Check the port status immediately after moving
+        const ip = updatedPort.ip_address;
+        const portNum = updatedPort.port_number;
+        const proto = updatedPort.protocol;
+
+        // Import the checkPortStatus function from portManagement.js
+        import('./portManagement.js').then(module => {
+            // Use the exported function to check port status
+            const checkPortStatus = module.checkPortStatus || function (ip, portNum, proto, $port) {
+                const $portSlot = $port.closest('.port-slot');
+                const url = `/check_port_status?ip=${ip}&port=${portNum}&protocol=${proto}`;
+
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'up') {
+                            $portSlot.removeClass('status-down').addClass('status-up');
+                        } else {
+                            $portSlot.removeClass('status-up').addClass('status-down');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking port status:', error);
+                        $portSlot.removeClass('status-up').addClass('status-down');
+                    });
+            };
+
+            // Check the status of the moved port
+            checkPortStatus(ip, portNum, proto, $port);
+        });
 
         if (isConflictResolution) {
             refreshPageAfterDelay();
