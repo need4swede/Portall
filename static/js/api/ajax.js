@@ -182,7 +182,77 @@ export function addPort(formData) {
 }
 
 /**
- * Generates a new random port for an IP.
+ * Generates a new random port number for an IP without adding it to the database.
+ * Sends an AJAX request to generate a port number.
+ *
+ * @param {Object} formData - The form data containing the IP and protocol information
+ */
+export function generatePortNumber(formData) {
+    console.log('Generating port number with formData:', formData);
+
+    // Ensure we're only sending the minimum required fields
+    const minimalFormData = {
+        ip_address: formData.ip_address,
+        protocol: formData.protocol
+    };
+
+    console.log('Sending minimal formData to generate_port_number:', minimalFormData);
+
+    // Send AJAX request to generate port number
+    $.ajax({
+        url: '/generate_port_number',
+        method: 'POST',
+        data: minimalFormData,
+        success: function (response) {
+            console.log('Port number generated successfully:', response);
+            // Display the generated URL with a copy button
+            $('#result').html(`
+                        <div class="alert alert-success" role="alert">
+                            Generated URL: ${response.full_url}
+                            <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${response.full_url}">Copy</button>
+                        </div>
+                    `);
+            // Add click event for the copy button
+            $('.copy-btn').click(function () {
+                copyToClipboard($(this).data('url'));
+            });
+        },
+        error: function (xhr, status, error) {
+            console.error('Error generating port number:', status, error);
+            // Display error message
+            $('#result').html(`
+                        <div class="alert alert-danger" role="alert">
+                            Error: ${xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'}
+                        </div>
+                    `);
+        }
+    });
+}
+
+/**
+ * Helper function to copy text to clipboard
+ * 
+ * @param {string} text - The text to copy to clipboard
+ */
+function copyToClipboard(text) {
+    // Create a temporary input element
+    const tempInput = document.createElement('input');
+    tempInput.value = text;
+    document.body.appendChild(tempInput);
+
+    // Select and copy the text
+    tempInput.select();
+    document.execCommand('copy');
+
+    // Remove the temporary element
+    document.body.removeChild(tempInput);
+
+    // Show a notification
+    showNotification('URL copied to clipboard!', 'success');
+}
+
+/**
+ * Generates a new random port for an IP and adds it to the database.
  * Sends an AJAX request to generate a port.
  *
  * @param {Object} formData - The form data containing the new port information

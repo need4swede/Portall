@@ -26,7 +26,7 @@
     </h2>
     <div class="switch-panel" data-ip="{{ ip }}">
         {% for port in data.ports %}
-        <div class="port-slot" draggable="true" data-port="{{ port.port_number }}" data-order="{{ port.order }}">
+        <div class="port-slot active" draggable="true" data-port="{{ port.port_number }}" data-order="{{ port.order }}">
             <div class="port {% if port.port_number in data.ports|map(attribute='port_number') %}active{% endif %}"
                 data-ip="{{ ip }}" data-port="{{ port.port_number }}" data-description="{{ port.description }}"
                 data-order="{{ port.order }}" data-id="{{ port.id }}" data-protocol="{{ port.port_protocol }}">
@@ -147,10 +147,6 @@
                     <input type="hidden" id="add-port-ip" name="ip">
                     <input type="hidden" id="add-port-ip-nickname" name="ip_nickname">
                     <div class="mb-3">
-                        <label for="add-new-port-number" class="form-label">Port Number</label>
-                        <input type="number" class="form-control" id="add-new-port-number" name="port_number" required>
-                    </div>
-                    <div class="mb-3">
                         <label for="add-port-description" class="form-label">Description</label>
                         <input type="text" class="form-control" id="add-port-description" name="description" required>
                     </div>
@@ -161,11 +157,16 @@
                             <option value="UDP">UDP</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label for="add-new-port-number" class="form-label">Port Number</label>
+                        <input type="number" class="form-control" id="add-new-port-number" name="port_number" required>
+                    </div>
                     <div id="port-exists-disclaimer" class="text-danger mt-2" style="display: none;"></div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="generate-port">Generate</button>
                 <button type="button" class="btn btn-primary" id="save-new-port" disabled>Add Port</button>
             </div>
         </div>

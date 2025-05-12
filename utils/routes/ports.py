@@ -163,10 +163,75 @@ def delete_port():
         app.logger.error(f"Error deleting port: {str(e)}")
         return jsonify({'success': False, 'message': 'Error deleting port'}), 500
 
+@ports_bp.route('/generate_port_number', methods=['POST'])
+def generate_port_number():
+    """
+    Generate a new port number for a given IP address without adding it to the database.
+
+    This function receives IP address from a POST request and generates a new unique port number
+    within the configured range based on the port generation settings.
+
+    Returns:
+        tuple: A tuple containing a JSON response and an HTTP status code.
+               The JSON response includes the new port number and full URL on success,
+               or an error message on failure.
+    """
+    # Extract data from the POST request
+    ip_address = request.form['ip_address']
+    protocol = request.form['protocol']
+    app.logger.debug(f"Received request to generate port number for IP: {ip_address}, Protocol: {protocol}")
+
+    def get_setting(key, default):
+        """Helper function to retrieve settings from the database."""
+        setting = Setting.query.filter_by(key=key).first()
+        value = setting.value if setting else str(default)
+        return value if value != '' else str(default)
+
+    # Retrieve port generation settings
+    port_start = int(get_setting('port_start', 1024))
+    port_end = int(get_setting('port_end', 65535))
+    port_exclude = get_setting('port_exclude', '')
+    port_length = int(get_setting('port_length', 4))
+
+    # Get existing ports for this IP
+    existing_ports = set(p.port_number for p in Port.query.filter_by(ip_address=ip_address).all())
+
+    # Create set of excluded ports
+    excluded_ports = set()
+    if port_exclude:
+        excluded_ports.update(int(p.strip()) for p in port_exclude.split(',') if p.strip().isdigit())
+
+    # Generate list of available ports based on settings
+    available_ports = [p for p in range(port_start, port_end + 1)
+                       if p not in excluded_ports and
+                       (port_length == 0 or len(str(p)) == port_length)]
+
+    # Count ports in use within the current range
+    ports_in_use = sum(1 for p in existing_ports if p in available_ports)
+
+    # Check if there are any available ports
+    if not available_ports or all(p in existing_ports for p in available_ports):
+        total_ports = len(available_ports)
+        app.logger.error(f"No available ports for IP: {ip_address}. Used {ports_in_use} out of {total_ports} possible ports.")
+        settings_url = url_for('routes.settings.settings', _external=True) + '#ports'
+        error_message = (
+            f"No available ports.\n"
+            f"Used {ports_in_use} out of {total_ports} possible ports.\n"
+            f"Consider expanding your port range in the <a href='{settings_url}'>settings</a>."
+        )
+        return jsonify({'error': error_message, 'html': True}), 400
+
+    # Choose a new port randomly from available ports
+    new_port = random.choice([p for p in available_ports if p not in existing_ports])
+
+    # Return the new port and full URL without adding to database
+    full_url = f"http://{ip_address}:{new_port}"
+    return jsonify({'protocol': protocol, 'port': new_port, 'full_url': full_url})
+
 @ports_bp.route('/generate_port', methods=['POST'])
 def generate_port():
     """
-    Generate a new port for a given IP address.
+    Generate a new port for a given IP address and add it to the database.
 
     This function receives IP address, nickname, and description from a POST request,
     generates a new unique port number within the configured range, and saves it to the database.

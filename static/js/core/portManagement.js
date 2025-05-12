@@ -57,6 +57,7 @@ export function init() {
     $('.add-port').click(handleAddPortClick);
     $('#save-port').click(handleSavePortClick);
     $('#save-new-port').click(handleSaveNewPortClick);
+    $('#generate-port').click(handleGeneratePortClick);
     $('#delete-port').click(handleDeletePortClick);
     $('#confirm-delete-port').click(handleConfirmDeletePortClick);
     $('#deletePortModal').on('hidden.bs.modal', handleDeletePortModalHidden);
@@ -377,6 +378,10 @@ function handleAddPortClick() {
     $('#port-exists-disclaimer').hide();
     $('#save-new-port').prop('disabled', false);
     addPortModal.show();
+
+    $('#addPortModal').one('shown.bs.modal', function () {
+        $('#add-port-description').focus();
+    });
 }
 
 /**
@@ -498,8 +503,8 @@ function handleSaveNewPortClick() {
 
                 // Create the new port element with enhanced tooltip
                 const newPortElement = `
-                <div class="port-slot" draggable="true" data-port="${portNumber}" data-order="${response.order}">
-                    <div class="port" data-ip="${ip}" data-port="${portNumber}" data-description="${description}"
+                <div class="port-slot active" draggable="true" data-port="${portNumber}" data-order="${response.order}">
+                    <div class="port active" data-ip="${ip}" data-port="${portNumber}" data-description="${description}"
                         data-order="${response.order}" data-id="${response.id}" data-protocol="${protocol}">
                         <span class="port-number">${portNumber}</span>
                         <span class="port-description">${description}</span>
@@ -598,6 +603,115 @@ function handleNewPortNumberInput() {
 
 function handleProtocolChange() {
     checkPortConflict();
+}
+
+/**
+ * Handle click event on the "Generate" button in the add port modal.
+ * Collects the necessary data and sends an AJAX request to generate a port.
+ * The generated port will follow the rules set in the port generation settings.
+ */
+function handleGeneratePortClick() {
+    console.log("Generate port button clicked");
+
+    const ip = $('#add-port-ip').val();
+    const nickname = $('#add-port-ip-nickname').val();
+    const description = $('#add-port-description').val().trim();
+    const protocol = $('#add-port-protocol').val();
+
+    console.log("IP:", ip);
+    console.log("Nickname:", nickname);
+    console.log("Description:", description);
+    console.log("Protocol:", protocol);
+
+    if (description === '') {
+        console.log("Description is empty");
+        showNotification('Please enter a port description', 'error');
+        return;
+    }
+
+    // Create the form data for the generate port number request
+    // Only include ip_address and protocol, not description or nickname
+    // to ensure we're only generating a port number, not adding it
+    const formData = {
+        ip_address: ip,
+        protocol: protocol
+    };
+
+    // Create a result container if it doesn't exist
+    if ($('#port-generation-result').length === 0) {
+        $('#add-port-form').after('<div id="port-generation-result" class="mt-3"></div>');
+    }
+
+    // Clear any previous results
+    $('#port-generation-result').empty();
+
+    // Import the generatePortNumber function from ajax.js
+    import('../api/ajax.js').then(module => {
+        // Use the new generatePortNumber function that only generates a port number without adding it
+        module.generatePortNumber(formData);
+
+        // Set up a MutationObserver to watch for changes to the result div
+        const resultObserver = new MutationObserver((mutations) => {
+            // Check if the result div has been updated with a success message
+            if ($('#result .alert-success').length > 0) {
+                // Extract the port number from the generated URL
+                const fullUrl = $('#result .alert-success').text();
+                const portMatch = fullUrl.match(/:(\d+)/);
+
+                if (portMatch && portMatch[1]) {
+                    const generatedPort = portMatch[1];
+
+                    // Update the port number field
+                    $('#add-new-port-number').val(generatedPort);
+                    $('#save-new-port').prop('disabled', false);
+
+                    // Copy the result to the modal with a clear message that the port is only generated, not added
+                    $('#port-generation-result').html(`
+                        <div class="alert alert-success" role="alert">
+                            <strong>Port Generated:</strong> ${generatedPort} (${protocol})<br>
+                            <small class="text-muted">URL: ${fullUrl.split('Generated URL: ')[1].split(' Copy')[0]}</small><br>
+                            <small class="text-muted">Click "Add Port" to save this port.</small>
+                            <button class="btn btn-sm btn-secondary ms-2 copy-btn" data-url="${fullUrl.split('Generated URL: ')[1].split(' Copy')[0]}">Copy URL</button>
+                        </div>
+                    `);
+
+                    // Add click event for the copy button
+                    $('.copy-btn').click(function () {
+                        const url = $(this).data('url');
+                        navigator.clipboard.writeText(url).then(function () {
+                            showNotification('Copied to clipboard!');
+                        }).catch(function (err) {
+                            console.error('Could not copy text: ', err);
+                            showNotification('Failed to copy to clipboard', 'error');
+                        });
+                    });
+
+                    // Clear the original result
+                    $('#result').empty();
+                }
+            } else if ($('#result .alert-danger').length > 0) {
+                // Copy error message to the modal
+                const errorMsg = $('#result .alert-danger').text();
+                $('#port-generation-result').html(`
+                    <div class="alert alert-danger" role="alert">
+                        ${errorMsg}
+                    </div>
+                `);
+
+                // Clear the original result
+                $('#result').empty();
+            }
+        });
+
+        // Start observing the result div
+        if (document.getElementById('result')) {
+            resultObserver.observe(document.getElementById('result'), { childList: true, subtree: true });
+        } else {
+            // If the result div doesn't exist, create it
+            $('body').append('<div id="result" style="display:none;"></div>');
+            resultObserver.observe(document.getElementById('result'), { childList: true, subtree: true });
+        }
+    });
 }
 
 /**

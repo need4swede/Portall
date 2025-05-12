@@ -74,43 +74,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/addon/edit/matchbrackets.min.js"></script>
 
-    <!-- Theme Switcher Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const themeToggleBtn = document.getElementById('theme-toggle-btn');
-            const icon = themeToggleBtn.querySelector('i');
-
-            // Update icon based on current theme
-            function updateIcon() {
-                const currentTheme = document.documentElement.getAttribute('data-theme');
-                if (currentTheme === 'dark') {
-                    icon.classList.remove('fa-moon');
-                    icon.classList.add('fa-sun');
-                } else {
-                    icon.classList.remove('fa-sun');
-                    icon.classList.add('fa-moon');
-                }
-            }
-
-            // Initialize icon
-            updateIcon();
-
-            // Toggle theme on button click
-            themeToggleBtn.addEventListener('click', function () {
-                const currentTheme = document.documentElement.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-                document.documentElement.setAttribute('data-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-
-                updateIcon();
-
-                // Reload the page to apply theme CSS
-                location.reload();
-            });
-        });
-    </script>
-
     {% block scripts %}{% endblock %}
 </body>
 
