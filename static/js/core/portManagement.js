@@ -68,72 +68,8 @@ export function init() {
     $('#port-protocol').on('change', handleProtocolChange);
     initSortButtons();
     initPortHoverEvents();
-
-    // Initialize port status indicators
-    initPortStatusIndicators();
-
-    // Check port statuses every 30 seconds
-    setInterval(checkAllPortStatuses, 30000);
 }
 
-/**
- * Initialize port status indicators.
- * Sets up the initial status classes for port-slot elements and checks the status of all ports.
- */
-function initPortStatusIndicators() {
-    // Set all port slots to down status initially
-    $('.port-slot:not(.add-port-slot)').addClass('status-down');
-
-    // Check all port statuses immediately
-    checkAllPortStatuses();
-}
-
-/**
- * Check the status of all ports.
- * Iterates through all ports and checks if they are up or down.
- */
-function checkAllPortStatuses() {
-    $('.port').each(function () {
-        const $port = $(this);
-        const ip = $port.data('ip');
-        const portNumber = $port.data('port');
-        const protocol = $port.data('protocol');
-
-        checkPortStatus(ip, portNumber, protocol, $port);
-    });
-}
-
-/**
- * Check the status of a specific port.
- * Uses fetch API to check if the port is up or down and updates the port-slot element's status class.
- *
- * @param {string} ip - The IP address of the port
- * @param {number} portNumber - The port number to check
- * @param {string} protocol - The protocol of the port (TCP or UDP)
- * @param {jQuery} $port - The jQuery element representing the port
- */
-function checkPortStatus(ip, portNumber, protocol, $port) {
-    // Get the parent port-slot element
-    const $portSlot = $port.closest('.port-slot');
-
-    // Create a URL to check the port status
-    const url = `/check_port_status?ip=${ip}&port=${portNumber}&protocol=${protocol}`;
-
-    // Use fetch API to check port status
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'up') {
-                $portSlot.removeClass('status-down').addClass('status-up');
-            } else {
-                $portSlot.removeClass('status-up').addClass('status-down');
-            }
-        })
-        .catch(error => {
-            console.error('Error checking port status:', error);
-            $portSlot.removeClass('status-up').addClass('status-down');
-        });
-}
 
 /**
  * Initialize hover events for port elements.
@@ -560,9 +496,9 @@ function handleSaveNewPortClick() {
             if (response.success) {
                 showNotification('Port added successfully', 'success');
 
-                // Create the new port element with enhanced tooltip and status class
+                // Create the new port element with enhanced tooltip
                 const newPortElement = `
-                <div class="port-slot status-down" draggable="true" data-port="${portNumber}" data-order="${response.order}">
+                <div class="port-slot" draggable="true" data-port="${portNumber}" data-order="${response.order}">
                     <div class="port" data-ip="${ip}" data-port="${portNumber}" data-description="${description}"
                         data-order="${response.order}" data-id="${response.id}" data-protocol="${protocol}">
                         <span class="port-number">${portNumber}</span>

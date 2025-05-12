@@ -350,11 +350,6 @@ h1 {
     /* Slightly bolder */
 }
 
-.port-status-indicator {
-    display: none;
-    /* Hide the small indicator */
-}
-
 .port.active .port-description {
     color: rgba(255, 255, 255, 0.9);
 }
@@ -495,25 +490,6 @@ h1 {
     color: var(--text-secondary);
 }
 
-/* Port status is now reflected in the entire port-slot element */
-.port-slot.status-up .port {
-    background: linear-gradient(145deg, #34c759 0%, #32b350 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
-}
-
-.port-slot.status-down .port {
-    background: linear-gradient(145deg, #ff3b30 0%, #e0352b 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
-}
-
-.port-slot.status-up .port .port-number,
-.port-slot.status-down .port .port-number,
-.port-slot.status-up .port .port-description,
-.port-slot.status-down .port .port-description {
-    color: white;
-}
 
 @keyframes pulse {
     0% {
@@ -549,16 +525,6 @@ h1 {
     100% {
         transform: rotate(0deg);
     }
-}
-
-.port-status-indicator.up {
-    --pulse-color: 52, 199, 89;
-    /* Green */
-}
-
-.port-status-indicator.down {
-    --pulse-color: 255, 59, 48;
-    /* Red */
 }
 
 /* Click animation for ports */

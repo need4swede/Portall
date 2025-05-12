@@ -381,37 +381,6 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
         updatePortOrder(sourceIp);
         updatePortOrder(targetIp);
 
-        // Check the port status immediately after moving
-        const ip = updatedPort.ip_address;
-        const portNum = updatedPort.port_number;
-        const proto = updatedPort.protocol;
-
-        // Import the checkPortStatus function from portManagement.js
-        import('./portManagement.js').then(module => {
-            // Use the exported function to check port status
-            const checkPortStatus = module.checkPortStatus || function (ip, portNum, proto, $port) {
-                const $portSlot = $port.closest('.port-slot');
-                const url = `/check_port_status?ip=${ip}&port=${portNum}&protocol=${proto}`;
-
-                fetch(url)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'up') {
-                            $portSlot.removeClass('status-down').addClass('status-up');
-                        } else {
-                            $portSlot.removeClass('status-up').addClass('status-down');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error checking port status:', error);
-                        $portSlot.removeClass('status-up').addClass('status-down');
-                    });
-            };
-
-            // Check the status of the moved port
-            checkPortStatus(ip, portNum, proto, $port);
-        });
-
         if (isConflictResolution) {
             refreshPageAfterDelay();
         }
