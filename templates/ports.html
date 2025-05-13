@@ -29,7 +29,8 @@
         <div class="port-slot active" draggable="true" data-port="{{ port.port_number }}" data-order="{{ port.order }}">
             <div class="port {% if port.port_number in data.ports|map(attribute='port_number') %}active{% endif %}"
                 data-ip="{{ ip }}" data-port="{{ port.port_number }}" data-description="{{ port.description }}"
-                data-order="{{ port.order }}" data-id="{{ port.id }}" data-protocol="{{ port.port_protocol }}">
+                data-order="{{ port.order }}" data-id="{{ port.id }}" data-protocol="{{ port.port_protocol }}"
+                data-immutable="{{ 'true' if port.is_immutable else 'false' }}">
                 <span class="port-number">{{ port.port_number }}</span>
                 <span class="port-description">{{ port.description }}</span>
                 <div class="port-tooltip">
@@ -106,10 +107,21 @@
                     <input type="hidden" id="edit-port-ip" name="ip">
                     <input type="hidden" id="old-port-number" name="old_port_number">
                     <input type="hidden" id="port-id" name="port_id">
+                    <div id="docker-port-note" class="alert alert-info mb-3" style="display: none;">
+                        <i class="fas fa-info-circle"></i> This port was imported from a Docker integration. Only the
+                        description can be modified.
+                    </div>
                     <div class="mb-3">
                         <label for="new-port-number" class="form-label">Port Number</label>
-                        <input type="number" class="form-control" id="new-port-number" name="new_port_number" required>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="new-port-number" name="new_port_number"
+                                required>
+                            <span class="input-group-text immutable-field-icon" style="display: none;"><i
+                                    class="fas fa-lock"></i></span>
+                        </div>
                         <small id="edit-port-exists-disclaimer" class="text-danger" style="display: none;"></small>
+                        <small class="text-muted immutable-field-note" style="display: none;">Port number cannot be
+                            changed for Docker-imported ports</small>
                     </div>
                     <div class="mb-3">
                         <label for="port-description" class="form-label">Description</label>
@@ -117,10 +129,16 @@
                     </div>
                     <div class="mb-3">
                         <label for="port-protocol" class="form-label">Protocol</label>
-                        <select id="port-protocol" name="protocol" class="form-select">
-                            <option value="TCP">TCP</option>
-                            <option value="UDP">UDP</option>
-                        </select>
+                        <div class="input-group">
+                            <select id="port-protocol" name="protocol" class="form-select">
+                                <option value="TCP">TCP</option>
+                                <option value="UDP">UDP</option>
+                            </select>
+                            <span class="input-group-text immutable-field-icon" style="display: none;"><i
+                                    class="fas fa-lock"></i></span>
+                        </div>
+                        <small class="text-muted immutable-field-note" style="display: none;">Protocol cannot be changed
+                            for Docker-imported ports</small>
                     </div>
                 </form>
             </div>

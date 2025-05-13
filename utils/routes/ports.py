@@ -78,7 +78,8 @@ def ports():
             'port_number': port.port_number,                    # Port number
             'description': port.description,                    # Description, usually the service name
             'port_protocol': (port.port_protocol).upper(),      # Protocol, converted to uppercase
-            'order': port.order                                 # Position of the port within its IP address group
+            'order': port.order,                                # Position of the port within its IP address group
+            'is_immutable': port.is_immutable                   # Flag indicating if the port is immutable (Docker-imported)
         })
 
     # Get the current theme from the session
@@ -162,14 +163,16 @@ def import_from_docker_auto():
                             ip_address=host_ip
                         ).scalar() or 0
 
-                        # Create new port entry with host identifier in description and as nickname
+                        # Create new port entry with host identifier as nickname and container name as description
+                        # Set source to 'docker' to identify it as a Docker port
                         new_port = Port(
                             ip_address=host_ip,
                             nickname=host_identifier,  # Set the host identifier as the nickname
                             port_number=host_port,
-                            description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
+                            description=container.name,
                             port_protocol=protocol.upper(),
-                            order=max_order + 1
+                            order=max_order + 1,
+                            source='docker'
                         )
                         db.session.add(new_port)
                         added_ports += 1
@@ -177,7 +180,11 @@ def import_from_docker_auto():
         # Find and remove ports that no longer exist in Docker
         # Only remove ports that were originally imported from Docker
         docker_ports_in_db = Port.query.filter(
-            Port.description.like(f"Docker ({host_identifier}):%")
+            db.or_(
+                Port.source == 'docker',
+                Port.description.like(f"Docker ({host_identifier}):%"),  # For backward compatibility
+                Port.description.like("[D] %")  # For backward compatibility
+            )
         ).all()
 
         for port in docker_ports_in_db:
@@ -290,14 +297,16 @@ def import_from_portainer_auto():
 
                     container_name = container['Names'][0].lstrip('/') if container['Names'] else 'unknown'
 
-                    # Create new port entry with server name in description and as nickname
+                    # Create new port entry with server name as nickname and container name as description
+                    # Set source to 'portainer' to identify it as a Portainer port
                     new_port = Port(
                         ip_address=host_ip,
                         nickname=server_name,  # Set the domain name as the nickname
                         port_number=host_port,
-                        description=f"Portainer ({server_name}): {container_name} ({container_port}/{protocol})",
+                        description=container_name,
                         port_protocol=protocol.upper(),
-                        order=max_order + 1
+                        order=max_order + 1,
+                        source='portainer'
                     )
                     db.session.add(new_port)
                     added_ports += 1
@@ -305,7 +314,11 @@ def import_from_portainer_auto():
     # Find and remove ports that no longer exist in Portainer
     # Only remove ports that were originally imported from Portainer
     portainer_ports_in_db = Port.query.filter(
-        Port.description.like(f"Portainer ({server_name}):%")
+        db.or_(
+            Port.source == 'portainer',
+            Port.description.like(f"Portainer ({server_name}):%"),  # For backward compatibility
+            Port.description.like("[P] %")  # For backward compatibility
+        )
     ).all()
 
     for port in portainer_ports_in_db:
@@ -336,7 +349,7 @@ def add_port():
     try:
         max_order = db.session.query(db.func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or 0
         port = Port(ip_address=ip_address, nickname=ip_nickname, port_number=port_number, description=description,
-                    port_protocol=protocol, order=max_order + 1)  # Updated
+                    port_protocol=protocol, order=max_order + 1, source='manual')  # Set source to 'manual'
         db.session.add(port)
         db.session.commit()
 
@@ -372,10 +385,8 @@ def edit_port():
         if not port_entry:
             return jsonify({'success': False, 'message': 'Port entry not found'}), 404
 
-        # Check if this port was imported from Docker integrations
-        is_docker_port = port_entry.description and any(source in port_entry.description for source in ['Docker', 'Portainer', 'Dockage', 'Komodo'])
-
-        if is_docker_port:
+        # Check if this port is immutable (imported from Docker integrations)
+        if port_entry.is_immutable:
             # For Docker integration ports, only allow changing the description
             if int(new_port_number) != port_entry.port_number or protocol != port_entry.port_protocol:
                 return jsonify({'success': False, 'message': 'Docker integration ports cannot have their port number or protocol changed'}), 403
@@ -420,8 +431,8 @@ def delete_port():
     try:
         port = Port.query.filter_by(ip_address=ip_address, port_number=port_number).first()
         if port:
-            # Check if this port was imported from Docker integrations
-            if port.description and any(source in port.description for source in ['Docker', 'Portainer', 'Dockage', 'Komodo']):
+            # Check if this port is immutable (imported from Docker integrations)
+            if port.is_immutable:
                 return jsonify({'success': False, 'message': 'Docker integration ports cannot be deleted'}), 403
 
             # For manually added ports, delete them
@@ -568,7 +579,8 @@ def generate_port():
     # Create and save the new port
     try:
         last_port_position = db.session.query(func.max(Port.order)).filter_by(ip_address=ip_address).scalar() or -1
-        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description, port_protocol=protocol, order=last_port_position + 1)
+        port = Port(ip_address=ip_address, nickname=nickname, port_number=new_port, description=description,
+                    port_protocol=protocol, order=last_port_position + 1, source='manual')
         db.session.add(port)
         db.session.commit()
         app.logger.info(f"Generated new port {new_port} for IP: {ip_address}")
@@ -779,7 +791,8 @@ def add_ip():
             port_number=port_number,
             description=description,
             port_protocol=protocol,
-            order=0  # First port for this IP
+            order=0,  # First port for this IP
+            source='manual'  # Set source to 'manual'
         )
 
         db.session.add(port)

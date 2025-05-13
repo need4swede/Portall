@@ -1032,3 +1032,24 @@ h1 {
         min-height: calc(100% - 3.5rem);
     }
 }
+
+/* Immutable Fields */
+.immutable-field-icon {
+    background-color: var(--bg-sidebar);
+    color: var(--text-secondary);
+}
+
+.immutable-field-icon i {
+    color: var(--text-secondary);
+}
+
+.immutable-field-note {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+.input-group .form-control:disabled+.immutable-field-icon {
+    background-color: var(--bg-sidebar);
+    border-color: var(--border-color);
+}

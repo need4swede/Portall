@@ -211,23 +211,27 @@ export function handlePortClick(element) {
     $('#port-protocol').val(protocol);
     $('#port-id').val(portId);
 
-    // Check if this port was imported from Docker integrations
-    const isDockerPort = description && ['Docker', 'Portainer', 'Dockage', 'Komodo'].some(source => description.includes(source));
+    // Check if this port is immutable (imported from Docker integrations)
+    // Get the immutable attribute and convert it to a boolean
+    const immutableAttr = port.attr('data-immutable');
+    console.log("Immutable attribute:", immutableAttr);
+    const isImmutable = (immutableAttr === 'true' || immutableAttr === true);
+    console.log("Is immutable:", isImmutable);
 
-    // Disable port number and protocol fields for Docker integration ports
-    $('#new-port-number').prop('disabled', isDockerPort);
-    $('#port-protocol').prop('disabled', isDockerPort);
+    // Disable port number and protocol fields for immutable ports
+    $('#new-port-number').prop('disabled', isImmutable);
+    $('#port-protocol').prop('disabled', isImmutable);
 
-    // Add a note if it's a Docker integration port
-    if (isDockerPort) {
-        if ($('#docker-port-note').length === 0) {
-            $('#edit-port-form').prepend('<div id="docker-port-note" class="alert alert-info mb-3"><i class="fas fa-info-circle"></i> This port was imported from a Docker integration. Only the description can be modified.</div>');
-        }
+    // Show/hide visual cues for immutable fields
+    $('.immutable-field-icon').toggle(isImmutable);
+    $('.immutable-field-note').toggle(isImmutable);
+    $('#docker-port-note').toggle(isImmutable);
+
+    // Disable delete button for immutable ports
+    if (isImmutable) {
         $('#delete-port').prop('disabled', true);
         $('#delete-port').attr('title', "Docker integration ports cannot be deleted");
     } else {
-        $('#docker-port-note').remove();
-
         // Disable delete button if it's the last port in the panel
         const isLastPort = $(element).siblings('.port-slot:not(.add-port-slot)').length === 0;
         $('#delete-port').prop('disabled', isLastPort);

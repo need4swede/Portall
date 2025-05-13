@@ -234,13 +234,16 @@ def scan_docker_ports():
                         ).scalar() or 0
 
                         # Create new port entry with host identifier in description and as nickname
+                        # Set is_immutable to True for Docker ports
                         new_port = Port(
                             ip_address=host_ip,
                             nickname=host_identifier,  # Set the host identifier as the nickname
                             port_number=host_port,
                             description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
                             port_protocol=protocol.upper(),
-                            order=max_order + 1
+                            order=max_order + 1,
+                            source='docker',
+                            is_immutable=True
                         )
                         db.session.add(new_port)
                         added_to_port_table += 1
@@ -369,13 +372,16 @@ def import_from_portainer():
                         ).scalar() or 0
 
                         # Create new port entry with server name in description and as nickname
+                        # Set is_immutable to True for Portainer ports
                         new_port = Port(
                             ip_address=host_ip,
                             nickname=server_name,  # Set the domain name as the nickname
                             port_number=host_port,
-                            description=f"Portainer ({server_name}): {service.name} ({container_port}/{protocol})",
+                            description=service.name,
                             port_protocol=protocol.upper(),
-                            order=max_order + 1
+                            order=max_order + 1,
+                            source='portainer',
+                            is_immutable=True
                         )
                         db.session.add(new_port)
                         added_to_port_table += 1
@@ -485,13 +491,16 @@ def import_from_dockage():
                     ).scalar() or 0
 
                     # Create new port entry with server name in description and as nickname
+                    # Set is_immutable to True for Dockage ports
                     new_port = Port(
                         ip_address=host_ip,
                         nickname=server_name,  # Set the domain name as the nickname
                         port_number=int(host_port),
                         description=f"Dockage ({server_name}): {service.name} ({container_port}/{protocol})",
                         port_protocol=protocol.upper(),
-                        order=max_order + 1
+                        order=max_order + 1,
+                        source='dockage',
+                        is_immutable=True
                     )
                     db.session.add(new_port)
                     added_to_port_table += 1
@@ -601,13 +610,16 @@ def import_from_komodo():
                     ).scalar() or 0
 
                     # Create new port entry with server name in description and as nickname
+                    # Set is_immutable to True for Komodo ports
                     new_port = Port(
                         ip_address=host_ip,
                         nickname=server_name,  # Set the domain name as the nickname
                         port_number=int(host_port),
                         description=f"Komodo ({server_name}): {service.name} ({container_port}/{protocol})",
                         port_protocol=protocol.upper(),
-                        order=max_order + 1
+                        order=max_order + 1,
+                        source='komodo',
+                        is_immutable=True
                     )
                     db.session.add(new_port)
                     added_to_port_table += 1
@@ -853,13 +865,16 @@ def start_docker_auto_scan_thread():
                                             ).scalar() or 0
 
                                             # Create new port entry with host identifier in description and as nickname
+                                            # Set is_immutable to True for Docker ports
                                             new_port = Port(
                                                 ip_address=host_ip,
                                                 nickname=host_identifier,  # Set the host identifier as the nickname
                                                 port_number=host_port,
                                                 description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
                                                 port_protocol=protocol.upper(),
-                                                order=max_order + 1
+                                                order=max_order + 1,
+                                                source='docker',
+                                                is_immutable=True
                                             )
                                             db.session.add(new_port)
 
