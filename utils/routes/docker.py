@@ -291,6 +291,16 @@ def import_from_portainer():
         # Extract server name from URL for identification in case of multiple Portainer instances
         server_name = portainer_url.replace('https://', '').replace('http://', '').split('/')[0]
 
+        # Resolve domain name to IP address
+        server_ip = None
+        try:
+            import socket
+            server_ip = socket.gethostbyname(server_name)
+            app.logger.info(f"Resolved {server_name} to IP: {server_ip}")
+        except Exception as e:
+            app.logger.warning(f"Could not resolve {server_name} to IP: {str(e)}")
+            server_ip = server_name  # Fall back to using the domain name if resolution fails
+
         for endpoint in endpoints:
             endpoint_id = endpoint['Id']
             endpoint_name = endpoint.get('Name', f"Endpoint {endpoint_id}")
@@ -325,8 +335,8 @@ def import_from_portainer():
 
                     host_ip = port_mapping.get('IP', '0.0.0.0')
                     if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                        # Use the actual Portainer server IP instead of placeholder IPs
-                        host_ip = server_name
+                        # Use the resolved IP address instead of placeholder IPs
+                        host_ip = server_ip
 
                     host_port = port_mapping['PublicPort']
                     container_port = port_mapping['PrivatePort']
@@ -413,6 +423,15 @@ def import_from_dockage():
         # Extract server name from URL for identification in case of multiple Dockage instances
         server_name = dockage_url.replace('https://', '').replace('http://', '').split('/')[0]
 
+        # Resolve domain name to IP address
+        server_ip = None
+        try:
+            server_ip = socket.gethostbyname(server_name)
+            app.logger.info(f"Resolved {server_name} to IP: {server_ip}")
+        except Exception as e:
+            app.logger.warning(f"Could not resolve {server_name} to IP: {str(e)}")
+            server_ip = server_name  # Fall back to using the domain name if resolution fails
+
         for container in containers:
             # Add container to DockerService table
             service = DockerService(
@@ -428,8 +447,8 @@ def import_from_dockage():
             for port_mapping in container.get('ports', []):
                 host_ip = port_mapping.get('host_ip', '0.0.0.0')
                 if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                    # Use the actual Dockage server IP instead of placeholder IPs
-                    host_ip = server_name
+                    # Use the resolved IP address instead of placeholder IPs
+                    host_ip = server_ip
 
                 host_port = port_mapping.get('host_port')
                 container_port = port_mapping.get('container_port')
@@ -519,6 +538,15 @@ def import_from_komodo():
         # Extract server name from URL for identification in case of multiple Komodo instances
         server_name = komodo_url.replace('https://', '').replace('http://', '').split('/')[0]
 
+        # Resolve domain name to IP address
+        server_ip = None
+        try:
+            server_ip = socket.gethostbyname(server_name)
+            app.logger.info(f"Resolved {server_name} to IP: {server_ip}")
+        except Exception as e:
+            app.logger.warning(f"Could not resolve {server_name} to IP: {str(e)}")
+            server_ip = server_name  # Fall back to using the domain name if resolution fails
+
         for container in containers:
             # Add container to DockerService table
             service = DockerService(
@@ -534,8 +562,8 @@ def import_from_komodo():
             for port_mapping in container.get('ports', []):
                 host_ip = port_mapping.get('host_ip', '0.0.0.0')
                 if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                    # Use the actual Komodo server IP instead of placeholder IPs
-                    host_ip = server_name
+                    # Use the resolved IP address instead of placeholder IPs
+                    host_ip = server_ip
 
                 host_port = port_mapping.get('host_port')
                 container_port = port_mapping.get('container_port')
