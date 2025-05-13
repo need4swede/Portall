@@ -68,7 +68,7 @@ class EnhancedTooltip {
                 border-radius: 12px;
                 padding: 15px;
                 box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-                backdrop-filter: blur(20px);
+                backdrop-filter: blur(50px);
                 -webkit-backdrop-filter: blur(20px);
                 border: 1px solid var(--border-color);
                 max-width: 280px;
