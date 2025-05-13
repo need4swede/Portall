@@ -170,6 +170,11 @@ def scan_docker_ports():
         db.session.commit()
 
         added_ports = 0
+        added_to_port_table = 0
+
+        # Get Docker host for identification in case of multiple Docker instances
+        docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
+        host_identifier = "local" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
 
         for container in containers:
             # Add container to DockerService table
@@ -196,8 +201,10 @@ def scan_docker_ports():
 
                 for binding in host_bindings:
                     host_ip = binding.get('HostIp', '0.0.0.0')
-                    if host_ip == '':
-                        host_ip = '0.0.0.0'
+                    if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
+                        # Use a meaningful IP for Docker containers
+                        # If it's a local Docker instance, use 127.0.0.1, otherwise use the host identifier
+                        host_ip = '127.0.0.1' if host_identifier == 'local' else host_identifier
 
                     host_port = int(binding.get('HostPort', 0))
 
@@ -212,34 +219,35 @@ def scan_docker_ports():
                     db.session.add(docker_port)
                     added_ports += 1
 
-                    # Check if port already exists in Port table
+                    # Check if port already exists in Port table for this IP and port number
                     existing_port = Port.query.filter_by(
-                        ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                        ip_address=host_ip,
                         port_number=host_port,
                         port_protocol=protocol.upper()
                     ).first()
 
-                    # If auto-add is enabled and port doesn't exist, add it
-                    if get_setting('docker_auto_detect', 'false').lower() == 'true' and not existing_port:
+                    # Always add to Port table if it doesn't exist, regardless of auto-detect setting
+                    if not existing_port:
                         # Get the max order for this IP
                         max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                            ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1'
+                            ip_address=host_ip
                         ).scalar() or 0
 
-                        # Create new port entry
+                        # Create new port entry with host identifier in description
                         new_port = Port(
-                            ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                            ip_address=host_ip,
                             port_number=host_port,
-                            description=f"Docker: {container.name} ({port_number}/{protocol})",
+                            description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
                             port_protocol=protocol.upper(),
                             order=max_order + 1
                         )
                         db.session.add(new_port)
+                        added_to_port_table += 1
 
         db.session.commit()
         return jsonify({
             'success': True,
-            'message': f'Docker scan completed. Found {len(containers)} containers with {added_ports} port mappings.'
+            'message': f'Docker scan completed. Found {len(containers)} containers with {added_ports} port mappings and added {added_to_port_table} ports to the ports page.'
         })
     except Exception as e:
         db.session.rollback()
@@ -278,9 +286,14 @@ def import_from_portainer():
             return jsonify({'error': 'No endpoints found in Portainer'}), 404
 
         added_ports = 0
+        added_to_port_table = 0
+
+        # Extract server name from URL for identification in case of multiple Portainer instances
+        server_name = portainer_url.replace('https://', '').replace('http://', '').split('/')[0]
 
         for endpoint in endpoints:
             endpoint_id = endpoint['Id']
+            endpoint_name = endpoint.get('Name', f"Endpoint {endpoint_id}")
 
             # Get containers for this endpoint
             containers_response = requests.get(
@@ -311,8 +324,9 @@ def import_from_portainer():
                         continue
 
                     host_ip = port_mapping.get('IP', '0.0.0.0')
-                    if host_ip == '':
-                        host_ip = '0.0.0.0'
+                    if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
+                        # Use the actual Portainer server IP instead of placeholder IPs
+                        host_ip = server_name
 
                     host_port = port_mapping['PublicPort']
                     container_port = port_mapping['PrivatePort']
@@ -329,34 +343,35 @@ def import_from_portainer():
                     db.session.add(docker_port)
                     added_ports += 1
 
-                    # Check if port already exists in Port table
+                    # Check if port already exists in Port table for this IP and port number
                     existing_port = Port.query.filter_by(
-                        ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                        ip_address=host_ip,
                         port_number=host_port,
                         port_protocol=protocol.upper()
                     ).first()
 
-                    # If auto-add is enabled and port doesn't exist, add it
-                    if get_setting('docker_auto_detect', 'false').lower() == 'true' and not existing_port:
+                    # Always add to Port table if it doesn't exist, regardless of auto-detect setting
+                    if not existing_port:
                         # Get the max order for this IP
                         max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                            ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1'
+                            ip_address=host_ip
                         ).scalar() or 0
 
-                        # Create new port entry
+                        # Create new port entry with server name in description
                         new_port = Port(
-                            ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                            ip_address=host_ip,
                             port_number=host_port,
-                            description=f"Portainer: {service.name} ({container_port}/{protocol})",
+                            description=f"Portainer ({server_name}): {service.name} ({container_port}/{protocol})",
                             port_protocol=protocol.upper(),
                             order=max_order + 1
                         )
                         db.session.add(new_port)
+                        added_to_port_table += 1
 
         db.session.commit()
         return jsonify({
             'success': True,
-            'message': f'Portainer import completed. Added {added_ports} port mappings.'
+            'message': f'Portainer import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
         })
     except Exception as e:
         db.session.rollback()
@@ -393,6 +408,10 @@ def import_from_dockage():
 
         containers = containers_response.json()
         added_ports = 0
+        added_to_port_table = 0
+
+        # Extract server name from URL for identification in case of multiple Dockage instances
+        server_name = dockage_url.replace('https://', '').replace('http://', '').split('/')[0]
 
         for container in containers:
             # Add container to DockerService table
@@ -408,8 +427,9 @@ def import_from_dockage():
             # Process port mappings
             for port_mapping in container.get('ports', []):
                 host_ip = port_mapping.get('host_ip', '0.0.0.0')
-                if host_ip == '':
-                    host_ip = '0.0.0.0'
+                if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
+                    # Use the actual Dockage server IP instead of placeholder IPs
+                    host_ip = server_name
 
                 host_port = port_mapping.get('host_port')
                 container_port = port_mapping.get('container_port')
@@ -429,34 +449,35 @@ def import_from_dockage():
                 db.session.add(docker_port)
                 added_ports += 1
 
-                # Check if port already exists in Port table
+                # Check if port already exists in Port table for this IP and port number
                 existing_port = Port.query.filter_by(
-                    ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                    ip_address=host_ip,
                     port_number=int(host_port),
                     port_protocol=protocol.upper()
                 ).first()
 
-                # If auto-add is enabled and port doesn't exist, add it
-                if get_setting('docker_auto_detect', 'false').lower() == 'true' and not existing_port:
+                # Always add to Port table if it doesn't exist, regardless of auto-detect setting
+                if not existing_port:
                     # Get the max order for this IP
                     max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                        ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1'
+                        ip_address=host_ip
                     ).scalar() or 0
 
-                    # Create new port entry
+                    # Create new port entry with server name in description
                     new_port = Port(
-                        ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                        ip_address=host_ip,
                         port_number=int(host_port),
-                        description=f"Dockage: {service.name} ({container_port}/{protocol})",
+                        description=f"Dockage ({server_name}): {service.name} ({container_port}/{protocol})",
                         port_protocol=protocol.upper(),
                         order=max_order + 1
                     )
                     db.session.add(new_port)
+                    added_to_port_table += 1
 
         db.session.commit()
         return jsonify({
             'success': True,
-            'message': f'Dockage import completed. Added {added_ports} port mappings.'
+            'message': f'Dockage import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
         })
     except Exception as e:
         db.session.rollback()
@@ -493,6 +514,10 @@ def import_from_komodo():
 
         containers = containers_response.json()
         added_ports = 0
+        added_to_port_table = 0
+
+        # Extract server name from URL for identification in case of multiple Komodo instances
+        server_name = komodo_url.replace('https://', '').replace('http://', '').split('/')[0]
 
         for container in containers:
             # Add container to DockerService table
@@ -508,8 +533,9 @@ def import_from_komodo():
             # Process port mappings
             for port_mapping in container.get('ports', []):
                 host_ip = port_mapping.get('host_ip', '0.0.0.0')
-                if host_ip == '':
-                    host_ip = '0.0.0.0'
+                if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
+                    # Use the actual Komodo server IP instead of placeholder IPs
+                    host_ip = server_name
 
                 host_port = port_mapping.get('host_port')
                 container_port = port_mapping.get('container_port')
@@ -529,34 +555,35 @@ def import_from_komodo():
                 db.session.add(docker_port)
                 added_ports += 1
 
-                # Check if port already exists in Port table
+                # Check if port already exists in Port table for this IP and port number
                 existing_port = Port.query.filter_by(
-                    ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                    ip_address=host_ip,
                     port_number=int(host_port),
                     port_protocol=protocol.upper()
                 ).first()
 
-                # If auto-add is enabled and port doesn't exist, add it
-                if get_setting('docker_auto_detect', 'false').lower() == 'true' and not existing_port:
+                # Always add to Port table if it doesn't exist, regardless of auto-detect setting
+                if not existing_port:
                     # Get the max order for this IP
                     max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                        ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1'
+                        ip_address=host_ip
                     ).scalar() or 0
 
-                    # Create new port entry
+                    # Create new port entry with server name in description
                     new_port = Port(
-                        ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                        ip_address=host_ip,
                         port_number=int(host_port),
-                        description=f"Komodo: {service.name} ({container_port}/{protocol})",
+                        description=f"Komodo ({server_name}): {service.name} ({container_port}/{protocol})",
                         port_protocol=protocol.upper(),
                         order=max_order + 1
                     )
                     db.session.add(new_port)
+                    added_to_port_table += 1
 
         db.session.commit()
         return jsonify({
             'success': True,
-            'message': f'Komodo import completed. Added {added_ports} port mappings.'
+            'message': f'Komodo import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
         })
     except Exception as e:
         db.session.rollback()
@@ -743,13 +770,16 @@ def start_docker_auto_scan_thread():
         while True:
             try:
                 with app.app_context():
-                    # Check if auto-detection is enabled
-                    if get_setting('docker_enabled', 'false').lower() == 'true' and \
-                       get_setting('docker_auto_detect', 'false').lower() == 'true':
+                    # Check if Docker is enabled
+                    if get_setting('docker_enabled', 'false').lower() == 'true':
                         app.logger.info("Running automatic Docker container scan")
 
                         client = get_docker_client()
                         if client is not None:
+                            # Get Docker host for identification in case of multiple Docker instances
+                            docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
+                            host_identifier = "local" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
+
                             # Get all running containers
                             containers = client.containers.list()
 
@@ -769,30 +799,32 @@ def start_docker_auto_scan_thread():
 
                                     for binding in host_bindings:
                                         host_ip = binding.get('HostIp', '0.0.0.0')
-                                        if host_ip == '':
-                                            host_ip = '0.0.0.0'
+                                        if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
+                                            # Use a meaningful IP for Docker containers
+                                            # If it's a local Docker instance, use 127.0.0.1, otherwise use the host identifier
+                                            host_ip = '127.0.0.1' if host_identifier == 'local' else host_identifier
 
                                         host_port = int(binding.get('HostPort', 0))
 
-                                        # Check if port already exists in Port table
+                                        # Check if port already exists in Port table for this IP and port number
                                         existing_port = Port.query.filter_by(
-                                            ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                                            ip_address=host_ip,
                                             port_number=host_port,
                                             port_protocol=protocol.upper()
                                         ).first()
 
-                                        # If port doesn't exist, add it
+                                        # Always add to Port table if it doesn't exist, regardless of auto-detect setting
                                         if not existing_port:
                                             # Get the max order for this IP
                                             max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                                                ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1'
+                                                ip_address=host_ip
                                             ).scalar() or 0
 
-                                            # Create new port entry
+                                            # Create new port entry with host identifier in description
                                             new_port = Port(
-                                                ip_address=host_ip if host_ip != '0.0.0.0' else '127.0.0.1',
+                                                ip_address=host_ip,
                                                 port_number=host_port,
-                                                description=f"Docker: {container.name} ({port_number}/{protocol})",
+                                                description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
                                                 port_protocol=protocol.upper(),
                                                 order=max_order + 1
                                             )
