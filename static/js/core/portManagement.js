@@ -211,13 +211,31 @@ export function handlePortClick(element) {
     $('#port-protocol').val(protocol);
     $('#port-id').val(portId);
 
-    // Disable delete button if it's the last port in the panel
-    const isLastPort = $(element).siblings('.port-slot:not(.add-port-slot)').length === 0;
-    $('#delete-port').prop('disabled', isLastPort);
-    if (isLastPort) {
-        $('#delete-port').attr('title', "Can't delete the last port in a panel");
+    // Check if this port was imported from Docker integrations
+    const isDockerPort = description && ['Docker', 'Portainer', 'Dockage', 'Komodo'].some(source => description.includes(source));
+
+    // Disable port number and protocol fields for Docker integration ports
+    $('#new-port-number').prop('disabled', isDockerPort);
+    $('#port-protocol').prop('disabled', isDockerPort);
+
+    // Add a note if it's a Docker integration port
+    if (isDockerPort) {
+        if ($('#docker-port-note').length === 0) {
+            $('#edit-port-form').prepend('<div id="docker-port-note" class="alert alert-info mb-3"><i class="fas fa-info-circle"></i> This port was imported from a Docker integration. Only the description can be modified.</div>');
+        }
+        $('#delete-port').prop('disabled', true);
+        $('#delete-port').attr('title', "Docker integration ports cannot be deleted");
     } else {
-        $('#delete-port').removeAttr('title');
+        $('#docker-port-note').remove();
+
+        // Disable delete button if it's the last port in the panel
+        const isLastPort = $(element).siblings('.port-slot:not(.add-port-slot)').length === 0;
+        $('#delete-port').prop('disabled', isLastPort);
+        if (isLastPort) {
+            $('#delete-port').attr('title', "Can't delete the last port in a panel");
+        } else {
+            $('#delete-port').removeAttr('title');
+        }
     }
 
     // Clear any existing messages
