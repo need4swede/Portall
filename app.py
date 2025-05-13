@@ -106,10 +106,23 @@ def init_or_migrate_db(app, db):
 # Create the app and get the db instance
 app, db = create_app()
 
+# Initialize Docker auto-scan thread
+def init_docker_auto_scan():
+    """
+    Initialize the Docker auto-scan thread if Docker integration is enabled.
+    """
+    from utils.routes.docker import start_docker_auto_scan_thread
+    with app.app_context():
+        start_docker_auto_scan_thread()
+        logging.info("Docker auto-scan thread initialized")
+
 # Run application
 if __name__ == '__main__':
     # Initialize or migrate the database before starting the app
     init_or_migrate_db(app, db)
+
+    # Initialize Docker auto-scan thread
+    init_docker_auto_scan()
 
     port = int(os.environ.get('PORT', 8080))
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'

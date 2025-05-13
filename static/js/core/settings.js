@@ -3,16 +3,20 @@
 /**
  * Manages the settings page functionality for a web application.
  * This script handles custom CSS editing, form submissions, port settings,
- * and various UI interactions.
+ * Docker integration, and various UI interactions.
  */
 
 import { exportEntries } from '../api/ajax.js';
+import { init as initDockerSettings } from './docker.js';
 
 let cssEditor;
 
 $(document).ready(function () {
     // Initialize Bootstrap modal for confirmation dialogs
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+
+    // Initialize Docker settings
+    initDockerSettings();
 
     /**
      * Initializes the CodeMirror editor for custom CSS editing.

@@ -111,6 +111,10 @@ a:hover {
     color: var(--accent-hover);
 }
 
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
 h1,
 h2,
 h3,
@@ -710,6 +714,12 @@ h1 {
 .form-select:focus {
     box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.25);
     border-color: var(--accent-color);
+}
+
+.form-control:disabled {
+    background-color: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: not-allowed;
 }
 
 .form-label {
