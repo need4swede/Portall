@@ -78,28 +78,15 @@ export function init() {
 
 
 /**
- * Initialize hover events for port elements.
- * Sets up mouseenter and mouseleave event listeners for port elements.
+ * Initialize port hover events for tooltips.
+ * The enhanced tooltip system is now initialized in main.js,
+ * so we just need to add any port-specific tooltip behavior here.
  */
 function initPortHoverEvents() {
-    // Use event delegation to handle hover events for all ports (including dynamically added ones)
-    $(document).on('mouseenter', '.port', function () {
-        // Show tooltip on hover
-        $(this).find('.port-tooltip').css({
-            'visibility': 'visible',
-            'opacity': '1',
-            'transform': 'translateY(0) scale(1)'
-        });
-    });
+    console.log('Enhanced tooltip system loaded for ports');
 
-    $(document).on('mouseleave', '.port', function () {
-        // Hide tooltip when mouse leaves
-        $(this).find('.port-tooltip').css({
-            'visibility': 'hidden',
-            'opacity': '0',
-            'transform': 'translateY(10px) scale(0.95)'
-        });
-    });
+    // Add port-specific tooltip behavior if needed
+    // The main tooltip functionality is now handled by the enhanced tooltip system
 }
 
 /**

@@ -402,44 +402,10 @@ h1 {
     color: white;
 }
 
+/* Port tooltips are now handled by the enhanced tooltip system */
 .port-tooltip {
-    visibility: hidden;
-    width: 280px;
-    background-color: var(--bg-card);
-    color: var(--text-primary);
-    text-align: left;
-    border-radius: 12px;
-    padding: 15px;
-    position: absolute;
-    z-index: 1000;
-    bottom: 130%;
-    left: 50%;
-    margin-left: -140px;
-    opacity: 0;
-    transition: opacity 0.3s, transform 0.3s;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border-color);
-    transform: translateY(10px) scale(0.95);
-    pointer-events: none;
-}
-
-.port:hover .port-tooltip {
-    visibility: visible;
-    opacity: 1;
-    transform: translateY(0) scale(1);
-}
-
-.port-tooltip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -8px;
-    border-width: 8px;
-    border-style: solid;
-    border-color: var(--bg-card) transparent transparent transparent;
+    display: none;
+    /* Hidden by default, shown by the enhanced tooltip system */
 }
 
 .tooltip-header {
