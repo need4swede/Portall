@@ -233,9 +233,10 @@ def scan_docker_ports():
                             ip_address=host_ip
                         ).scalar() or 0
 
-                        # Create new port entry with host identifier in description
+                        # Create new port entry with host identifier in description and as nickname
                         new_port = Port(
                             ip_address=host_ip,
+                            nickname=host_identifier,  # Set the host identifier as the nickname
                             port_number=host_port,
                             description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
                             port_protocol=protocol.upper(),
@@ -367,9 +368,10 @@ def import_from_portainer():
                             ip_address=host_ip
                         ).scalar() or 0
 
-                        # Create new port entry with server name in description
+                        # Create new port entry with server name in description and as nickname
                         new_port = Port(
                             ip_address=host_ip,
+                            nickname=server_name,  # Set the domain name as the nickname
                             port_number=host_port,
                             description=f"Portainer ({server_name}): {service.name} ({container_port}/{protocol})",
                             port_protocol=protocol.upper(),
@@ -482,9 +484,10 @@ def import_from_dockage():
                         ip_address=host_ip
                     ).scalar() or 0
 
-                    # Create new port entry with server name in description
+                    # Create new port entry with server name in description and as nickname
                     new_port = Port(
                         ip_address=host_ip,
+                        nickname=server_name,  # Set the domain name as the nickname
                         port_number=int(host_port),
                         description=f"Dockage ({server_name}): {service.name} ({container_port}/{protocol})",
                         port_protocol=protocol.upper(),
@@ -597,9 +600,10 @@ def import_from_komodo():
                         ip_address=host_ip
                     ).scalar() or 0
 
-                    # Create new port entry with server name in description
+                    # Create new port entry with server name in description and as nickname
                     new_port = Port(
                         ip_address=host_ip,
+                        nickname=server_name,  # Set the domain name as the nickname
                         port_number=int(host_port),
                         description=f"Komodo ({server_name}): {service.name} ({container_port}/{protocol})",
                         port_protocol=protocol.upper(),
@@ -848,9 +852,10 @@ def start_docker_auto_scan_thread():
                                                 ip_address=host_ip
                                             ).scalar() or 0
 
-                                            # Create new port entry with host identifier in description
+                                            # Create new port entry with host identifier in description and as nickname
                                             new_port = Port(
                                                 ip_address=host_ip,
+                                                nickname=host_identifier,  # Set the host identifier as the nickname
                                                 port_number=host_port,
                                                 description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
                                                 port_protocol=protocol.upper(),
