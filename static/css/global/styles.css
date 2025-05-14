@@ -298,6 +298,12 @@ h1 {
     animation: wiggle 0.5s infinite;
 }
 
+.port-slot.dragging-immutable {
+    opacity: 0.9;
+    box-shadow: var(--hover-shadow);
+    z-index: 100;
+}
+
 .port {
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.15) 0%, rgba(0, 0, 0, 0.05) 100%);
     /* Subtle gradient */
@@ -406,6 +412,34 @@ h1 {
 .port-tooltip {
     display: none;
     /* Hidden by default, shown by the enhanced tooltip system */
+}
+
+/* Immutable tooltip styling */
+.immutable-tooltip {
+    display: block;
+    position: absolute;
+    background-color: var(--bg-card);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: var(--card-shadow);
+    z-index: 1001;
+    max-width: 250px;
+    pointer-events: none;
+    border: 1px solid var(--border-color);
+}
+
+.immutable-tooltip .tooltip-protocol {
+    background-color: var(--danger-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.immutable-tooltip .tooltip-value {
+    color: var(--danger-color);
+    font-weight: 500;
 }
 
 .tooltip-header {
@@ -519,6 +553,32 @@ h1 {
 
     100% {
         transform: rotate(0deg);
+    }
+}
+
+@keyframes elastic-snap {
+    0% {
+        transform: translateX(0);
+    }
+
+    20% {
+        transform: translateX(-10px);
+    }
+
+    40% {
+        transform: translateX(8px);
+    }
+
+    60% {
+        transform: translateX(-6px);
+    }
+
+    80% {
+        transform: translateX(4px);
+    }
+
+    100% {
+        transform: translateX(0);
     }
 }
 

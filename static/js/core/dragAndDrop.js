@@ -63,10 +63,11 @@ function handleMouseDown(e) {
         if (!isDragging &&
             (Math.abs(e.clientX - dragStartX) > dragThreshold ||
                 Math.abs(e.clientY - dragStartY) > dragThreshold)) {
-            // Check if the port is immutable before allowing drag
+
+            // For immutable ports, allow limited dragging with snap-back
             if (isImmutable) {
-                showNotification("This port cannot be moved because it's from a Docker integration", 'error');
-                $(document).off('mousemove.dragdetect mouseup.dragdetect');
+                isDragging = true;
+                initiateImmutableDrag(e, element);
                 return;
             }
 
@@ -258,6 +259,138 @@ function finalizeIPDrop() {
  */
 function handleBodyDrop(e) {
     e.preventDefault();
+}
+
+/**
+ * Initiates a limited drag operation for immutable ports with snap-back effect
+ * @param {Event} e - The event object
+ * @param {HTMLElement} element - The immutable port element being dragged
+ */
+function initiateImmutableDrag(e, element) {
+    const $element = $(element);
+    const originalPosition = $element.position();
+    const rect = element.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    // Create and show the immutable tooltip
+    const immutableTooltip = document.createElement('div');
+    immutableTooltip.className = 'port-tooltip immutable-tooltip';
+    immutableTooltip.innerHTML = `
+        <div class="tooltip-header">
+            <span class="tooltip-title">Immutable Port</span>
+            <span class="tooltip-protocol"><i class="fas fa-lock"></i></span>
+        </div>
+        <div class="tooltip-content">
+            <div class="tooltip-value">This port cannot be moved because it's from a Docker integration</div>
+        </div>
+    `;
+
+    // Style the tooltip
+    $(immutableTooltip).css({
+        'position': 'absolute',
+        'zIndex': 1001,
+        'background-color': 'var(--tooltip-bg)',
+        'color': 'var(--tooltip-text)',
+        'border-radius': '8px',
+        'padding': '10px',
+        'box-shadow': '0 4px 8px rgba(0, 0, 0, 0.2)',
+        'max-width': '250px',
+        'pointer-events': 'none',
+        'opacity': '0',
+        'transition': 'opacity 0.2s ease-in-out',
+        'left': rect.left + 'px',
+        'top': rect.top - 10 - immutableTooltip.offsetHeight + 'px'
+    });
+
+    document.body.appendChild(immutableTooltip);
+
+    // Fade in the tooltip
+    setTimeout(() => {
+        $(immutableTooltip).css('opacity', '1');
+    }, 10);
+
+    // Style the dragging element
+    $element.css({
+        'position': 'relative',
+        'zIndex': 1000,
+        'transition': 'none',
+        'transform': 'scale(1.02)',
+        'box-shadow': 'var(--hover-shadow)'
+    }).addClass('dragging-immutable');
+
+    // Handle mouse movement during drag - limited to a small area
+    function mouseMoveHandler(e) {
+        // Calculate new position with a maximum distance constraint
+        const maxDistance = 30; // Maximum pixels the port can be dragged
+        const deltaX = e.clientX - dragStartX;
+        const deltaY = e.clientY - dragStartY;
+
+        // Calculate distance from start point
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+        // If distance exceeds max, scale it down
+        let newDeltaX = deltaX;
+        let newDeltaY = deltaY;
+        if (distance > maxDistance) {
+            const scale = maxDistance / distance;
+            newDeltaX = deltaX * scale;
+            newDeltaY = deltaY * scale;
+        }
+
+        // Apply the constrained movement
+        $element.css({
+            'left': newDeltaX + 'px',
+            'top': newDeltaY + 'px'
+        });
+
+        // Update tooltip position
+        $(immutableTooltip).css({
+            'left': (rect.left + newDeltaX) + 'px',
+            'top': (rect.top + newDeltaY - 10 - immutableTooltip.offsetHeight) + 'px'
+        });
+    }
+
+    // Handle mouse up to end drag with snap-back animation
+    function mouseUpHandler(e) {
+        $(document).off('mousemove', mouseMoveHandler);
+        $(document).off('mouseup', mouseUpHandler);
+
+        // Animate snap back to original position with elastic effect
+        $element.css({
+            'transition': 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            'left': '0',
+            'top': '0'
+        });
+
+        // Add elastic snap animation
+        setTimeout(() => {
+            $element.css('animation', 'elastic-snap 0.6s ease-out');
+        }, 300);
+
+        // Remove dragging class and reset styles after animations complete
+        setTimeout(() => {
+            $element.css({
+                'position': '',
+                'zIndex': '',
+                'transition': '',
+                'transform': '',
+                'box-shadow': '',
+                'animation': ''
+            }).removeClass('dragging-immutable');
+
+            // Fade out and remove the tooltip
+            $(immutableTooltip).css('opacity', '0');
+            setTimeout(() => {
+                $(immutableTooltip).remove();
+            }, 300);
+        }, 900); // Increased timeout to allow elastic animation to complete
+
+        isDragging = false;
+    }
+
+    $(document).on('mousemove', mouseMoveHandler);
+    $(document).on('mouseup', mouseUpHandler);
 }
 
 /**
