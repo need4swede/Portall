@@ -1,6 +1,7 @@
 # app.py
 
 # Standard Imports
+import argparse
 import logging
 import os
 
@@ -118,14 +119,22 @@ def init_docker_auto_scan():
 
 # Run application
 if __name__ == '__main__':
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Run the Portall application.')
+    parser.add_argument('--port', type=int, default=int(os.environ.get('PORT', 8080)),
+                        help='Port to run the application on (default: 8080)')
+    parser.add_argument('--debug', action='store_true',
+                        help='Run in debug mode')
+    args = parser.parse_args()
+
     # Initialize or migrate the database before starting the app
     init_or_migrate_db(app, db)
 
     # Initialize Docker auto-scan thread
     init_docker_auto_scan()
 
-    port = int(os.environ.get('PORT', 8080))
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    port = args.port
+    debug_mode = args.debug or os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
 
     logging.info(f"Starting Portall on port {port} with debug mode: {debug_mode}")
 

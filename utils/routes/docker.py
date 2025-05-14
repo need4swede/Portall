@@ -899,13 +899,33 @@ def start_docker_auto_scan_thread():
     """
     Start a background thread for auto-scanning Docker containers.
     """
-    def docker_auto_scan_worker():
+    # Import Flask's current_app to get the actual app instance
+    from flask import current_app as flask_app
+
+    # Get the actual app instance, not the proxy
+    flask_app_instance = flask_app._get_current_object()
+
+    def docker_auto_scan_worker(app_instance):
+        """Worker function that runs in a separate thread to auto-scan Docker containers.
+
+        Args:
+            app_instance: The Flask application instance.
+        """
+        import logging
+
+        # Configure a separate logger for the worker thread
+        worker_logger = logging.getLogger('docker_worker')
+        worker_logger.setLevel(logging.INFO)
+
         while True:
+            scan_interval = 300  # Default scan interval
             try:
-                with app.app_context():
+                # Create a new application context for this thread
+                with app_instance.app_context():
                     # Check if Docker is enabled
                     if get_setting('docker_enabled', 'false').lower() == 'true':
-                        app.logger.info("Running automatic Docker container scan")
+                        worker_logger.info("Running automatic Docker container scan")
+                        app_instance.logger.info("Running automatic Docker container scan")
 
                         client = get_docker_client()
                         if client is not None:
@@ -968,14 +988,24 @@ def start_docker_auto_scan_thread():
                                             db.session.add(new_port)
 
                             db.session.commit()
+
+                    # Get scan interval inside app context
+                    scan_interval = int(get_setting('docker_scan_interval', '300'))
             except Exception as e:
-                app.logger.error(f"Error in Docker auto-scan thread: {str(e)}")
+                # Log error using the worker logger
+                worker_logger.error(f"Error in Docker auto-scan thread: {str(e)}")
+
+                # Try to log with app logger if possible
+                try:
+                    with app_instance.app_context():
+                        app_instance.logger.error(f"Error in Docker auto-scan thread: {str(e)}")
+                except Exception:
+                    pass
 
             # Sleep for the configured interval
-            scan_interval = int(get_setting('docker_scan_interval', '300'))
             time.sleep(scan_interval)
 
-    # Start the worker thread
-    thread = threading.Thread(target=docker_auto_scan_worker, daemon=True)
+    # Start the worker thread with the app instance as an argument
+    thread = threading.Thread(target=docker_auto_scan_worker, args=(flask_app_instance,), daemon=True)
     thread.start()
-    app.logger.info("Docker auto-scan thread started")
+    flask_app.logger.info("Docker auto-scan thread started")
