@@ -286,7 +286,7 @@ function initiateImmutableDrag(e, element) {
         </div>
     `;
 
-    // Style the tooltip
+    // Style the tooltip - position it next to the port
     $(immutableTooltip).css({
         'position': 'absolute',
         'zIndex': 1001,
@@ -299,8 +299,8 @@ function initiateImmutableDrag(e, element) {
         'pointer-events': 'none',
         'opacity': '0',
         'transition': 'opacity 0.2s ease-in-out',
-        'left': rect.left + 'px',
-        'top': rect.top - 10 - immutableTooltip.offsetHeight + 'px'
+        'left': (rect.left + rect.width + 10) + 'px', // Position to the right of the port
+        'top': rect.top + 'px' // Align with the top of the port
     });
 
     document.body.appendChild(immutableTooltip);
@@ -344,10 +344,10 @@ function initiateImmutableDrag(e, element) {
             'top': newDeltaY + 'px'
         });
 
-        // Update tooltip position
+        // Update tooltip position - keep it next to the port as it moves
         $(immutableTooltip).css({
-            'left': (rect.left + newDeltaX) + 'px',
-            'top': (rect.top + newDeltaY - 10 - immutableTooltip.offsetHeight) + 'px'
+            'left': (rect.left + rect.width + 10 + newDeltaX) + 'px',
+            'top': (rect.top + newDeltaY) + 'px'
         });
     }
 
@@ -431,13 +431,14 @@ function initiateDrag(e, element) {
         'opacity': '0'
     });
 
-    // Style the dragging element with exact dimensions
+    // Style the dragging element with exact dimensions - make it feel lighter
     $(draggingElement).css({
         'position': 'fixed',
         'zIndex': 1000,
         'pointer-events': 'none',
         'width': originalWidth + 'px',
-        'height': originalHeight + 'px'
+        'height': originalHeight + 'px',
+        'opacity': '0.85'
     }).addClass('dragging').appendTo('body');
 
     // Handle mouse movement during drag
@@ -477,7 +478,8 @@ function initiateDrag(e, element) {
             'top': '',
             'pointer-events': '',
             'width': '',
-            'height': ''
+            'height': '',
+            'opacity': ''
         }).removeClass('dragging').insertBefore(placeholder);
         placeholder.remove();
         draggingElement = null;
