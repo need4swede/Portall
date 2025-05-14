@@ -51,12 +51,16 @@ function loadDockerSettings() {
             $('#portainer-enabled').prop('checked', data.portainer_enabled === 'true');
             $('#portainer-url').val(data.portainer_url || '');
             $('#portainer-api-key').val(data.portainer_api_key || '');
+            $('#portainer-auto-detect').prop('checked', data.portainer_auto_detect === 'true');
+            $('#portainer-scan-interval').val(data.portainer_scan_interval || '300');
 
             // Komodo settings
             $('#komodo-enabled').prop('checked', data.komodo_enabled === 'true');
             $('#komodo-url').val(data.komodo_url || '');
             $('#komodo-api-key').val(data.komodo_api_key || '');
             $('#komodo-api-secret').val(data.komodo_api_secret || '');
+            $('#komodo-auto-detect').prop('checked', data.komodo_auto_detect === 'true');
+            $('#komodo-scan-interval').val(data.komodo_scan_interval || '300');
 
             // Update form states
             updateDockerFormState();
@@ -127,6 +131,10 @@ function handlePortainerSettingsSubmit(e) {
         formData.append('portainer_enabled', 'false');
     }
 
+    if (!$('#portainer-auto-detect').is(':checked')) {
+        formData.append('portainer_auto_detect', 'false');
+    }
+
     $.ajax({
         url: '/docker/settings',
         method: 'POST',
@@ -163,6 +171,10 @@ function handleKomodoSettingsSubmit(e) {
     // Add checkbox values (they're only included when checked)
     if (!$('#komodo-enabled').is(':checked')) {
         formData.append('komodo_enabled', 'false');
+    }
+
+    if (!$('#komodo-auto-detect').is(':checked')) {
+        formData.append('komodo_auto_detect', 'false');
     }
 
     $.ajax({
@@ -290,6 +302,8 @@ function updatePortainerFormState() {
 
     $('#portainer-url').prop('disabled', !enabled);
     $('#portainer-api-key').prop('disabled', !enabled);
+    $('#portainer-auto-detect').prop('disabled', !enabled);
+    $('#portainer-scan-interval').prop('disabled', !enabled);
     $('#portainer-import-button').prop('disabled', !enabled);
 }
 
@@ -304,6 +318,8 @@ function updateKomodoFormState() {
     $('#komodo-url').prop('disabled', !enabled);
     $('#komodo-api-key').prop('disabled', !enabled);
     $('#komodo-api-secret').prop('disabled', !enabled);
+    $('#komodo-auto-detect').prop('disabled', !enabled);
+    $('#komodo-scan-interval').prop('disabled', !enabled);
     $('#komodo-import-button').prop('disabled', !enabled);
 }
 
