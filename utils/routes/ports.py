@@ -631,6 +631,11 @@ def move_port():
         if port:
             app.logger.info(f"Found port to move: {port.id}, {port.port_number}, {port.ip_address}, {port.port_protocol}")
 
+            # Check if this port is immutable (imported from Docker integrations)
+            if port.is_immutable:
+                app.logger.info(f"Port {port_number} ({protocol}) is immutable and cannot be moved")
+                return jsonify({'success': False, 'message': 'This port cannot be moved because it\'s from a Docker integration'}), 403
+
             # Get the nickname of the target IP
             target_port = Port.query.filter_by(ip_address=target_ip).first()
             target_nickname = target_port.nickname if target_port else None

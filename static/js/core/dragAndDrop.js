@@ -50,6 +50,10 @@ function handleMouseDown(e) {
     const panel = $(this).closest('.switch-panel');
     const isLastPort = panel.find('.port-slot:not(.add-port-slot)').length === 1;
 
+    // Check if the port is immutable
+    const portElement = $(this).find('.port');
+    const isImmutable = portElement.attr('data-immutable') === 'true';
+
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     dragStartTime = new Date().getTime();
@@ -59,6 +63,13 @@ function handleMouseDown(e) {
         if (!isDragging &&
             (Math.abs(e.clientX - dragStartX) > dragThreshold ||
                 Math.abs(e.clientY - dragStartY) > dragThreshold)) {
+            // Check if the port is immutable before allowing drag
+            if (isImmutable) {
+                showNotification("This port cannot be moved because it's from a Docker integration", 'error');
+                $(document).off('mousemove.dragdetect mouseup.dragdetect');
+                return;
+            }
+
             if (isLastPort) {
                 showNotification("Can't move the last port in a panel", 'error');
                 $(document).off('mousemove.dragdetect mouseup.dragdetect');
@@ -360,6 +371,15 @@ function getTargetElement(x, y) {
 
         // Prevent moving the last port out of a panel
         if (sourcePanel[0] !== targetPanel[0] && sourcePanel.find('.port-slot:not(.add-port-slot)').length === 1) {
+            return null;
+        }
+
+        // Check if the dragging element is immutable
+        const portElement = $(draggingElement).find('.port');
+        const isImmutable = portElement.attr('data-immutable') === 'true';
+
+        // If the port is immutable, don't allow it to be moved
+        if (isImmutable) {
             return null;
         }
     }
