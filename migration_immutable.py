@@ -36,10 +36,10 @@ def run_migration():
                 print("Updating existing records...")
 
                 # Set Docker-imported ports as immutable
-                conn.execute(text("UPDATE port SET is_immutable = 1 WHERE source IN ('docker', 'portainer', 'dockage', 'komodo')"))
+                conn.execute(text("UPDATE port SET is_immutable = 1 WHERE source IN ('docker', 'portainer', 'komodo')"))
 
                 # Also update based on description patterns for backward compatibility
-                conn.execute(text("UPDATE port SET is_immutable = 1 WHERE description LIKE 'Docker (%' OR description LIKE 'Portainer (%' OR description LIKE 'Dockage (%' OR description LIKE 'Komodo (%'"))
+                conn.execute(text("UPDATE port SET is_immutable = 1 WHERE description LIKE 'Docker (%' OR description LIKE 'Portainer (%' OR description LIKE 'Komodo (%'"))
                 conn.execute(text("UPDATE port SET is_immutable = 1 WHERE description LIKE '[D] %' OR description LIKE '[P] %'"))
 
                 print("Existing records updated successfully.")

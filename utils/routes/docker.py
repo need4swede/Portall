@@ -67,7 +67,6 @@ def docker_settings():
             docker_settings = {}
             for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval',
                        'portainer_enabled', 'portainer_url', 'portainer_api_key',
-                       'dockage_enabled', 'dockage_url', 'dockage_api_key',
                        'komodo_enabled', 'komodo_url', 'komodo_api_key']:
                 setting = Setting.query.filter_by(key=key).first()
                 docker_settings[key] = setting.value if setting else ''
@@ -88,9 +87,6 @@ def docker_settings():
                 'portainer_enabled': request.form.get('portainer_enabled', 'false'),
                 'portainer_url': request.form.get('portainer_url', ''),
                 'portainer_api_key': request.form.get('portainer_api_key', ''),
-                'dockage_enabled': request.form.get('dockage_enabled', 'false'),
-                'dockage_url': request.form.get('dockage_url', ''),
-                'dockage_api_key': request.form.get('dockage_api_key', ''),
                 'komodo_enabled': request.form.get('komodo_enabled', 'false'),
                 'komodo_url': request.form.get('komodo_url', ''),
                 'komodo_api_key': request.form.get('komodo_api_key', '')
@@ -394,125 +390,6 @@ def import_from_portainer():
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error importing from Portainer: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@docker_bp.route('/docker/import_from_dockage', methods=['POST'])
-def import_from_dockage():
-    """
-    Import containers and port mappings from Dockage.
-
-    Returns:
-        JSON: A JSON response indicating success or failure of the operation.
-    """
-    try:
-        import requests
-
-        dockage_url = get_setting('dockage_url', '')
-        dockage_api_key = get_setting('dockage_api_key', '')
-
-        if not dockage_url or not dockage_api_key:
-            return jsonify({'error': 'Dockage URL or API key not configured'}), 400
-
-        # Set up headers for Dockage API
-        headers = {
-            'Authorization': f'Bearer {dockage_api_key}',
-            'Content-Type': 'application/json'
-        }
-
-        # Get containers from Dockage
-        containers_response = requests.get(f"{dockage_url}/api/containers", headers=headers)
-        if containers_response.status_code != 200:
-            return jsonify({'error': f'Failed to get Dockage containers: {containers_response.text}'}), 500
-
-        containers = containers_response.json()
-        added_ports = 0
-        added_to_port_table = 0
-
-        # Extract server name from URL for identification in case of multiple Dockage instances
-        server_name = dockage_url.replace('https://', '').replace('http://', '').split('/')[0]
-
-        # Resolve domain name to IP address
-        server_ip = None
-        try:
-            server_ip = socket.gethostbyname(server_name)
-            app.logger.info(f"Resolved {server_name} to IP: {server_ip}")
-        except Exception as e:
-            app.logger.warning(f"Could not resolve {server_name} to IP: {str(e)}")
-            server_ip = server_name  # Fall back to using the domain name if resolution fails
-
-        for container in containers:
-            # Add container to DockerService table
-            service = DockerService(
-                container_id=container['id'],
-                name=container.get('name', 'unknown'),
-                image=container.get('image', 'unknown'),
-                status=container.get('state', 'unknown')
-            )
-            db.session.add(service)
-            db.session.flush()  # Flush to get the service ID
-
-            # Process port mappings
-            for port_mapping in container.get('ports', []):
-                host_ip = port_mapping.get('host_ip', '0.0.0.0')
-                if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                    # Use the resolved IP address instead of placeholder IPs
-                    host_ip = server_ip
-
-                host_port = port_mapping.get('host_port')
-                container_port = port_mapping.get('container_port')
-                protocol = port_mapping.get('protocol', 'tcp')
-
-                if not host_port or not container_port:
-                    continue
-
-                # Add port mapping to DockerPort table
-                docker_port = DockerPort(
-                    service_id=service.id,
-                    host_ip=host_ip,
-                    host_port=int(host_port),
-                    container_port=int(container_port),
-                    protocol=protocol.upper()
-                )
-                db.session.add(docker_port)
-                added_ports += 1
-
-                # Check if port already exists in Port table for this IP and port number
-                existing_port = Port.query.filter_by(
-                    ip_address=host_ip,
-                    port_number=int(host_port),
-                    port_protocol=protocol.upper()
-                ).first()
-
-                # Always add to Port table if it doesn't exist, regardless of auto-detect setting
-                if not existing_port:
-                    # Get the max order for this IP
-                    max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                        ip_address=host_ip
-                    ).scalar() or 0
-
-                    # Create new port entry with server name in description and as nickname
-                    # Set is_immutable to True for Dockage ports
-                    new_port = Port(
-                        ip_address=host_ip,
-                        nickname=server_name,  # Set the domain name as the nickname
-                        port_number=int(host_port),
-                        description=f"Dockage ({server_name}): {service.name} ({container_port}/{protocol})",
-                        port_protocol=protocol.upper(),
-                        order=max_order + 1,
-                        source='dockage',
-                        is_immutable=True
-                    )
-                    db.session.add(new_port)
-                    added_to_port_table += 1
-
-        db.session.commit()
-        return jsonify({
-            'success': True,
-            'message': f'Dockage import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
-        })
-    except Exception as e:
-        db.session.rollback()
-        app.logger.error(f"Error importing from Dockage: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @docker_bp.route('/docker/import_from_komodo', methods=['POST'])

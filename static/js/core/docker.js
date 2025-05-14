@@ -3,7 +3,7 @@
 /**
  * Manages Docker integration functionality for the application.
  * This module handles Docker settings, port scanning, and integration with
- * Portainer, Dockage, and Komodo.
+ * Portainer and Komodo.
  */
 
 import { showNotification } from '../ui/helpers.js';
@@ -19,19 +19,16 @@ export function init() {
     // Set up form submission handlers
     $('#docker-settings-form').submit(handleDockerSettingsSubmit);
     $('#portainer-settings-form').submit(handlePortainerSettingsSubmit);
-    $('#dockage-settings-form').submit(handleDockageSettingsSubmit);
     $('#komodo-settings-form').submit(handleKomodoSettingsSubmit);
 
     // Set up button click handlers
     $('#docker-scan-button').click(handleDockerScanClick);
     $('#portainer-import-button').click(handlePortainerImportClick);
-    $('#dockage-import-button').click(handleDockageImportClick);
     $('#komodo-import-button').click(handleKomodoImportClick);
 
     // Set up checkbox change handlers
     $('#docker-enabled').change(updateDockerFormState);
     $('#portainer-enabled').change(updatePortainerFormState);
-    $('#dockage-enabled').change(updateDockageFormState);
     $('#komodo-enabled').change(updateKomodoFormState);
 }
 
@@ -55,11 +52,6 @@ function loadDockerSettings() {
             $('#portainer-url').val(data.portainer_url || '');
             $('#portainer-api-key').val(data.portainer_api_key || '');
 
-            // Dockage settings
-            $('#dockage-enabled').prop('checked', data.dockage_enabled === 'true');
-            $('#dockage-url').val(data.dockage_url || '');
-            $('#dockage-api-key').val(data.dockage_api_key || '');
-
             // Komodo settings
             $('#komodo-enabled').prop('checked', data.komodo_enabled === 'true');
             $('#komodo-url').val(data.komodo_url || '');
@@ -68,7 +60,6 @@ function loadDockerSettings() {
             // Update form states
             updateDockerFormState();
             updatePortainerFormState();
-            updateDockageFormState();
             updateKomodoFormState();
         },
         error: function (xhr, status, error) {
@@ -156,42 +147,6 @@ function handlePortainerSettingsSubmit(e) {
     });
 }
 
-/**
- * Handle Dockage settings form submission.
- * Saves Dockage integration settings to the server.
- *
- * @param {Event} e - The form submission event
- */
-function handleDockageSettingsSubmit(e) {
-    e.preventDefault();
-
-    const formData = new FormData(this);
-
-    // Add checkbox values (they're only included when checked)
-    if (!$('#dockage-enabled').is(':checked')) {
-        formData.append('dockage_enabled', 'false');
-    }
-
-    $.ajax({
-        url: '/docker/settings',
-        method: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        success: function (response) {
-            if (response.success) {
-                showNotification('Dockage settings saved successfully!');
-                updateDockageFormState();
-            } else {
-                showNotification('Error saving Dockage settings: ' + response.error, 'error');
-            }
-        },
-        error: function (xhr, status, error) {
-            console.error('Error saving Dockage settings:', status, error);
-            showNotification('Error saving Dockage settings.', 'error');
-        }
-    });
-}
 
 /**
  * Handle Komodo settings form submission.
@@ -284,32 +239,6 @@ function handlePortainerImportClick() {
     });
 }
 
-/**
- * Handle Dockage import button click.
- * Imports containers and port mappings from Dockage.
- */
-function handleDockageImportClick() {
-    const $button = $(this);
-    $button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Importing...');
-
-    $.ajax({
-        url: '/docker/import_from_dockage',
-        method: 'POST',
-        success: function (response) {
-            if (response.success) {
-                showNotification(response.message);
-            } else {
-                showNotification('Error importing from Dockage: ' + response.error, 'error');
-            }
-            $button.prop('disabled', false).text('Import from Dockage');
-        },
-        error: function (xhr, status, error) {
-            console.error('Error importing from Dockage:', status, error);
-            showNotification('Error importing from Dockage.', 'error');
-            $button.prop('disabled', false).text('Import from Dockage');
-        }
-    });
-}
 
 /**
  * Handle Komodo import button click.
@@ -363,17 +292,6 @@ function updatePortainerFormState() {
     $('#portainer-import-button').prop('disabled', !enabled);
 }
 
-/**
- * Update Dockage form state based on the Dockage enabled checkbox.
- * Disables or enables form fields based on the checkbox state.
- */
-function updateDockageFormState() {
-    const enabled = $('#dockage-enabled').is(':checked');
-
-    $('#dockage-url').prop('disabled', !enabled);
-    $('#dockage-api-key').prop('disabled', !enabled);
-    $('#dockage-import-button').prop('disabled', !enabled);
-}
 
 /**
  * Update Komodo form state based on the Komodo enabled checkbox.
