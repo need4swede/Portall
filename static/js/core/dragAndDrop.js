@@ -78,6 +78,7 @@ function handleMouseDown(e) {
     });
 
     e.preventDefault();
+    e.stopPropagation(); // Stop event from bubbling up to parent elements
 }
 
 /**
@@ -110,6 +111,7 @@ function handleNetworkSwitchMouseDown(e) {
     });
 
     e.preventDefault();
+    e.stopPropagation(); // Stop event from bubbling up to parent elements
 }
 
 /**
@@ -120,6 +122,9 @@ function handleNetworkSwitchMouseDown(e) {
 function initiateIPDrag(e, element) {
     draggingIPPanel = element;
     console.log('Dragging IP panel:', draggingIPPanel);
+
+    // Stop event propagation to prevent interference with other drag operations
+    e.stopPropagation();
 
     const rect = draggingIPPanel.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
@@ -256,6 +261,9 @@ function initiateDrag(e, element) {
     console.log('Dragging element:', draggingElement);
     console.log('Source panel:', sourcePanel);
     console.log('Source IP:', sourceIp);
+
+    // Stop event propagation to prevent interference with other drag operations
+    e.stopPropagation();
 
     const rect = draggingElement.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
