@@ -56,6 +56,7 @@ function loadDockerSettings() {
             $('#komodo-enabled').prop('checked', data.komodo_enabled === 'true');
             $('#komodo-url').val(data.komodo_url || '');
             $('#komodo-api-key').val(data.komodo_api_key || '');
+            $('#komodo-api-secret').val(data.komodo_api_secret || '');
 
             // Update form states
             updateDockerFormState();
@@ -302,6 +303,7 @@ function updateKomodoFormState() {
 
     $('#komodo-url').prop('disabled', !enabled);
     $('#komodo-api-key').prop('disabled', !enabled);
+    $('#komodo-api-secret').prop('disabled', !enabled);
     $('#komodo-import-button').prop('disabled', !enabled);
 }
 

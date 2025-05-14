@@ -67,7 +67,7 @@ def docker_settings():
             docker_settings = {}
             for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval',
                        'portainer_enabled', 'portainer_url', 'portainer_api_key',
-                       'komodo_enabled', 'komodo_url', 'komodo_api_key']:
+                       'komodo_enabled', 'komodo_url', 'komodo_api_key', 'komodo_api_secret']:
                 setting = Setting.query.filter_by(key=key).first()
                 docker_settings[key] = setting.value if setting else ''
 
@@ -89,7 +89,8 @@ def docker_settings():
                 'portainer_api_key': request.form.get('portainer_api_key', ''),
                 'komodo_enabled': request.form.get('komodo_enabled', 'false'),
                 'komodo_url': request.form.get('komodo_url', ''),
-                'komodo_api_key': request.form.get('komodo_api_key', '')
+                'komodo_api_key': request.form.get('komodo_api_key', ''),
+                'komodo_api_secret': request.form.get('komodo_api_secret', '')
             }
 
             # Update or create Docker settings in the database
@@ -396,6 +397,10 @@ def import_from_portainer():
 def import_from_komodo():
     """
     Import containers and port mappings from Komodo.
+    Uses the proper API endpoints based on Komodo API documentation.
+
+    For Komodo: All API operations use POST requests with a JSON body containing
+    'type' and 'params' fields. Authentication is via X-Api-Key and X-Api-Secret headers.
 
     Returns:
         JSON: A JSON response indicating success or failure of the operation.
@@ -405,26 +410,15 @@ def import_from_komodo():
 
         komodo_url = get_setting('komodo_url', '')
         komodo_api_key = get_setting('komodo_api_key', '')
+        komodo_api_secret = get_setting('komodo_api_secret', '')
 
-        if not komodo_url or not komodo_api_key:
-            return jsonify({'error': 'Komodo URL or API key not configured'}), 400
+        if not komodo_url or not komodo_api_key or not komodo_api_secret:
+            return jsonify({'error': 'Komodo URL, API key, or API secret not configured'}), 400
 
-        # Set up headers for Komodo API
-        headers = {
-            'X-API-Key': komodo_api_key,
-            'Content-Type': 'application/json'
-        }
+        # Ensure the URL doesn't have a trailing slash
+        komodo_url = komodo_url.rstrip('/')
 
-        # Get containers from Komodo
-        containers_response = requests.get(f"{komodo_url}/api/v1/containers", headers=headers)
-        if containers_response.status_code != 200:
-            return jsonify({'error': f'Failed to get Komodo containers: {containers_response.text}'}), 500
-
-        containers = containers_response.json()
-        added_ports = 0
-        added_to_port_table = 0
-
-        # Extract server name from URL for identification in case of multiple Komodo instances
+        # Extract server name from URL for identification
         server_name = komodo_url.replace('https://', '').replace('http://', '').split('/')[0]
 
         # Resolve domain name to IP address
@@ -436,63 +430,318 @@ def import_from_komodo():
             app.logger.warning(f"Could not resolve {server_name} to IP: {str(e)}")
             server_ip = server_name  # Fall back to using the domain name if resolution fails
 
-        for container in containers:
+        # Set up the API auth headers according to Komodo API documentation
+        headers = {
+            'X-Api-Key': komodo_api_key,
+            'X-Api-Secret': komodo_api_secret,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+
+        # Try multiple API endpoint formats based on Komodo API documentation
+        endpoints_to_try = [
+            # Standard path as per documentation
+            {
+                'url': f"{komodo_url}/read",
+                'method': 'POST',
+                'body': {'type': 'ListStacks', 'params': {}},
+                'operation': 'ListStacks'
+            },
+            {
+                'url': f"{komodo_url}/read",
+                'method': 'POST',
+                'body': {'type': 'ListContainers', 'params': {}},
+                'operation': 'ListContainers'
+            },
+            # Try with /api prefix in case the API is mounted under /api
+            {
+                'url': f"{komodo_url}/api/read",
+                'method': 'POST',
+                'body': {'type': 'ListStacks', 'params': {}},
+                'operation': 'ListStacks'
+            },
+            {
+                'url': f"{komodo_url}/api/read",
+                'method': 'POST',
+                'body': {'type': 'ListContainers', 'params': {}},
+                'operation': 'ListContainers'
+            }
+        ]
+
+        # Try each endpoint until we get a successful response
+        response = None
+        successful_endpoint = None
+
+        for endpoint in endpoints_to_try:
+            try:
+                app.logger.info(f"Trying {endpoint['method']} {endpoint['url']} for {endpoint['operation']}")
+
+                if endpoint['method'] == 'POST':
+                    response = requests.post(
+                        endpoint['url'],
+                        headers=headers,
+                        json=endpoint['body'],  # Use json parameter to automatically serialize the body
+                        timeout=10
+                    )
+
+                app.logger.info(f"Response: {response.status_code} - Content-Type: {response.headers.get('Content-Type')}")
+
+                # If successful, break the loop
+                if response.status_code == 200:
+                    app.logger.info(f"Successful connection with {endpoint['url']}")
+                    successful_endpoint = endpoint
+                    break
+
+            except requests.exceptions.RequestException as e:
+                app.logger.warning(f"Error connecting to {endpoint['url']}: {str(e)}")
+                continue
+
+        # If we still don't have a successful response, try Bearer token authentication
+        if not successful_endpoint:
+            app.logger.info("Trying with Bearer token authentication")
+
+            bearer_headers = {
+                'Authorization': f'Bearer {komodo_api_key}',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+
+            for endpoint in endpoints_to_try:
+                try:
+                    app.logger.info(f"Trying {endpoint['method']} {endpoint['url']} with Bearer token")
+
+                    if endpoint['method'] == 'POST':
+                        response = requests.post(
+                            endpoint['url'],
+                            headers=bearer_headers,
+                            json=endpoint['body'],
+                            timeout=10
+                        )
+
+                    app.logger.info(f"Response: {response.status_code} - Content-Type: {response.headers.get('Content-Type')}")
+
+                    # If successful, break the loop
+                    if response.status_code == 200:
+                        app.logger.info(f"Successful connection with Bearer token and {endpoint['url']}")
+                        successful_endpoint = endpoint
+                        break
+
+                except requests.exceptions.RequestException as e:
+                    app.logger.warning(f"Error connecting with Bearer token to {endpoint['url']}: {str(e)}")
+                    continue
+
+        # If we still don't get a good response
+        if not successful_endpoint:
+            app.logger.error("Could not connect to Komodo API with any endpoint")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to connect to Komodo API. Tried multiple endpoints but none were successful. Ensure the URL and credentials are correct.'
+            }), 500
+
+        # Process the response
+        try:
+            response_data = response.json()
+        except ValueError:
+            app.logger.error("Response is not valid JSON")
+            return jsonify({
+                'success': False,
+                'error': 'Komodo API response is not valid JSON'
+            }), 500
+
+        # Debug log to help understand the structure
+        app.logger.info(f"Response type: {type(response_data)}")
+        if isinstance(response_data, dict):
+            app.logger.info(f"Response keys: {response_data.keys()}")
+
+        # Extract containers list based on response format
+        containers_list = []
+
+        # Case 1: Direct list of stacks/containers
+        if isinstance(response_data, list):
+            containers_list = response_data
+            app.logger.info("Response is a direct list of containers/stacks")
+
+        # Case 2: Result within response object
+        elif isinstance(response_data, dict):
+            # Try common keys that might contain the result
+            if 'result' in response_data and isinstance(response_data['result'], list):
+                containers_list = response_data['result']
+                app.logger.info("Found containers in 'result' key")
+
+            # Look for other common keys
+            for key in ['containers', 'stacks', 'services', 'items']:
+                if key in response_data and isinstance(response_data[key], list):
+                    containers_list = response_data[key]
+                    app.logger.info(f"Found containers in '{key}' key")
+                    break
+
+        if not containers_list:
+            app.logger.warning("Could not extract container data from response")
+            sample_data = str(response_data)[:1000] + "..." if len(str(response_data)) > 1000 else str(response_data)
+            app.logger.info(f"Sample response data: {sample_data}")
+            return jsonify({
+                'success': False,
+                'error': 'Could not extract container data from Komodo API response'
+            }), 500
+
+        app.logger.info(f"Found {len(containers_list)} containers/stacks")
+
+        # Process containers
+        added_ports = 0
+        added_to_port_table = 0
+
+        # Clear existing Docker services and ports for this instance
+        # To avoid duplicates from previous imports
+        try:
+            services_to_delete = db.session.query(DockerService.id).filter(
+                DockerService.name.like(f"%{server_name}%")
+            ).all()
+
+            service_ids = [s.id for s in services_to_delete]
+
+            if service_ids:
+                DockerPort.query.filter(DockerPort.service_id.in_(service_ids)).delete(synchronize_session=False)
+                DockerService.query.filter(DockerService.id.in_(service_ids)).delete(synchronize_session=False)
+                db.session.commit()
+                app.logger.info(f"Deleted {len(service_ids)} existing Komodo services")
+        except Exception as e:
+            app.logger.warning(f"Error clearing existing Komodo services: {str(e)}")
+            db.session.rollback()
+
+        for container in containers_list:
+            # Try to extract container information
+            # Support different possible field names
+            container_id = (
+                container.get('id') or
+                container.get('containerId') or
+                container.get('container_id') or
+                f"komodo-{server_name}-{container.get('name', 'unknown')}"
+            )
+
+            container_name = (
+                container.get('name') or
+                container.get('containerName') or
+                container.get('container_name') or
+                'unknown'
+            )
+
+            container_image = (
+                container.get('image') or
+                container.get('imageName') or
+                container.get('image_name') or
+                'unknown'
+            )
+
+            container_status = (
+                container.get('status') or
+                container.get('state') or
+                container.get('containerStatus') or
+                'unknown'
+            )
+
             # Add container to DockerService table
             service = DockerService(
-                container_id=container['id'],
-                name=container.get('name', 'unknown').lstrip('/'),
-                image=container.get('image', 'unknown'),
-                status=container.get('status', 'unknown')
+                container_id=container_id,
+                name=container_name,
+                image=container_image,
+                status=container_status
             )
             db.session.add(service)
             db.session.flush()  # Flush to get the service ID
 
-            # Process port mappings
-            for port_mapping in container.get('ports', []):
-                host_ip = port_mapping.get('host_ip', '0.0.0.0')
-                if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                    # Use the resolved IP address instead of placeholder IPs
-                    host_ip = server_ip
+            # Extract port mappings - try different field names
+            port_mappings = []
+            for field in ['ports', 'portBindings', 'port_bindings', 'publish']:
+                if field in container and container[field]:
+                    port_mappings = container[field]
+                    break
 
-                host_port = port_mapping.get('host_port')
-                container_port = port_mapping.get('container_port')
-                protocol = port_mapping.get('protocol', 'tcp')
+            # Process port mappings
+            app.logger.info(f"Found {len(port_mappings) if port_mappings else 0} port mappings for {container_name}")
+
+            for port_mapping in port_mappings:
+                # Try different potential structures for port mapping
+                host_port = None
+                container_port = None
+                protocol = 'tcp'
+
+                if isinstance(port_mapping, dict):
+                    # Dict format - try various field names
+                    host_port = (
+                        port_mapping.get('published') or
+                        port_mapping.get('hostPort') or
+                        port_mapping.get('host_port') or
+                        port_mapping.get('public')
+                    )
+
+                    container_port = (
+                        port_mapping.get('target') or
+                        port_mapping.get('containerPort') or
+                        port_mapping.get('container_port') or
+                        port_mapping.get('private')
+                    )
+
+                    protocol = (
+                        port_mapping.get('protocol') or
+                        port_mapping.get('proto') or
+                        'tcp'
+                    ).lower()
+                elif isinstance(port_mapping, str):
+                    # String format like "80:8080/tcp"
+                    try:
+                        parts = port_mapping.split(':')
+                        if len(parts) == 2:
+                            proto_parts = parts[1].split('/')
+                            host_port = parts[0]
+                            if len(proto_parts) == 2:
+                                container_port = proto_parts[0]
+                                protocol = proto_parts[1]
+                            else:
+                                container_port = proto_parts[0]
+                    except:
+                        app.logger.warning(f"Could not parse port mapping string: {port_mapping}")
 
                 if not host_port or not container_port:
+                    app.logger.warning(f"Missing host_port or container_port in mapping: {port_mapping}")
+                    continue
+
+                # Convert to integers
+                try:
+                    host_port_int = int(host_port)
+                    container_port_int = int(container_port)
+                except ValueError:
+                    app.logger.warning(f"Invalid port numbers: host={host_port}, container={container_port}")
                     continue
 
                 # Add port mapping to DockerPort table
                 docker_port = DockerPort(
                     service_id=service.id,
-                    host_ip=host_ip,
-                    host_port=int(host_port),
-                    container_port=int(container_port),
+                    host_ip=server_ip,
+                    host_port=host_port_int,
+                    container_port=container_port_int,
                     protocol=protocol.upper()
                 )
                 db.session.add(docker_port)
                 added_ports += 1
 
-                # Check if port already exists in Port table for this IP and port number
+                # Check if port already exists in Port table
                 existing_port = Port.query.filter_by(
-                    ip_address=host_ip,
-                    port_number=int(host_port),
+                    ip_address=server_ip,
+                    port_number=host_port_int,
                     port_protocol=protocol.upper()
                 ).first()
 
-                # Always add to Port table if it doesn't exist, regardless of auto-detect setting
+                # Add to Port table if it doesn't exist
                 if not existing_port:
-                    # Get the max order for this IP
                     max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                        ip_address=host_ip
+                        ip_address=server_ip
                     ).scalar() or 0
 
-                    # Create new port entry with server name in description and as nickname
-                    # Set is_immutable to True for Komodo ports
                     new_port = Port(
-                        ip_address=host_ip,
-                        nickname=server_name,  # Set the domain name as the nickname
-                        port_number=int(host_port),
-                        description=f"Komodo ({server_name}): {service.name} ({container_port}/{protocol})",
+                        ip_address=server_ip,
+                        nickname=server_name,
+                        port_number=host_port_int,
+                        description=f"Komodo ({server_name}): {container_name} ({container_port_int}/{protocol})",
                         port_protocol=protocol.upper(),
                         order=max_order + 1,
                         source='komodo',
@@ -504,8 +753,14 @@ def import_from_komodo():
         db.session.commit()
         return jsonify({
             'success': True,
-            'message': f'Komodo import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
+            'message': f'Komodo import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.',
+            'api_details': {
+                'endpoint': successful_endpoint['url'],
+                'operation': successful_endpoint['operation'],
+                'method': successful_endpoint['method']
+            }
         })
+
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error importing from Komodo: {str(e)}")
