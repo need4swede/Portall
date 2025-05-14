@@ -26,12 +26,19 @@ docker_client = None
 def get_docker_client():
     """
     Get or initialize the Docker client based on settings.
+    Only initializes the client if Docker integration is enabled.
 
     Returns:
-        docker.DockerClient: The Docker client instance.
+        docker.DockerClient: The Docker client instance, or None if Docker is disabled.
     """
     global docker_client
 
+    # Check if Docker is enabled
+    if get_setting('docker_enabled', 'false').lower() != 'true':
+        app.logger.info("Docker integration is disabled. Not initializing Docker client.")
+        return None
+
+    # Return existing client if already initialized
     if docker_client is not None:
         return docker_client
 
@@ -78,27 +85,52 @@ def docker_settings():
 
     elif request.method == 'POST':
         try:
-            # Extract Docker settings from form data
-            docker_settings = {
-                'docker_enabled': request.form.get('docker_enabled', 'false'),
-                'docker_host': request.form.get('docker_host', 'unix:///var/run/docker.sock'),
-                'docker_auto_detect': request.form.get('docker_auto_detect', 'false'),
-                'docker_scan_interval': request.form.get('docker_scan_interval', '300'),
-                'portainer_enabled': request.form.get('portainer_enabled', 'false'),
-                'portainer_url': request.form.get('portainer_url', ''),
-                'portainer_api_key': request.form.get('portainer_api_key', ''),
-                'portainer_auto_detect': request.form.get('portainer_auto_detect', 'false'),
-                'portainer_scan_interval': request.form.get('portainer_scan_interval', '300'),
-                'komodo_enabled': request.form.get('komodo_enabled', 'false'),
-                'komodo_url': request.form.get('komodo_url', ''),
-                'komodo_api_key': request.form.get('komodo_api_key', ''),
-                'komodo_api_secret': request.form.get('komodo_api_secret', ''),
-                'komodo_auto_detect': request.form.get('komodo_auto_detect', 'false'),
-                'komodo_scan_interval': request.form.get('komodo_scan_interval', '300')
-            }
+            # Determine which form was submitted based on the form data
+            form_keys = request.form.keys()
 
-            # Update or create Docker settings in the database
-            for key, value in docker_settings.items():
+            # Get current settings to preserve values not included in the current form submission
+            current_settings = {}
+            for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval',
+                       'portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_auto_detect', 'portainer_scan_interval',
+                       'komodo_enabled', 'komodo_url', 'komodo_api_key', 'komodo_api_secret', 'komodo_auto_detect', 'komodo_scan_interval']:
+                setting = Setting.query.filter_by(key=key).first()
+                current_settings[key] = setting.value if setting else ''
+
+            # Create a dictionary to hold the settings to update
+            settings_to_update = {}
+
+            # Docker form
+            if any(key in form_keys for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval']):
+                settings_to_update.update({
+                    'docker_enabled': request.form.get('docker_enabled', 'false'),
+                    'docker_host': request.form.get('docker_host', 'unix:///var/run/docker.sock'),
+                    'docker_auto_detect': request.form.get('docker_auto_detect', 'false'),
+                    'docker_scan_interval': request.form.get('docker_scan_interval', '300')
+                })
+
+            # Portainer form
+            if any(key in form_keys for key in ['portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_auto_detect', 'portainer_scan_interval']):
+                settings_to_update.update({
+                    'portainer_enabled': request.form.get('portainer_enabled', 'false'),
+                    'portainer_url': request.form.get('portainer_url', ''),
+                    'portainer_api_key': request.form.get('portainer_api_key', ''),
+                    'portainer_auto_detect': request.form.get('portainer_auto_detect', 'false'),
+                    'portainer_scan_interval': request.form.get('portainer_scan_interval', '300')
+                })
+
+            # Komodo form
+            if any(key in form_keys for key in ['komodo_enabled', 'komodo_url', 'komodo_api_key', 'komodo_api_secret', 'komodo_auto_detect', 'komodo_scan_interval']):
+                settings_to_update.update({
+                    'komodo_enabled': request.form.get('komodo_enabled', 'false'),
+                    'komodo_url': request.form.get('komodo_url', ''),
+                    'komodo_api_key': request.form.get('komodo_api_key', ''),
+                    'komodo_api_secret': request.form.get('komodo_api_secret', ''),
+                    'komodo_auto_detect': request.form.get('komodo_auto_detect', 'false'),
+                    'komodo_scan_interval': request.form.get('komodo_scan_interval', '300')
+                })
+
+            # Update only the settings that were included in the form
+            for key, value in settings_to_update.items():
                 setting = Setting.query.filter_by(key=key).first()
                 if setting:
                     setting.value = value

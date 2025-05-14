@@ -103,6 +103,8 @@ function handleDockerSettingsSubmit(e) {
         success: function (response) {
             if (response.success) {
                 showNotification('Docker settings saved successfully!');
+                // Reload settings from the server to ensure UI reflects current state
+                loadDockerSettings();
                 updateDockerFormState();
             } else {
                 showNotification('Error saving Docker settings: ' + response.error, 'error');
@@ -144,6 +146,8 @@ function handlePortainerSettingsSubmit(e) {
         success: function (response) {
             if (response.success) {
                 showNotification('Portainer settings saved successfully!');
+                // Reload settings from the server to ensure UI reflects current state
+                loadDockerSettings();
                 updatePortainerFormState();
             } else {
                 showNotification('Error saving Portainer settings: ' + response.error, 'error');
@@ -186,6 +190,8 @@ function handleKomodoSettingsSubmit(e) {
         success: function (response) {
             if (response.success) {
                 showNotification('Komodo settings saved successfully!');
+                // Reload settings from the server to ensure UI reflects current state
+                loadDockerSettings();
                 updateKomodoFormState();
             } else {
                 showNotification('Error saving Komodo settings: ' + response.error, 'error');
