@@ -520,6 +520,7 @@ function initiateImmutableDrag(e, element) {
     $(document).on('mouseup', mouseUpHandler);
 }
 
+
 /**
  * Initiates the drag operation for a port
  * @param {Event} e - The event object
@@ -549,8 +550,18 @@ function initiateDrag(e, element) {
         'width': originalWidth + 'px',
         'height': originalHeight + 'px',
         'background-color': 'rgba(0, 0, 0, 0.1)',
-        'border': '2px dashed #ccc'
+        'border': '2px dashed #ccc',
+        'border-radius': '22px', // Match the port-slot border radius
+        'transition': 'all 0.2s ease'
     }).insertAfter(draggingElement);
+
+    // Update placeholder for dark mode if needed
+    if ($('body').attr('data-theme') === 'dark') {
+        placeholder.css({
+            'background-color': 'rgba(255, 255, 255, 0.1)',
+            'border': '2px dashed #444'
+        });
+    }
 
     // Hide any visible tooltips
     $(draggingElement).find('.port-tooltip').css({
@@ -565,18 +576,43 @@ function initiateDrag(e, element) {
         'pointer-events': 'none',
         'width': originalWidth + 'px',
         'height': originalHeight + 'px',
-        'opacity': '0.85'
+        'opacity': '0.85',
+        'transform': 'scale(1.05) rotate(2deg)', // Slight rotate and scale up
+        'transition': 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)', // Bouncy, springy effect
+        'box-shadow': '0 12px 24px rgba(0, 0, 0, 0.12)', // Elevated shadow
+        'cursor': 'grabbing'
     }).addClass('dragging').appendTo('body');
+
+    // Add subtle floating animation
+    $(draggingElement).css('animation', 'float 1.5s infinite alternate ease-in-out');
+
+    // Define the float animation if it doesn't exist
+    if (!document.getElementById('float-animation')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'float-animation';
+        styleEl.innerHTML = `
+            @keyframes float {
+                0% { transform: scale(1.05) rotate(2deg) translateY(0px); }
+                100% { transform: scale(1.05) rotate(2deg) translateY(-5px); }
+            }
+        `;
+        document.head.appendChild(styleEl);
+    }
 
     // Handle mouse movement during drag
     function mouseMoveHandler(e) {
         $(draggingElement).css({
-            'left': e.clientX - offsetX + 'px',
-            'top': e.clientY - offsetY + 'px'
+            'left': (e.clientX - offsetX) + 'px',
+            'top': (e.clientY - offsetY) + 'px'
         });
 
         const targetElement = getTargetElement(e.clientX, e.clientY);
         if (targetElement && !$(targetElement).is(placeholder)) {
+            // Add visual indicator for drop location
+            $('.port-slot').removeClass('potential-drop-target');
+            $(targetElement).addClass('potential-drop-target');
+
+            // Animate the placeholder to the new position rather than jumping
             if ($(targetElement).index() < $(placeholder).index()) {
                 $(placeholder).insertBefore(targetElement);
             } else {
@@ -590,14 +626,31 @@ function initiateDrag(e, element) {
         $(document).off('mousemove', mouseMoveHandler);
         $(document).off('mouseup', mouseUpHandler);
 
+        // Remove the float animation style if it exists
+        const floatStyle = document.getElementById('float-animation');
+        if (floatStyle) {
+            floatStyle.remove();
+        }
+
+        $('.port-slot').removeClass('potential-drop-target');
+
         const targetElement = getTargetElement(e.clientX, e.clientY);
         if (targetElement) {
-            finalizeDrop(targetElement);
+            // Return the element to normal with an elastic effect
+            $(draggingElement).css({
+                'animation': 'none',
+                'transform': 'scale(1) rotate(0deg)',
+                'transition': 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' // Elastic transition
+            });
+
+            setTimeout(() => {
+                finalizeDrop(targetElement);
+            }, 150); // Small delay to allow the transform to complete
         } else {
             cancelDrop();
         }
 
-        // Reset the dragging element's style
+        // Reset the dragging element's style with a nice transition back
         $(draggingElement).css({
             'position': '',
             'zIndex': '',
@@ -606,8 +659,14 @@ function initiateDrag(e, element) {
             'pointer-events': '',
             'width': '',
             'height': '',
-            'opacity': ''
+            'opacity': '1',
+            'animation': 'none',
+            'transform': 'scale(1) rotate(0deg)',
+            'box-shadow': '',
+            'transition': 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', // Elastic transition
+            'cursor': ''
         }).removeClass('dragging').insertBefore(placeholder);
+
         placeholder.remove();
         draggingElement = null;
         placeholder = null;
