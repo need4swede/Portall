@@ -290,14 +290,15 @@ function initiateImmutableDrag(e, element) {
     $(immutableTooltip).css({
         'position': 'absolute',
         'zIndex': 1001,
-        'background-color': 'var(--tooltip-bg)',
-        'color': 'var(--tooltip-text)',
+        'background-color': 'var(--bg-card)',
+        'color': 'var(--text-primary)',
         'border-radius': '8px',
         'padding': '10px',
         'box-shadow': '0 4px 8px rgba(0, 0, 0, 0.2)',
         'max-width': '250px',
         'pointer-events': 'none',
         'opacity': '0',
+        'backdrop-filter': 'blur(50px)',
         'transition': 'opacity 0.2s ease-in-out',
         'left': (rect.left + rect.width + 10) + 'px', // Position to the right of the port
         'top': rect.top + 'px' // Align with the top of the port
