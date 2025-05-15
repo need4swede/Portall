@@ -286,22 +286,119 @@ function initiateImmutableDrag(e, element) {
         </div>
     `;
 
-    // Style the tooltip - position it next to the port
+    // Get the enhanced tooltip if it exists
+    const portTooltip = document.querySelector('.enhanced-tooltip');
+
+    // Default tooltip dimensions
+    const tooltipWidth = 250;
+    const tooltipHeight = 100;
+    const tooltipOffset = 15;
+
+    // Calculate available space in each direction
+    const spaceTop = rect.top;
+    const spaceBottom = window.innerHeight - rect.bottom;
+    const spaceLeft = rect.left;
+    const spaceRight = window.innerWidth - rect.right;
+
+    // Default to best position based on available space
+    let bestPosition = 'top';
+    let maxSpace = spaceTop;
+
+    if (spaceBottom > maxSpace) {
+        bestPosition = 'bottom';
+        maxSpace = spaceBottom;
+    }
+
+    if (spaceLeft > maxSpace) {
+        bestPosition = 'left';
+        maxSpace = spaceLeft;
+    }
+
+    if (spaceRight > maxSpace) {
+        bestPosition = 'right';
+        maxSpace = spaceRight;
+    }
+
+    // If there's a visible port tooltip, use the opposite position
+    if (portTooltip) {
+        const portTooltipPosition = portTooltip.getAttribute('data-position') || 'top';
+
+        // Use the opposite position
+        switch (portTooltipPosition) {
+            case 'top': bestPosition = 'bottom'; break;
+            case 'bottom': bestPosition = 'top'; break;
+            case 'left': bestPosition = 'right'; break;
+            case 'right': bestPosition = 'left'; break;
+        }
+
+        // If opposite position has very little space, choose another direction
+        const minRequiredSpace = {
+            top: tooltipHeight + tooltipOffset,
+            bottom: tooltipHeight + tooltipOffset,
+            left: tooltipWidth + tooltipOffset,
+            right: tooltipWidth + tooltipOffset
+        };
+
+        const availableSpace = {
+            top: spaceTop,
+            bottom: spaceBottom,
+            left: spaceLeft,
+            right: spaceRight
+        };
+
+        if (availableSpace[bestPosition] < minRequiredSpace[bestPosition]) {
+            // Find next best position
+            const positions = ['top', 'right', 'bottom', 'left'].filter(pos => pos !== portTooltipPosition);
+            bestPosition = positions.reduce((best, pos) =>
+                availableSpace[pos] > availableSpace[best] ? pos : best, positions[0]);
+        }
+    }
+
+    // Set the immutable tooltip's position attribute
+    $(immutableTooltip).attr('data-position', bestPosition);
+
+    // Calculate position based on the determined direction
+    let top, left;
+
+    switch (bestPosition) {
+        case 'top':
+            top = rect.top - tooltipHeight - tooltipOffset;
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            break;
+        case 'bottom':
+            top = rect.bottom + tooltipOffset;
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            break;
+        case 'left':
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.left - tooltipWidth - tooltipOffset;
+            break;
+        case 'right':
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.right + tooltipOffset;
+            break;
+    }
+
+    // Ensure tooltip stays within viewport
+    top = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, top));
+    left = Math.max(10, Math.min(window.innerWidth - tooltipWidth - 10, left));
+
+    // Style the tooltip
     $(immutableTooltip).css({
-        'position': 'absolute',
+        'position': 'fixed', // Use fixed instead of absolute to ensure proper positioning
         'zIndex': 1001,
         'background-color': 'var(--bg-card)',
         'color': 'var(--text-primary)',
         'border-radius': '8px',
         'padding': '10px',
         'box-shadow': '0 4px 8px rgba(0, 0, 0, 0.2)',
-        'max-width': '250px',
+        'width': `${tooltipWidth}px`, // Set explicit width
         'pointer-events': 'none',
         'opacity': '0',
         'backdrop-filter': 'blur(50px)',
         'transition': 'opacity 0.2s ease-in-out',
-        'left': (rect.left + rect.width + 10) + 'px', // Position to the right of the port
-        'top': rect.top + 'px' // Align with the top of the port
+        'top': top + 'px',
+        'left': left + 'px'
     });
 
     document.body.appendChild(immutableTooltip);
@@ -345,10 +442,37 @@ function initiateImmutableDrag(e, element) {
             'top': newDeltaY + 'px'
         });
 
-        // Update tooltip position - keep it next to the port as it moves
+        // Update tooltip position based on its data-position attribute
+        const tooltipPosition = $(immutableTooltip).attr('data-position');
+
+        let newTop, newLeft;
+
+        switch (tooltipPosition) {
+            case 'top':
+                newTop = rect.top - tooltipHeight - tooltipOffset + newDeltaY;
+                newLeft = rect.left + (rect.width / 2) - (tooltipWidth / 2) + newDeltaX;
+                break;
+            case 'bottom':
+                newTop = rect.bottom + tooltipOffset + newDeltaY;
+                newLeft = rect.left + (rect.width / 2) - (tooltipWidth / 2) + newDeltaX;
+                break;
+            case 'left':
+                newTop = rect.top + (rect.height / 2) - (tooltipHeight / 2) + newDeltaY;
+                newLeft = rect.left - tooltipWidth - tooltipOffset + newDeltaX;
+                break;
+            case 'right':
+                newTop = rect.top + (rect.height / 2) - (tooltipHeight / 2) + newDeltaY;
+                newLeft = rect.right + tooltipOffset + newDeltaX;
+                break;
+        }
+
+        // Ensure tooltip stays within viewport
+        newTop = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, newTop));
+        newLeft = Math.max(10, Math.min(window.innerWidth - tooltipWidth - 10, newLeft));
+
         $(immutableTooltip).css({
-            'left': (rect.left + rect.width + 10 + newDeltaX) + 'px',
-            'top': (rect.top + newDeltaY) + 'px'
+            'top': newTop + 'px',
+            'left': newLeft + 'px'
         });
     }
 
@@ -383,7 +507,9 @@ function initiateImmutableDrag(e, element) {
             // Fade out and remove the tooltip
             $(immutableTooltip).css('opacity', '0');
             setTimeout(() => {
-                $(immutableTooltip).remove();
+                if (immutableTooltip.parentNode) {
+                    immutableTooltip.parentNode.removeChild(immutableTooltip);
+                }
             }, 300);
         }, 900); // Increased timeout to allow elastic animation to complete
 
