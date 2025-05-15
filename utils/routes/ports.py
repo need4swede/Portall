@@ -165,6 +165,7 @@ def import_from_docker_auto():
 
                         # Create new port entry with host identifier as nickname and container name as description
                         # Set source to 'docker' to identify it as a Docker port
+                        # Set is_immutable to True for Docker ports
                         new_port = Port(
                             ip_address=host_ip,
                             nickname=host_identifier,  # Set the host identifier as the nickname
@@ -172,7 +173,8 @@ def import_from_docker_auto():
                             description=container.name,
                             port_protocol=protocol.upper(),
                             order=max_order + 1,
-                            source='docker'
+                            source='docker',
+                            is_immutable=True
                         )
                         db.session.add(new_port)
                         added_ports += 1
@@ -299,6 +301,7 @@ def import_from_portainer_auto():
 
                     # Create new port entry with server name as nickname and container name as description
                     # Set source to 'portainer' to identify it as a Portainer port
+                    # Set is_immutable to True for Portainer ports
                     new_port = Port(
                         ip_address=host_ip,
                         nickname=server_name,  # Set the domain name as the nickname
@@ -306,7 +309,8 @@ def import_from_portainer_auto():
                         description=container_name,
                         port_protocol=protocol.upper(),
                         order=max_order + 1,
-                        source='portainer'
+                        source='portainer',
+                        is_immutable=True
                     )
                     db.session.add(new_port)
                     added_ports += 1
