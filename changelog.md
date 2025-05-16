@@ -1,3 +1,36 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v2.0.0" target="_blank">v2.0.0</a>
+## Added:
+### Docker Integration
+- Auto-detection of Docker containers and port mappings
+- Configurable Docker connection settings
+
+### Portainer Integration
+- Auto-detection of Portainer containers and port mappings
+
+### Komodo Integration
+- Auto-detection of Komodo containers and port mappings
+
+### Port Scanning
+- Ability to scan IP addresses for open ports
+- Background scanning with configurable intervals
+
+## Changed:
+### UI Overhaul
+- Brand new interface, with support for both dark and light mode
+- Smoother animations and greater emphasis on communication
+- Improve mobile responsive layout
+
+### Improved JSON data ingestion
+- JSON exports now contain more information about your Portall instance
+- JSON imports from a v2.x export now restores your entire instance
+- CAUTION: This data now includes API keys if using Docker integrations!
+
+## Fixed:
+### Inability to move IP tables
+Fixed a bug where moving tables around would cause crashes
+### Moved Ports not saving their new IP
+Fixed a bug where certain Ports would return to their old IP address on refresh
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v1.0.8" target="_blank">v1.0.8</a>
 ## Changed:
 ### Overhauled Docker-Compose Imports
