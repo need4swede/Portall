@@ -843,8 +843,13 @@ function getTargetElement(x, y) {
         // Check if we're in the same panel or a different one
         const sourcePanel = $(draggingElement).closest('.switch-panel');
         const targetPanel = $(portSlot).closest('.switch-panel');
+        const targetIp = targetPanel.data('ip');
 
         console.log('Port slot target panel:', targetPanel);
+        console.log('Target IP from panel:', targetIp);
+
+        // Store target IP directly on the element for later retrieval
+        $(portSlot).attr('data-temp-target-ip', targetIp);
 
         // Prevent moving the last port out of a panel
         if (sourcePanel.length && targetPanel.length &&
@@ -868,6 +873,11 @@ function getTargetElement(x, y) {
     const switchPanel = elements.find(el => el.classList.contains('switch-panel'));
     if (switchPanel) {
         console.log('Found switch panel:', switchPanel);
+        const targetIp = $(switchPanel).data('ip');
+        console.log('Target IP from switch panel:', targetIp);
+
+        // Store target IP directly on the element for later retrieval
+        $(switchPanel).attr('data-temp-target-ip', targetIp);
 
         // Check if this is the source panel and it only has one port
         const sourcePanel = $(draggingElement).closest('.switch-panel');
@@ -886,6 +896,8 @@ function getTargetElement(x, y) {
         // Find the last port slot in this panel (excluding the add-port-slot)
         const lastPortSlot = $(switchPanel).find('.port-slot:not(.add-port-slot)').last()[0];
         if (lastPortSlot) {
+            // Also store target IP on this element
+            $(lastPortSlot).attr('data-temp-target-ip', targetIp);
             console.log('Using last port slot as target:', lastPortSlot);
             return lastPortSlot;
         }
@@ -893,6 +905,8 @@ function getTargetElement(x, y) {
         // If no port slots, use the add-port-slot as the target
         const addPortSlot = $(switchPanel).find('.add-port-slot')[0];
         if (addPortSlot) {
+            // Also store target IP on this element
+            $(addPortSlot).attr('data-temp-target-ip', targetIp);
             console.log('Using add-port-slot as target:', addPortSlot);
             return addPortSlot;
         }
@@ -912,9 +926,16 @@ function getTargetElement(x, y) {
             return null;
         }
 
+        console.log('Target IP from network switch:', switchIp);
+
+        // Store target IP directly on the element for later retrieval
+        $networkSwitch.attr('data-temp-target-ip', switchIp);
+
         // Find the switch-panel within this network switch
         const panel = $networkSwitch.find('.switch-panel')[0];
         if (panel) {
+            // Also store target IP on the panel
+            $(panel).attr('data-temp-target-ip', switchIp);
             console.log('Found panel in network switch:', panel);
 
             // Check if this is the source panel and it only has one port
@@ -934,6 +955,8 @@ function getTargetElement(x, y) {
             // Find the last port slot in this panel (excluding the add-port-slot)
             const lastPortSlot = $(panel).find('.port-slot:not(.add-port-slot)').last()[0];
             if (lastPortSlot) {
+                // Also store target IP on this element
+                $(lastPortSlot).attr('data-temp-target-ip', switchIp);
                 console.log('Using last port slot as target:', lastPortSlot);
                 return lastPortSlot;
             }
@@ -941,6 +964,8 @@ function getTargetElement(x, y) {
             // If no port slots, use the add-port-slot as the target
             const addPortSlot = $(panel).find('.add-port-slot')[0];
             if (addPortSlot) {
+                // Also store target IP on this element
+                $(addPortSlot).attr('data-temp-target-ip', switchIp);
                 console.log('Using add-port-slot as target:', addPortSlot);
                 return addPortSlot;
             }
@@ -961,8 +986,12 @@ function getTargetElement(x, y) {
         // Use the add-port-slot if it exists, otherwise return the panel itself
         const addPortSlot = switchPanel.find('.add-port-slot')[0];
         if (addPortSlot) {
+            // Also store target IP on this element
+            $(addPortSlot).attr('data-temp-target-ip', switchIp);
             return addPortSlot;
         } else {
+            // Also store target IP on the panel
+            switchPanel.attr('data-temp-target-ip', switchIp);
             return switchPanel[0];
         }
     }
@@ -986,45 +1015,51 @@ function finalizeDrop(targetElement) {
     // Use the stored draggedPortData from initiateDrag
     console.log('Using stored port data:', draggedPortData);
 
-    // Enhanced target IP detection
-    let targetIp;
-    let targetPanel;
+    // Enhanced target IP detection - first try to get the stored temp target IP
+    let targetIp = $(targetElement).attr('data-temp-target-ip');
+    console.log('Target IP from data-temp-target-ip attribute:', targetIp);
 
-    // First try to get the target panel directly from the element
-    targetPanel = $(targetElement).closest('.switch-panel');
+    let targetPanel = null;
 
-    if (targetPanel.length) {
-        targetIp = targetPanel.data('ip');
-        console.log('Found target panel with data-ip:', targetIp);
-    } else {
-        // If we couldn't find a panel, try to get the IP from the network switch
-        const networkSwitch = $(targetElement).closest('.network-switch');
-        if (networkSwitch.length) {
-            // Try to find the switch-panel within the network switch
-            targetPanel = networkSwitch.find('.switch-panel');
-            if (targetPanel.length) {
-                targetIp = targetPanel.data('ip');
-                console.log('Found target panel within network switch, IP:', targetIp);
-            }
+    // If we didn't get an IP from our temp attribute, try the normal methods
+    if (!targetIp) {
+        // First try to get the target panel directly from the element
+        targetPanel = $(targetElement).closest('.switch-panel');
 
-            // If still no IP, try to extract it from the switch label
-            if (!targetIp) {
-                const switchLabel = networkSwitch.find('.switch-label').text();
-                const ipMatch = switchLabel.match(/^([\d.]+)/);
-                if (ipMatch && ipMatch[1]) {
-                    targetIp = ipMatch[1];
-                    console.log('Extracted target IP from switch label:', targetIp);
+        if (targetPanel.length) {
+            targetIp = targetPanel.data('ip');
+            console.log('Found target panel with data-ip:', targetIp);
+        } else {
+            // If we couldn't find a panel, try to get the IP from the network switch
+            const networkSwitch = $(targetElement).closest('.network-switch');
+            if (networkSwitch.length) {
+                // Try to find the switch-panel within the network switch
+                targetPanel = networkSwitch.find('.switch-panel');
+                if (targetPanel.length) {
+                    targetIp = targetPanel.data('ip');
+                    console.log('Found target panel within network switch, IP:', targetIp);
+                }
+
+                // If still no IP, try to extract it from the switch label
+                if (!targetIp) {
+                    // Use our getNetworkSwitchIp helper function
+                    targetIp = getNetworkSwitchIp(networkSwitch);
+                    console.log('Got target IP from getNetworkSwitchIp:', targetIp);
                 }
             }
-        }
 
-        // Last resort - check if we're somehow dropping back on the source panel
-        if (!targetIp && sourcePanel && sourcePanel.length) {
-            // We might be dropping back onto our source panel
-            targetIp = sourceIp;
-            targetPanel = sourcePanel;
-            console.log('Using source panel as target (same-panel drop):', targetIp);
+            // Last resort - check if we're somehow dropping back on the source panel
+            if (!targetIp && sourcePanel && sourcePanel.length) {
+                // We might be dropping back onto our source panel
+                targetIp = sourceIp;
+                targetPanel = sourcePanel;
+                console.log('Using source panel as target (same-panel drop):', targetIp);
+            }
         }
+    } else {
+        // If we found a targetIp from the temp attribute, try to find the associated panel
+        targetPanel = $(`.switch-panel[data-ip="${targetIp}"]`);
+        console.log('Found target panel using targetIp:', targetPanel.length ? 'yes' : 'no');
     }
 
     console.log('Source panel:', sourcePanel);
@@ -1112,6 +1147,9 @@ function finalizeDrop(targetElement) {
             }
         }
     }
+
+    // Remove any temp target IP attributes we added
+    $('.switch-panel, .port-slot, .network-switch').removeAttr('data-temp-target-ip');
 
     // Show success message
     showNotification('Port order updated', 'success');
