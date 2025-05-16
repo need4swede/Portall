@@ -7,6 +7,102 @@ import { movePort, changePortNumber } from '../api/ajax.js';
 import { cancelDrop as cancelDropUtil } from '../utils/dragDropUtils.js';
 import { showLoadingAnimation, hideLoadingAnimation } from '../ui/loadingAnimation.js';
 
+/**
+ * Add this at the top of dragAndDrop.js, right after your imports and before
+ * variable declarations
+ */
+
+// Global variable to store port data during drag
+let draggedPortData = null;
+
+// Debug mode flag - set to true for detailed logging
+const DEBUG = true;
+
+// Debug logger function
+function debug(...args) {
+    if (DEBUG) {
+        console.log('[DragDrop Debug]', ...args);
+    }
+}
+
+/**
+ * Cancels the drop operation and reverts the dragged element to its original position
+ */
+function cancelDrop() {
+    console.log('[DragDrop Debug] Cancelling drop operation');
+
+    // If draggingElement is null, nothing to do
+    if (!draggingElement) {
+        console.log('[DragDrop Debug] No dragging element to cancel');
+        return;
+    }
+
+    // Try to safely remove the element's dragging styles and positioning
+    try {
+        $(draggingElement).removeClass('dragging');
+        $(draggingElement).css({
+            'position': '',
+            'zIndex': '',
+            'left': '',
+            'top': '',
+            'pointer-events': '',
+            'width': '',
+            'height': '',
+            'opacity': '1',
+            'animation': 'none',
+            'transform': 'scale(1) rotate(0deg)',
+            'box-shadow': '',
+            'transition': 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            'cursor': ''
+        });
+
+        // Only try to insert the element back if placeholder exists
+        if (placeholder && placeholder.parentNode) {
+            placeholder.parentNode.insertBefore(draggingElement, placeholder);
+        }
+    } catch (e) {
+        console.error('Error while cancelling drop:', e);
+    }
+
+    // Remove the placeholder if it exists
+    if (placeholder) {
+        try {
+            $(placeholder).remove();
+        } catch (e) {
+            console.error('Error removing placeholder:', e);
+        }
+    }
+
+    // Use the utility function for cancelling the drop
+    try {
+        cancelDropUtil(draggingElement, placeholder);
+    } catch (e) {
+        console.error('Error in cancelDropUtil:', e);
+    }
+
+    // Clear the stored draggedPortData
+    draggedPortData = null;
+
+    // Reset all variables
+    draggingElement = null;
+    placeholder = null;
+    sourcePanel = null;
+    sourceIp = null;
+}
+
+/**
+ * Refresh the page after a delay.
+ * Shows a loading animation and reloads the page after 1.5 seconds.
+ */
+function refreshPageAfterDelay(delay = 1500) {
+    console.log('[DragDrop Debug] Refreshing page after delay');
+    showLoadingAnimation();
+    setTimeout(function () {
+        window.location.reload();
+    }, delay);
+}
+
+
 // For dragging ports
 let draggingElement = null;
 let placeholder = null;
@@ -530,9 +626,22 @@ function initiateDrag(e, element) {
     draggingElement = element;
     sourcePanel = $(element).closest('.switch-panel');
     sourceIp = sourcePanel.data('ip');
+
+    // Store the port data at the beginning of the drag operation
+    // This ensures we have the data even if DOM structure changes during drag
+    const $portElement = $(element).find('.port');
+    draggedPortData = {
+        portNumber: $portElement.data('port'),
+        protocol: $portElement.data('protocol'),
+        description: $portElement.data('description'),
+        id: $portElement.data('id'),
+        immutable: $portElement.attr('data-immutable') === 'true'
+    };
+
     console.log('Dragging element:', draggingElement);
     console.log('Source panel:', sourcePanel);
     console.log('Source IP:', sourceIp);
+    console.log('Stored port data:', draggedPortData);
 
     // Stop event propagation to prevent interference with other drag operations
     e.stopPropagation();
@@ -670,10 +779,43 @@ function initiateDrag(e, element) {
         placeholder.remove();
         draggingElement = null;
         placeholder = null;
+
+        // Keep draggedPortData available for finalizeDrop
+        // It will be cleared after the drop is finalized or canceled
     }
 
     $(document).on('mousemove', mouseMoveHandler);
     $(document).on('mouseup', mouseUpHandler);
+}
+
+/**
+ * Fallback function to get the IP address for a network switch
+ * This is used when the data-ip attribute is not available directly
+ * @param {jQuery} $networkSwitch - jQuery object representing the network switch
+ * @returns {string|null} - The IP address or null if not found
+ */
+function getNetworkSwitchIp($networkSwitch) {
+    // First try: get from the switch-panel data-ip attribute
+    const $panel = $networkSwitch.find('.switch-panel');
+    if ($panel.length && $panel.data('ip')) {
+        return $panel.data('ip');
+    }
+
+    // Second try: extract from the switch-label text content
+    const switchLabel = $networkSwitch.find('.switch-label').text().trim();
+    const ipMatch = switchLabel.match(/^([\d.]+)/);
+    if (ipMatch && ipMatch[1]) {
+        return ipMatch[1];
+    }
+
+    // Third try: look for port elements with data-ip
+    const $port = $networkSwitch.find('.port[data-ip]').first();
+    if ($port.length) {
+        return $port.data('ip');
+    }
+
+    // If all else fails, return null
+    return null;
 }
 
 /**
@@ -683,29 +825,150 @@ function initiateDrag(e, element) {
  * @returns {HTMLElement|null} The target element or null if invalid
  */
 function getTargetElement(x, y) {
+    // Get all elements at the current mouse position
     const elements = document.elementsFromPoint(x, y);
-    const potentialTarget = elements.find(el => el.classList.contains('port-slot') && el !== draggingElement && !el.classList.contains('add-port-slot'));
+    console.log('Elements at drop position:', elements);
 
-    if (potentialTarget) {
+    // First try to find a port-slot directly
+    const portSlot = elements.find(el =>
+        el.classList.contains('port-slot') &&
+        el !== draggingElement &&
+        !el.classList.contains('add-port-slot')
+    );
+
+    if (portSlot) {
+        // Log the found port slot for debugging
+        console.log('Found port slot:', portSlot);
+
+        // Check if we're in the same panel or a different one
         const sourcePanel = $(draggingElement).closest('.switch-panel');
-        const targetPanel = $(potentialTarget).closest('.switch-panel');
+        const targetPanel = $(portSlot).closest('.switch-panel');
+
+        console.log('Port slot target panel:', targetPanel);
 
         // Prevent moving the last port out of a panel
-        if (sourcePanel[0] !== targetPanel[0] && sourcePanel.find('.port-slot:not(.add-port-slot)').length === 1) {
+        if (sourcePanel.length && targetPanel.length &&
+            sourcePanel[0] !== targetPanel[0] &&
+            sourcePanel.find('.port-slot:not(.add-port-slot)').length === 1) {
+            console.log("Can't move the last port out of a panel");
             return null;
         }
 
-        // Check if the dragging element is immutable
-        const portElement = $(draggingElement).find('.port');
-        const isImmutable = portElement.attr('data-immutable') === 'true';
-
-        // If the port is immutable, don't allow it to be moved
-        if (isImmutable) {
+        // Check if the dragging element is immutable using stored data
+        if (draggedPortData && draggedPortData.immutable) {
+            console.log("Can't move an immutable port");
             return null;
+        }
+
+        return portSlot;
+    }
+
+    // If we couldn't find a port slot, look for a switch-panel
+    // This handles the case where we're dropping onto an empty area of a panel
+    const switchPanel = elements.find(el => el.classList.contains('switch-panel'));
+    if (switchPanel) {
+        console.log('Found switch panel:', switchPanel);
+
+        // Check if this is the source panel and it only has one port
+        const sourcePanel = $(draggingElement).closest('.switch-panel');
+        if (sourcePanel.length && sourcePanel[0] !== switchPanel &&
+            sourcePanel.find('.port-slot:not(.add-port-slot)').length === 1) {
+            console.log("Can't move the last port out of a panel");
+            return null;
+        }
+
+        // Check if the dragging element is immutable using stored data
+        if (draggedPortData && draggedPortData.immutable) {
+            console.log("Can't move an immutable port");
+            return null;
+        }
+
+        // Find the last port slot in this panel (excluding the add-port-slot)
+        const lastPortSlot = $(switchPanel).find('.port-slot:not(.add-port-slot)').last()[0];
+        if (lastPortSlot) {
+            console.log('Using last port slot as target:', lastPortSlot);
+            return lastPortSlot;
+        }
+
+        // If no port slots, use the add-port-slot as the target
+        const addPortSlot = $(switchPanel).find('.add-port-slot')[0];
+        if (addPortSlot) {
+            console.log('Using add-port-slot as target:', addPortSlot);
+            return addPortSlot;
         }
     }
 
-    return potentialTarget;
+    // If we still haven't found a valid target, try to find the closest network switch
+    const networkSwitch = elements.find(el => el.classList.contains('network-switch'));
+    if (networkSwitch) {
+        console.log('Found network switch:', networkSwitch);
+
+        // Make sure we can get a valid IP from this network switch
+        const $networkSwitch = $(networkSwitch);
+        const switchIp = getNetworkSwitchIp($networkSwitch);
+
+        if (!switchIp) {
+            console.log('No valid IP found for network switch');
+            return null;
+        }
+
+        // Find the switch-panel within this network switch
+        const panel = $networkSwitch.find('.switch-panel')[0];
+        if (panel) {
+            console.log('Found panel in network switch:', panel);
+
+            // Check if this is the source panel and it only has one port
+            const sourcePanel = $(draggingElement).closest('.switch-panel');
+            if (sourcePanel.length && sourcePanel[0] !== panel &&
+                sourcePanel.find('.port-slot:not(.add-port-slot)').length === 1) {
+                console.log("Can't move the last port out of a panel");
+                return null;
+            }
+
+            // Check if the dragging element is immutable using stored data
+            if (draggedPortData && draggedPortData.immutable) {
+                console.log("Can't move an immutable port");
+                return null;
+            }
+
+            // Find the last port slot in this panel (excluding the add-port-slot)
+            const lastPortSlot = $(panel).find('.port-slot:not(.add-port-slot)').last()[0];
+            if (lastPortSlot) {
+                console.log('Using last port slot as target:', lastPortSlot);
+                return lastPortSlot;
+            }
+
+            // If no port slots, use the add-port-slot as the target
+            const addPortSlot = $(panel).find('.add-port-slot')[0];
+            if (addPortSlot) {
+                console.log('Using add-port-slot as target:', addPortSlot);
+                return addPortSlot;
+            }
+        }
+
+        // If we still can't find a valid target within the network switch,
+        // but we know it has a valid IP, create a new port slot as target
+        console.log('Creating fallback target for network switch with IP:', switchIp);
+
+        // Find or create a panel
+        let switchPanel = $networkSwitch.find('.switch-panel');
+        if (!switchPanel.length) {
+            // In the rare case the panel doesn't exist, create it
+            switchPanel = $('<div class="switch-panel"></div>').attr('data-ip', switchIp);
+            $networkSwitch.append(switchPanel);
+        }
+
+        // Use the add-port-slot if it exists, otherwise return the panel itself
+        const addPortSlot = switchPanel.find('.add-port-slot')[0];
+        if (addPortSlot) {
+            return addPortSlot;
+        } else {
+            return switchPanel[0];
+        }
+    }
+
+    console.log('No valid drop target found');
+    return null;
 }
 
 /**
@@ -714,53 +977,151 @@ function getTargetElement(x, y) {
  */
 function finalizeDrop(targetElement) {
     if (!targetElement) {
-        showNotification("Can't move the last port in a panel", 'error');
+        console.log("No valid target element provided");
+        showNotification("Can't move the port - no valid drop target", 'error');
         cancelDrop();
         return;
     }
 
-    const targetPanel = $(targetElement).closest('.switch-panel');
-    const targetIp = targetPanel.data('ip');
+    // Use the stored draggedPortData from initiateDrag
+    console.log('Using stored port data:', draggedPortData);
+
+    // Enhanced target IP detection
+    let targetIp;
+    let targetPanel;
+
+    // First try to get the target panel directly from the element
+    targetPanel = $(targetElement).closest('.switch-panel');
+
+    if (targetPanel.length) {
+        targetIp = targetPanel.data('ip');
+        console.log('Found target panel with data-ip:', targetIp);
+    } else {
+        // If we couldn't find a panel, try to get the IP from the network switch
+        const networkSwitch = $(targetElement).closest('.network-switch');
+        if (networkSwitch.length) {
+            // Try to find the switch-panel within the network switch
+            targetPanel = networkSwitch.find('.switch-panel');
+            if (targetPanel.length) {
+                targetIp = targetPanel.data('ip');
+                console.log('Found target panel within network switch, IP:', targetIp);
+            }
+
+            // If still no IP, try to extract it from the switch label
+            if (!targetIp) {
+                const switchLabel = networkSwitch.find('.switch-label').text();
+                const ipMatch = switchLabel.match(/^([\d.]+)/);
+                if (ipMatch && ipMatch[1]) {
+                    targetIp = ipMatch[1];
+                    console.log('Extracted target IP from switch label:', targetIp);
+                }
+            }
+        }
+
+        // Last resort - check if we're somehow dropping back on the source panel
+        if (!targetIp && sourcePanel && sourcePanel.length) {
+            // We might be dropping back onto our source panel
+            targetIp = sourceIp;
+            targetPanel = sourcePanel;
+            console.log('Using source panel as target (same-panel drop):', targetIp);
+        }
+    }
 
     console.log('Source panel:', sourcePanel);
     console.log('Target panel:', targetPanel);
     console.log('Source IP:', sourceIp);
     console.log('Target IP:', targetIp);
 
+    // Make sure we have valid source and target IPs
+    if (!sourceIp || !targetIp) {
+        console.error('Invalid source or target IP');
+        showNotification("Couldn't identify source or target IP address", 'error');
+        cancelDrop();
+        return;
+    }
+
+    // Make sure we have valid port data
+    if (!draggedPortData || !draggedPortData.portNumber || !draggedPortData.protocol) {
+        console.error('Missing port data in draggedPortData object');
+        showNotification('Error moving port: Missing port data', 'error');
+        cancelDrop();
+        return;
+    }
+
+    // Check if the port is immutable
+    if (draggedPortData.immutable) {
+        console.log("Can't move an immutable port");
+        showNotification("This port cannot be moved because it's from a Docker integration", 'error');
+        cancelDrop();
+        return;
+    }
+
     if (sourceIp !== targetIp) {
         console.log('Moving port to a different IP group');
-        const portNumber = $(draggingElement).find('.port').data('port');
-        const protocol = $(draggingElement).find('.port').data('protocol');
 
-        console.log('Port number:', portNumber);
-        console.log('Protocol:', protocol);
+        console.log('Port number:', draggedPortData.portNumber);
+        console.log('Protocol:', draggedPortData.protocol);
 
         // Check if the port number and protocol combination already exists in the target IP group
-        if (checkPortExists(targetIp, portNumber, protocol)) {
+        if (checkPortExists(targetIp, draggedPortData.portNumber, draggedPortData.protocol)) {
             conflictingPortData = {
                 sourceIp: sourceIp,
                 targetIp: targetIp,
-                portNumber: portNumber,
-                protocol: protocol,
+                portNumber: draggedPortData.portNumber,
+                protocol: draggedPortData.protocol,
                 targetElement: targetElement,
                 draggingElement: draggingElement
             };
-            $('#conflictingPortNumber').text(`${portNumber} (${protocol})`);
+            $('#conflictingPortNumber').text(`${draggedPortData.portNumber} (${draggedPortData.protocol})`);
             $('#portConflictModal').modal('show');
             return;
         }
 
         // If no conflict, proceed with the move
-        proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement, draggingElement);
+        proceedWithMove(
+            draggedPortData.portNumber,
+            draggedPortData.protocol,
+            sourceIp,
+            targetIp,
+            targetElement,
+            draggingElement
+        );
     } else {
         console.log('Reordering within the same IP group');
-        targetElement.parentNode.insertBefore(draggingElement, targetElement);
-        updatePortOrder(sourceIp);
+
+        // Make sure the target element is still in the DOM
+        if (targetElement.parentNode) {
+            targetElement.parentNode.insertBefore(draggingElement, targetElement);
+            updatePortOrder(sourceIp);
+        } else {
+            // If the target element is no longer in the DOM, just append to the panel
+            if (targetPanel && targetPanel.length) {
+                // Find the add-port-slot and insert before it
+                const addPortSlot = targetPanel.find('.add-port-slot');
+                if (addPortSlot.length) {
+                    addPortSlot.before(draggingElement);
+                } else {
+                    // Just append to the panel
+                    targetPanel.append(draggingElement);
+                }
+                updatePortOrder(sourceIp);
+            } else {
+                console.error('Target element parent node not found');
+                cancelDrop();
+                return;
+            }
+        }
     }
+
+    // Show success message
+    showNotification('Port order updated', 'success');
 
     // Reset source variables
     sourcePanel = null;
     sourceIp = null;
+
+    // Clear draggedPortData after successful drop
+    draggedPortData = null;
 }
 
 /**
@@ -781,51 +1142,160 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
     console.log('Dragging element:', draggingElement);
     console.log('Target element:', targetElement);
 
-    // Insert the dragged element before the target element
-    $(targetElement).before(draggingElement);
+    // Validation checks
+    if (!portNumber || !protocol || !sourceIp || !targetIp) {
+        console.error('Missing required parameters for proceedWithMove');
+        console.log('Port number:', portNumber);
+        console.log('Protocol:', protocol);
+        console.log('Source IP:', sourceIp);
+        console.log('Target IP:', targetIp);
+
+        showNotification('Error moving port: Missing required data', 'error');
+        cancelDrop();
+        return;
+    }
+
+    // Make sure targetElement is still valid
+    if (!targetElement || !document.body.contains(targetElement)) {
+        console.error('Target element is no longer in the DOM');
+
+        // Try to find a valid target element based on the targetIp
+        const $panel = $(`.switch-panel[data-ip="${targetIp}"]`);
+        if ($panel.length) {
+            const addPortSlot = $panel.find('.add-port-slot')[0];
+            if (addPortSlot) {
+                console.log('Found alternative target (add-port-slot)');
+                targetElement = addPortSlot;
+            } else {
+                console.log('Using panel as target');
+                targetElement = $panel[0];
+            }
+        } else {
+            console.error('Cannot find a valid target panel for IP:', targetIp);
+            showNotification('Error moving port: Target panel not found', 'error');
+            cancelDrop();
+            return;
+        }
+    }
+
+    // Show loading animation
+    showLoadingAnimation();
+
+    // Make sure the dragging element is still valid
+    if (!draggingElement || !document.body.contains(draggingElement)) {
+        console.warn('Dragging element is no longer in the DOM - using draggedPortData for the move');
+
+        // We'll continue with the server-side move, but we'll need to refresh afterward
+        const forceRefresh = true;
+
+        // Move port on the server
+        movePort(portNumber, sourceIp, targetIp, protocol, function (updatedPort) {
+            console.log(`Move successful: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+            console.log('Updated port data:', updatedPort);
+
+            // Hide loading animation
+            hideLoadingAnimation();
+
+            // Show success notification
+            showNotification(`Port ${portNumber} moved successfully to ${targetIp}`, 'success');
+
+            // Force a page refresh to update the UI
+            refreshPageAfterDelay();
+        }, function (errorMessage) {
+            console.log(`Move failed: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+            console.error('Error message:', errorMessage);
+
+            // Hide loading animation
+            hideLoadingAnimation();
+
+            // Show error notification
+            showNotification(`Error moving port: ${errorMessage || 'Unknown error'}`, 'error');
+
+            cancelDrop();
+        });
+
+        return;
+    }
+
+    // Insert the dragged element before the target element or into the panel
+    try {
+        if (targetElement.classList.contains('switch-panel')) {
+            // Append to panel
+            targetElement.appendChild(draggingElement);
+        } else {
+            // Insert before target element
+            targetElement.parentNode.insertBefore(draggingElement, targetElement);
+        }
+    } catch (e) {
+        console.error('Error inserting dragging element:', e);
+        // Continue with the server-side move but prepare for a refresh
+    }
 
     // Move port on the server and update orders
     movePort(portNumber, sourceIp, targetIp, protocol, function (updatedPort) {
         console.log(`Move successful: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+        console.log('Updated port data:', updatedPort);
 
-        // Update the dragged element with new data
-        const $port = $(draggingElement).find('.port');
-        $port.attr('data-ip', updatedPort.ip_address);
-        $port.attr('data-port', updatedPort.port_number);
-        $port.attr('data-protocol', updatedPort.protocol);
-        $port.attr('data-description', updatedPort.description);
-        $port.attr('data-order', updatedPort.order);
-        $port.attr('data-id', updatedPort.id);
-        $port.attr('data-nickname', updatedPort.nickname);  // Update the nickname
+        // Update the dragged element with new data if it's still in the DOM
+        if (draggingElement && document.body.contains(draggingElement)) {
+            const $port = $(draggingElement).find('.port');
 
-        // Update the port's IP and other attributes
-        const targetNickname = updatedPort.nickname;
-        $port.attr('data-nickname', targetNickname);
+            // Safety check - make sure we found the port element
+            if ($port.length === 0) {
+                console.error('Error: Could not find .port element within dragging element');
+                showNotification('Error updating port data after move', 'error');
+                refreshPageAfterDelay();
+                return;
+            }
 
-        // Update the visual representation of the port
-        $port.find('.port-number').text(updatedPort.port_number);
-        $port.find('.port-description').text(updatedPort.description);
-        $port.closest('.port-slot').find('.port-protocol').text(updatedPort.protocol);
+            $port.attr('data-ip', updatedPort.ip_address);
+            $port.attr('data-port', updatedPort.port_number);
+            $port.attr('data-protocol', updatedPort.protocol);
+            $port.attr('data-description', updatedPort.description);
+            $port.attr('data-order', updatedPort.order);
+            $port.attr('data-id', updatedPort.id);
+            $port.attr('data-nickname', updatedPort.nickname);  // Update the nickname
+
+            // Update the port's IP and other attributes
+            const targetNickname = updatedPort.nickname;
+            $port.attr('data-nickname', targetNickname);
+
+            // Update the visual representation of the port
+            $port.find('.port-number').text(updatedPort.port_number);
+            $port.find('.port-description').text(updatedPort.description);
+            $port.closest('.port-slot').find('.port-protocol').text(updatedPort.protocol);
+        }
 
         // Update the order of ports for both source and target IPs
-        updatePortOrder(sourceIp);
-        updatePortOrder(targetIp);
+        try {
+            updatePortOrder(sourceIp);
+            updatePortOrder(targetIp);
+        } catch (e) {
+            console.error('Error updating port order:', e);
+        }
 
-        if (isConflictResolution) {
+        // Hide loading animation
+        hideLoadingAnimation();
+
+        // Show success notification
+        showNotification(`Port ${portNumber} moved successfully to ${targetIp}`, 'success');
+
+        if (isConflictResolution || sourceIp !== targetIp) {
+            // Always refresh after cross-IP moves to ensure consistency
             refreshPageAfterDelay();
         }
-    }, function () {
+    }, function (errorMessage) {
         console.log(`Move failed: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+        console.error('Error message:', errorMessage);
+
+        // Hide loading animation
+        hideLoadingAnimation();
+
+        // Show error notification
+        showNotification(`Error moving port: ${errorMessage || 'Unknown error'}`, 'error');
+
         cancelDrop();
     });
-}
-
-/**
- * Cancels the drop operation and reverts the dragged element to its original position
- */
-function cancelDrop() {
-    $(draggingElement).removeClass('dragging');
-    cancelDropUtil(draggingElement, placeholder);
 }
 
 /**
@@ -871,17 +1341,6 @@ $('#confirmPortChange').click(function () {
 
     $('#portChangeModal').modal('hide');
 });
-
-/**
- * Refresh the page after a delay.
- * Shows a loading animation and reloads the page after 1.5 seconds.
- */
-function refreshPageAfterDelay() {
-    showLoadingAnimation();
-    setTimeout(function () {
-        location.reload();
-    }, 1500);
-}
 
 $(document).ready(init);
 

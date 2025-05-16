@@ -4,9 +4,7 @@ import { showNotification } from '../ui/helpers.js';
 import { cancelDrop } from '../utils/dragDropUtils.js';
 
 /**
- * Move a port from one IP address to another.
- * Sends an AJAX request to move the port and updates the port order.
- *
+ * Modified movePort function to enhance error handling
  * @param {number} portNumber - The port number being moved
  * @param {string} sourceIp - The source IP address
  * @param {string} targetIp - The target IP address
@@ -16,6 +14,24 @@ import { cancelDrop } from '../utils/dragDropUtils.js';
  */
 export function movePort(portNumber, sourceIp, targetIp, protocol, successCallback, errorCallback) {
     console.log(`Attempting to move port: ${portNumber} (${protocol}) from ${sourceIp} to ${targetIp}`);
+
+    // Validate required parameters before making the request
+    if (!portNumber || !sourceIp || !targetIp || !protocol) {
+        console.error('Missing required parameters for movePort');
+        console.log('Port number:', portNumber);
+        console.log('Source IP:', sourceIp);
+        console.log('Target IP:', targetIp);
+        console.log('Protocol:', protocol);
+
+        if (typeof errorCallback === 'function') {
+            errorCallback('Missing required parameters');
+        }
+        return;
+    }
+
+    // Ensure protocol is a string before calling toUpperCase
+    const protocolStr = String(protocol);
+
     $.ajax({
         url: '/move_port',
         method: 'POST',
@@ -23,7 +39,7 @@ export function movePort(portNumber, sourceIp, targetIp, protocol, successCallba
             port_number: portNumber,
             source_ip: sourceIp,
             target_ip: targetIp,
-            protocol: protocol.toUpperCase()  // Ensure protocol is uppercase
+            protocol: protocolStr.toUpperCase()  // Ensure protocol is uppercase
         },
         success: function (response) {
             console.log('Server response:', response);
@@ -34,15 +50,19 @@ export function movePort(portNumber, sourceIp, targetIp, protocol, successCallba
             } else {
                 showNotification('Error moving port: ' + response.message, 'error');
                 if (typeof errorCallback === 'function') {
-                    errorCallback();
+                    errorCallback(response.message);
                 }
             }
         },
         error: function (xhr, status, error) {
             console.log('Error response:', xhr.responseText);
-            showNotification('Error moving port: ' + error, 'error');
+            const errorMsg = xhr.responseJSON && xhr.responseJSON.message
+                ? xhr.responseJSON.message
+                : error;
+
+            showNotification('Error moving port: ' + errorMsg, 'error');
             if (typeof errorCallback === 'function') {
-                errorCallback();
+                errorCallback(errorMsg);
             }
         }
     });
