@@ -214,11 +214,12 @@ def serve_theme(filename):
 @settings_bp.route('/export_entries', methods=['GET'])
 def export_entries():
     """
-    Export all port entries from the database as a JSON file.
+    Export all port entries and configuration settings from the database as a JSON file.
 
     This function fetches all ports from the database, formats them into a list of dictionaries,
-    converts the list to a JSON string, and returns the JSON data as a downloadable file. The
-    filename includes the current date.
+    also includes Docker, Portainer, and Komodo configuration settings,
+    converts the data to a JSON string, and returns the JSON data as a downloadable file.
+    The filename includes the current date.
 
     Returns:
         Response: A Flask response object containing the JSON file for download.
@@ -239,8 +240,54 @@ def export_entries():
             } for port in ports
         ]
 
+        # Helper function to get settings
+        def get_setting(key, default=''):
+            setting = Setting.query.filter_by(key=key).first()
+            return setting.value if setting else default
+
+        # Get Docker settings
+        docker_enabled = get_setting('docker_enabled', 'false')
+        docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
+        docker_auto_detect = get_setting('docker_auto_detect', 'false')
+
+        # Get Portainer settings
+        portainer_enabled = get_setting('portainer_enabled', 'false')
+        portainer_url = get_setting('portainer_url', '')
+        portainer_api_key = get_setting('portainer_api_key', '')
+        portainer_auto_detect = get_setting('portainer_auto_detect', 'false')
+
+        # Get Komodo settings
+        komodo_enabled = get_setting('komodo_enabled', 'false')
+        komodo_url = get_setting('komodo_url', '')
+        komodo_api_key = get_setting('komodo_api_key', '')
+        komodo_api_secret = get_setting('komodo_api_secret', '')
+        komodo_auto_detect = get_setting('komodo_auto_detect', 'false')
+
+        # Create export data dictionary with ports and settings
+        export_data = {
+            'ports': port_data,
+            'docker': {
+                'enabled': docker_enabled.lower() == 'true',
+                'path': docker_host,
+                'auto_scan': docker_auto_detect.lower() == 'true'
+            },
+            'portainer': {
+                'enabled': portainer_enabled.lower() == 'true',
+                'path': portainer_url,
+                'auto_scan': portainer_auto_detect.lower() == 'true',
+                'api_key': portainer_api_key if portainer_enabled.lower() == 'true' else ''
+            },
+            'komodo': {
+                'enabled': komodo_enabled.lower() == 'true',
+                'path': komodo_url,
+                'auto_scan': komodo_auto_detect.lower() == 'true',
+                'api_key': komodo_api_key if komodo_enabled.lower() == 'true' else '',
+                'api_secret': komodo_api_secret if komodo_enabled.lower() == 'true' else ''
+            }
+        }
+
         # Convert data to JSON
-        json_data = json.dumps(port_data, indent=2)
+        json_data = json.dumps(export_data, indent=2)
 
         # Create a BytesIO object
         buffer = BytesIO()

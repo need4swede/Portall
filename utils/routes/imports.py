@@ -241,13 +241,17 @@ def import_docker_compose(content):
 
 def import_json(content):
     """
-    Parse JSON content and extract port information.
+    Parse JSON content and extract port information and settings.
 
-    This function processes JSON content, expecting a specific format
-    for port entries.
+    This function processes JSON content, supporting both the legacy format
+    (a list of port entries) and the new format (an object with 'ports',
+    'docker', 'portainer', and 'komodo' properties).
+
+    For the new format, it also updates the settings for docker, portainer,
+    and komodo in the database.
 
     Args:
-        content (str): JSON-formatted string containing port information
+        content (str): JSON-formatted string containing port information and settings
 
     Returns:
         list: A list of dictionaries containing extracted port information
@@ -258,17 +262,93 @@ def import_json(content):
     try:
         data = json.loads(content)
         entries = []
-        for item in data:
-            entries.append({
-                'ip': item['ip_address'],
-                'nickname': item['nickname'],
-                'port': int(item['port_number']),
-                'description': item['description'],
-                'port_protocol': item['port_protocol'].upper()
-            })
+
+        # Check if the data is in the new format (object with 'ports' property)
+        if isinstance(data, dict) and 'ports' in data:
+            # Import settings if they exist
+            if 'docker' in data:
+                import_settings('docker', data['docker'])
+            if 'portainer' in data:
+                import_settings('portainer', data['portainer'])
+            if 'komodo' in data:
+                import_settings('komodo', data['komodo'])
+
+            # Extract port entries from the 'ports' array
+            for item in data['ports']:
+                entries.append({
+                    'ip': item['ip_address'],
+                    'nickname': item['nickname'],
+                    'port': int(item['port_number']),
+                    'description': item['description'],
+                    'port_protocol': item['port_protocol'].upper()
+                })
+        else:
+            # Legacy format (list of port entries)
+            for item in data:
+                entries.append({
+                    'ip': item['ip_address'],
+                    'nickname': item['nickname'],
+                    'port': int(item['port_number']),
+                    'description': item['description'],
+                    'port_protocol': item['port_protocol'].upper()
+                })
         return entries
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format")
+    except KeyError as e:
+        raise ValueError(f"Invalid JSON format: missing required field {e}")
+
+def import_settings(service_type, settings):
+    """
+    Import settings for a service (docker, portainer, or komodo).
+
+    This function updates the settings in the database based on the
+    imported settings for the specified service.
+
+    Args:
+        service_type (str): The type of service ('docker', 'portainer', or 'komodo')
+        settings (dict): The settings for the service
+    """
+    from utils.database import Setting
+
+    # Map of settings keys for each service type
+    settings_map = {
+        'docker': {
+            'enabled': 'docker_enabled',
+            'path': 'docker_host',
+            'auto_scan': 'docker_auto_detect'
+        },
+        'portainer': {
+            'enabled': 'portainer_enabled',
+            'path': 'portainer_url',
+            'auto_scan': 'portainer_auto_detect',
+            'api_key': 'portainer_api_key'
+        },
+        'komodo': {
+            'enabled': 'komodo_enabled',
+            'path': 'komodo_url',
+            'auto_scan': 'komodo_auto_detect',
+            'api_key': 'komodo_api_key',
+            'api_secret': 'komodo_api_secret'
+        }
+    }
+
+    # Update settings in the database
+    for setting_key, db_key in settings_map[service_type].items():
+        if setting_key in settings:
+            value = settings[setting_key]
+
+            # Convert boolean values to strings
+            if isinstance(value, bool):
+                value = 'true' if value else 'false'
+
+            # Update or create the setting
+            setting = Setting.query.filter_by(key=db_key).first()
+            if setting:
+                setting.value = value
+            else:
+                setting = Setting(key=db_key, value=value)
+                db.session.add(setting)
 
 # Import Helpers
 
