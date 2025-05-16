@@ -135,7 +135,17 @@ function handleSortButtonClick(e) {
     const $ports = $panel.find('.port-slot:not(.add-port-slot)').detach().sort((a, b) => {
         const aValue = getSortValue($(a), sortType);
         const bValue = getSortValue($(b), sortType);
-        return currentSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+
+        // Use appropriate comparison based on value type
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            // String comparison using localeCompare for proper alphabetical sorting
+            return currentSortOrder === 'asc'
+                ? aValue.localeCompare(bValue)
+                : bValue.localeCompare(aValue);
+        } else {
+            // Numeric comparison for numbers
+            return currentSortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        }
     });
 
     // Reattach sorted ports
@@ -150,8 +160,8 @@ function handleSortButtonClick(e) {
  * Retrieves the relevant data attribute based on the sort type.
  *
  * @param {jQuery} $el - The jQuery element representing the port slot
- * @param {string} sortType - The type of sorting ('port' or 'protocol')
- * @returns {number} - The value to sort by
+ * @param {string} sortType - The type of sorting ('port', 'protocol', or 'description')
+ * @returns {number|string} - The value to sort by
  */
 function getSortValue($el, sortType) {
     const $port = $el.find('.port');
@@ -159,6 +169,8 @@ function getSortValue($el, sortType) {
         return parseInt($port.data('port'), 10);
     } else if (sortType === 'protocol') {
         return $port.data('protocol') === 'TCP' ? 0 : 1;
+    } else if (sortType === 'description') {
+        return $port.data('description').toLowerCase(); // Case-insensitive sorting
     }
 }
 
