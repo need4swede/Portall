@@ -735,7 +735,7 @@ def import_from_komodo():
                                 ip_address=server_ip,  # IP address
                                 nickname=nickname,     # Human-readable name without port
                                 port_number=host_port_int,
-                                description=f"Komodo ({nickname}): {stack_name}/{service_name} ({container_port_int}/{protocol})",
+                                description=f"{stack_name}/{service_name} ({container_port_int}/{protocol})",
                                 port_protocol=protocol,
                                 order=max_order + 1,
                                 source='komodo',
@@ -1547,7 +1547,7 @@ def start_auto_scan_threads():
                                                     ip_address=server_ip,  # IP address
                                                     nickname=nickname,     # Human-readable name without port
                                                     port_number=host_port_int,
-                                                    description=f"Komodo ({nickname}): {stack_name}/{service_name} ({container_port_int}/{protocol})",
+                                                    description=f"{stack_name}/{service_name} ({container_port_int}/{protocol})",
                                                     port_protocol=protocol,
                                                     order=max_order + 1,
                                                     source='komodo',
