@@ -24,22 +24,44 @@ $(document).ready(function () {
 jellyfin.domain.tld {
     reverse_proxy 192.168.0.110:8096
 }`,
-        'JSON': `[
-    {
-        "ip_address": "192.168.1.100",
-        "nickname": "Server1",
-        "port_number": 8080,
-        "description": "example.domain.com",
-        "order": 0
+        'JSON': `{
+    "ports": [
+        {
+            "ip_address": "192.168.1.100",
+            "nickname": "Server1",
+            "port_number": 8080,
+            "description": "example.domain.com",
+            "port_protocol": "TCP",
+            "order": 1
+        },
+        {
+            "ip_address": "192.168.2.101",
+            "nickname": "Server2",
+            "port_number": 5000,
+            "description": "app.domain.com",
+            "port_protocol": "TCP",
+            "order": 2
+        }
+    ],
+    "docker": {
+        "enabled": true,
+        "path": "unix:///var/run/docker.sock",
+        "auto_scan": true
     },
-    {
-        "ip_address": "192.168.1.101",
-        "nickname": "Server2",
-        "port_number": 9090,
-        "description": "app.domain.com",
-        "order": 0
+    "portainer": {
+        "enabled": true,
+        "path": "https://portainer.domain.com",
+        "auto_scan": true,
+        "api_key": "ptr_YsHRTcVXafp/zjGBHm4y/RidvWQExJNPZ3bAl9mk6DL="
+    },
+    "komodo": {
+        "enabled": true,
+        "path": "https://komodo.domain.com",
+        "auto_scan": true,
+        "api_key": "K-9bV4n58pc0hwZOt3QxDkrS6uvaJ7fTqhjlm02XsC",
+        "api_secret": "S-zIQk2WpLDTx9750VRKYvfXbsSPAqZNJOoHmUBCtl"
     }
-]`,
+}`,
         'Docker-Compose': `version: '3'
 services:
     webapp:
