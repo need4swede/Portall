@@ -1,7 +1,6 @@
 # utils/routes/docker.py
 
 # Standard Imports
-import json
 import socket
 import subprocess
 import threading
@@ -11,7 +10,7 @@ from datetime import datetime
 # External Imports
 from flask import Blueprint
 from flask import current_app as app
-from flask import jsonify, request, session
+from flask import jsonify, request
 import docker
 
 # Local Imports

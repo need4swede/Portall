@@ -7,9 +7,7 @@ import os
 
 # External Imports
 from flask import Flask
-from flask_migrate import Migrate, upgrade, stamp, current
-from sqlalchemy.exc import OperationalError
-from alembic.util import CommandError
+from flask_migrate import Migrate
 
 # Local Imports
 from utils.database import init_db
