@@ -1195,7 +1195,7 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
 
     // Make sure targetElement is still valid
     if (!targetElement || !document.body.contains(targetElement)) {
-        console.error('Target element is no longer in the DOM');
+        console.warn('Target element is no longer in the DOM');
 
         // Try to find a valid target element based on the targetIp
         const $panel = $(`.switch-panel[data-ip="${targetIp}"]`);
