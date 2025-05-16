@@ -13,6 +13,7 @@ from alembic.util import CommandError
 
 # Local Imports
 from utils.database import init_db
+from utils.database.migrations import init_migrations
 from utils.routes import routes_bp
 
 # Setup logging
@@ -48,61 +49,16 @@ def init_or_migrate_db(app, db):
     """
     Initialize a new database or migrate an existing one.
 
-    This function handles four scenarios:
-    1. Database does not exist: Creates it and all tables.
-    2. Database exists, but no migration folder: Ensures all tables exist.
-    3. Database exists, migration folder exists, but no changes: No action needed.
-    4. Database exists, migration folder exists, and changes detected: Updates database.
+    This function uses the MigrationManager to handle all database migrations,
+    including both Flask-Migrate migrations and standalone migration scripts.
 
     Args:
         app (Flask): The Flask application instance.
         db (SQLAlchemy): The SQLAlchemy database instance.
     """
-    with app.app_context():
-        # Check if migrations folder exists
-        migrations_folder = os.path.join(os.path.dirname(__file__), 'migrations')
-        migrations_exist = os.path.exists(migrations_folder)
-
-        try:
-            # Try to access the database
-            db.engine.connect()
-            logging.info("Existing database found.")
-
-            if migrations_exist:
-                logging.info("Migrations folder found. Checking for pending migrations...")
-                try:
-                    # Get current migration version
-                    current_version = current(directory=migrations_folder)
-
-                    # Try to upgrade
-                    upgrade(directory=migrations_folder)
-                    new_version = current(directory=migrations_folder)
-
-                    if new_version != current_version:
-                        logging.info("Database updated successfully.")
-                    else:
-                        logging.info("Database is up-to-date. No migration needed.")
-                except CommandError as e:
-                    if "Target database is not up to date" in str(e):
-                        logging.warning("Database schema has changed. Applying migrations...")
-                        upgrade(directory=migrations_folder)
-                        logging.info("Migrations applied successfully.")
-                    else:
-                        raise
-            else:
-                logging.info("No migrations folder found. Ensuring all tables exist...")
-                db.create_all()
-                logging.info("Database tables verified/created.")
-        except OperationalError:
-            logging.info("No existing database found. Creating new database and tables...")
-            # If the database doesn't exist, create it and all tables
-            db.create_all()
-            if migrations_exist:
-                # If migrations exist, stamp the database
-                stamp(directory=migrations_folder)
-                logging.info("New database created, all tables created, and stamped with latest migration version.")
-            else:
-                logging.info("New database and all tables created. No migrations to apply.")
+    # Initialize the migration manager and run all migrations
+    migration_manager = init_migrations(app, db)
+    logging.info("Database initialization and migration completed.")
 
 # Create the app and get the db instance
 app, db = create_app()
