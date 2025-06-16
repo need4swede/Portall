@@ -838,6 +838,36 @@ def delete_ip():
         return jsonify({'success': False, 'message': f'Error deleting IP: {str(e)}'}), 500
 
 
+@ports_bp.route('/get_app_presets', methods=['GET'])
+def get_app_presets():
+    """
+    Serve the apps.json presets data.
+
+    This function loads and returns the predefined application presets from apps.json
+    for use in the port creation modal.
+
+    Returns:
+        JSON: A JSON response containing the apps data or an error message.
+    """
+    try:
+        import os
+        apps_json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'resource', 'apps.json')
+
+        with open(apps_json_path, 'r') as f:
+            apps_data = json.load(f)
+
+        app.logger.info(f"Successfully loaded {len(apps_data)} app presets")
+        return jsonify({'success': True, 'apps': apps_data})
+    except FileNotFoundError:
+        app.logger.error("apps.json file not found")
+        return jsonify({'success': False, 'message': 'App presets file not found'}), 404
+    except json.JSONDecodeError as e:
+        app.logger.error(f"Error parsing apps.json: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error parsing app presets file'}), 500
+    except Exception as e:
+        app.logger.error(f"Error loading app presets: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error loading app presets: {str(e)}'}), 500
+
 @ports_bp.route('/update_ip_order', methods=['POST'])
 def update_ip_order():
     """

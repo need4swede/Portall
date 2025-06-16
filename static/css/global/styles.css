@@ -1079,3 +1079,239 @@ h1 {
     background-color: var(--bg-sidebar);
     border-color: var(--border-color);
 }
+
+/* Presets Dropdown Styling */
+.presets-dropdown-container {
+    position: relative;
+}
+
+.presets-dropdown-btn {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-weight: 500;
+    padding: 12px 16px;
+    transition: all var(--transition-fast) var(--ease-out);
+    display: flex;
+    align-items: center;
+    gap: 0px;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    box-shadow: var(--button-shadow);
+    position: relative;
+    left: 1px;
+    height: 100%;
+    padding: 0 0.5em;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.presets-dropdown-btn:hover {
+    background-color: var(--bg-sidebar);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+    box-shadow: var(--hover-shadow);
+}
+
+.presets-dropdown-btn:focus {
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.25);
+    color: var(--text-primary);
+    background-color: var(--bg-card);
+}
+
+.presets-dropdown-btn .dropdown-toggle::after {
+    margin-left: 4px;
+}
+
+/* Presets Dropdown Menu */
+.presets-dropdown-menu {
+    background-color: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    padding: 8px 0;
+    margin-top: 4px;
+    min-width: 280px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.presets-dropdown-menu .dropdown-header {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 8px 16px;
+    margin-bottom: 4px;
+}
+
+.presets-dropdown-menu .dropdown-divider {
+    border-color: var(--border-color);
+    margin: 8px 0;
+}
+
+/* Preset Search Input */
+.preset-search-container {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+}
+
+.preset-search-input {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    width: 100%;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.preset-search-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.15);
+}
+
+.preset-search-input::placeholder {
+    color: var(--text-secondary);
+}
+
+/* Preset Items */
+.preset-item {
+    color: var(--text-primary);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all var(--transition-fast) var(--ease-out);
+    border-radius: 8px;
+    margin: 2px 8px;
+}
+
+.preset-item:hover {
+    background-color: var(--accent-color);
+    color: white;
+    transform: translateX(4px);
+}
+
+.preset-item:focus {
+    background-color: var(--accent-color);
+    color: white;
+    outline: none;
+}
+
+.preset-item-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.preset-item-port {
+    font-size: 0.85rem;
+    font-weight: 600;
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.preset-item:hover .preset-item-port {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Dark mode adjustments for preset dropdown */
+[data-theme="dark"] .preset-item-port {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .preset-item:hover .preset-item-port {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Preset notification styling */
+.preset-notification {
+    margin-top: 12px;
+}
+
+.preset-notification .alert {
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.preset-notification .alert-info {
+    background-color: rgba(0, 102, 204, 0.1);
+    color: var(--accent-color);
+    border-left: 3px solid var(--accent-color);
+}
+
+[data-theme="dark"] .preset-notification .alert-info {
+    background-color: rgba(10, 132, 255, 0.15);
+    color: var(--accent-color);
+}
+
+/* Scrollbar for preset dropdown */
+.presets-dropdown-menu::-webkit-scrollbar {
+    width: 6px;
+}
+
+.presets-dropdown-menu::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.presets-dropdown-menu::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 3px;
+}
+
+.presets-dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-secondary);
+}
+
+/* Animation for preset items */
+@keyframes slideInPreset {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.preset-item {
+    animation: slideInPreset 0.2s ease-out;
+}
+
+/* Loading state for presets */
+.presets-loading {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.presets-loading i {
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

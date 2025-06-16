@@ -165,13 +165,13 @@ function handleSaveNewIpClick() {
         data: {
             ip: ip,
             nickname: nickname,
-            port_number: 8080,
+            port_number: 12345,
             description: 'Generic',
             protocol: 'TCP'
         },
         success: function (response) {
             if (response.success) {
-                showNotification('IP added successfully with port 8080', 'success');
+                showNotification('IP added successfully with port 12345', 'success');
                 location.reload(); // Reload the page to show the new IP
             } else {
                 showNotification('Error adding IP: ' + response.message, 'error');

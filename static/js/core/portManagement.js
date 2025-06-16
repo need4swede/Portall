@@ -46,6 +46,12 @@ let currentSortType = null;
  */
 let currentSortOrder = null;
 
+/**
+ * Cached app presets data from apps.json
+ * @type {Array|null}
+ */
+let appPresets = null;
+
 
 /**
  * Initialize event handlers for port management.
@@ -69,6 +75,7 @@ export function init() {
     $('#port-protocol').on('change', handleProtocolChange);
     initSortButtons();
     initPortHoverEvents();
+    initAppPresets();
     $(document).off('click', '.copy-btn').on('click', '.copy-btn', function () {
         const url = $(this).data('url');
         console.log("Copy button clicked with URL:", url);
@@ -749,4 +756,228 @@ function handleAddNewPortNumberInput() {
         $('#port-exists-disclaimer').hide();
         $('#save-new-port').prop('disabled', false);
     }
+}
+
+/**
+ * Initialize app presets functionality.
+ * Loads the app presets data and sets up event handlers for the presets dropdown.
+ */
+function initAppPresets() {
+    console.log('Initializing app presets...');
+
+    // Load app presets when the modal is shown
+    $('#addPortModal').on('shown.bs.modal', function () {
+        console.log('Add port modal shown, checking if presets need to be loaded...');
+        if (!appPresets) {
+            console.log('Loading app presets...');
+            loadAppPresets();
+        } else {
+            console.log('App presets already loaded, count:', appPresets.length);
+        }
+    });
+
+    // Handle preset selection
+    $(document).on('click', '.preset-item', handlePresetSelection);
+
+    // Initialize Bootstrap dropdown manually
+    $(document).ready(function () {
+        console.log('Checking for presets dropdown button...');
+        const dropdownBtn = $('#presets-dropdown');
+        console.log('Dropdown button found:', dropdownBtn.length > 0);
+
+        // Check if Bootstrap is available
+        if (typeof bootstrap !== 'undefined') {
+            console.log('Bootstrap is available');
+
+            // Initialize dropdown manually when modal is shown
+            $('#addPortModal').on('shown.bs.modal', function () {
+                const dropdownElement = document.getElementById('presets-dropdown');
+                if (dropdownElement && typeof bootstrap.Dropdown !== 'undefined') {
+                    console.log('Initializing Bootstrap dropdown...');
+                    new bootstrap.Dropdown(dropdownElement);
+                }
+            });
+        } else {
+            console.log('Bootstrap is NOT available');
+        }
+    });
+}
+
+/**
+ * Load app presets from the server.
+ * Fetches the apps.json data and populates the presets dropdown.
+ */
+function loadAppPresets() {
+    $.ajax({
+        url: '/get_app_presets',
+        method: 'GET',
+        success: function (response) {
+            if (response.success) {
+                appPresets = response.apps;
+                populatePresetDropdown();
+                console.log(`Loaded ${appPresets.length} app presets`);
+            } else {
+                console.error('Failed to load app presets:', response.message);
+                showPresetError('Failed to load app presets');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error loading app presets:', error);
+            showPresetError('Error loading app presets');
+        }
+    });
+}
+
+/**
+ * Populate the presets dropdown with app data.
+ * Creates searchable list items for each app in the presets.
+ */
+function populatePresetDropdown() {
+    const $menu = $('#presets-menu');
+    $menu.empty();
+
+    // Add search input
+    $menu.append(`
+        <li class="preset-search-container">
+            <input type="text" class="preset-search-input" id="preset-search" placeholder="Search apps...">
+        </li>
+        <li><hr class="dropdown-divider"></li>
+    `);
+
+    // Add app items
+    appPresets.forEach(app => {
+        $menu.append(`
+            <li>
+                <a class="preset-item" href="#" data-name="${app.name}" data-port="${app.external_port}">
+                    <span class="preset-item-name">${app.name}</span>
+                    <span class="preset-item-port">${app.external_port}</span>
+                </a>
+            </li>
+        `);
+    });
+
+    // Set up search functionality
+    $('#preset-search').on('input', function () {
+        const searchTerm = $(this).val().toLowerCase();
+        $('.preset-item').each(function () {
+            const appName = $(this).data('name').toLowerCase();
+            const $listItem = $(this).parent();
+            if (appName.includes(searchTerm)) {
+                $listItem.show();
+            } else {
+                $listItem.hide();
+            }
+        });
+    });
+
+    // Focus search input when dropdown opens
+    $('#presets-dropdown').on('shown.bs.dropdown', function () {
+        $('#preset-search').focus();
+    });
+}
+
+/**
+ * Handle selection of a preset app.
+ * Populates the form fields and resolves port conflicts if necessary.
+ */
+function handlePresetSelection(e) {
+    e.preventDefault();
+
+    const appName = $(this).data('name');
+    const basePort = parseInt($(this).data('port'));
+    const ip = $('#add-port-ip').val();
+    const protocol = $('#add-port-protocol').val();
+
+    console.log(`Selected preset: ${appName}, base port: ${basePort}`);
+
+    // Populate description field
+    $('#add-port-description').val(appName);
+
+    // Find available port
+    const availablePort = findAvailablePort(ip, basePort, protocol);
+
+    if (availablePort !== basePort) {
+        // Show notification about port change
+        showPortChangeNotification(basePort, availablePort, ip, protocol);
+    } else {
+        // Hide any existing notification
+        hidePresetNotification();
+    }
+
+    // Populate port field
+    $('#add-new-port-number').val(availablePort);
+
+    // Enable save button
+    $('#save-new-port').prop('disabled', false);
+
+    // Close dropdown
+    $('#presets-dropdown').dropdown('hide');
+
+    // Clear any port exists disclaimer
+    $('#port-exists-disclaimer').hide();
+}
+
+/**
+ * Find an available port starting from the base port.
+ * Increments the port number until an available port is found.
+ */
+function findAvailablePort(ip, basePort, protocol, maxAttempts = 100) {
+    let currentPort = basePort;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+        if (!checkPortExists(ip, currentPort, protocol)) {
+            return currentPort;
+        }
+        currentPort++;
+        attempts++;
+    }
+
+    // If no available port found, return the base port and let the user handle it
+    console.warn(`No available port found after ${maxAttempts} attempts starting from ${basePort}`);
+    return basePort;
+}
+
+/**
+ * Show notification about port number change due to conflict.
+ */
+function showPortChangeNotification(originalPort, newPort, ip, protocol) {
+    const conflictPorts = [];
+    for (let port = originalPort; port < newPort; port++) {
+        if (checkPortExists(ip, port, protocol)) {
+            conflictPorts.push(port);
+        }
+    }
+
+    const conflictText = conflictPorts.length > 1
+        ? `${conflictPorts[0]}-${conflictPorts[conflictPorts.length - 1]} already in use`
+        : `${conflictPorts[0]} already in use`;
+
+    const message = `Port changed from ${originalPort} to ${newPort} (${conflictText})`;
+
+    $('#preset-notification').html(`
+        <div class="alert alert-info alert-sm mb-0">
+            <i class="fas fa-info-circle"></i> ${message}
+        </div>
+    `).show();
+}
+
+/**
+ * Hide the preset notification.
+ */
+function hidePresetNotification() {
+    $('#preset-notification').hide();
+}
+
+/**
+ * Show error message in the presets dropdown.
+ */
+function showPresetError(message) {
+    $('#presets-menu').html(`
+        <li class="px-3 py-2">
+            <div class="text-danger">
+                <i class="fas fa-exclamation-triangle"></i> ${message}
+            </div>
+        </li>
+    `);
 }
