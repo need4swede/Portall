@@ -32,6 +32,7 @@ services:
   portall:
     build: .
     container_name: portall
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     depends_on:
       - socket-proxy
     ports:
