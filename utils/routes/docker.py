@@ -1,6 +1,7 @@
 # utils/routes/docker.py
 
 # Standard Imports
+import os
 import socket
 import subprocess
 import threading
@@ -27,6 +28,9 @@ def get_docker_client():
     Get or initialize the Docker client based on settings.
     Only initializes the client if Docker integration is enabled.
 
+    Supports both direct socket access and socket proxy configurations.
+    For security, prefer using a socket proxy (tcp://socket-proxy:2375).
+
     Returns:
         docker.DockerClient: The Docker client instance, or None if Docker is disabled.
     """
@@ -44,7 +48,33 @@ def get_docker_client():
     try:
         # Get Docker connection settings
         docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
-        docker_client = docker.from_env() if docker_host == 'unix:///var/run/docker.sock' else docker.DockerClient(base_url=docker_host)
+
+        # Check for environment variable override (useful for socket proxy)
+        env_docker_host = os.environ.get('DOCKER_HOST')
+        if env_docker_host:
+            docker_host = env_docker_host
+            app.logger.info(f"Using Docker host from environment: {docker_host}")
+
+        # Log security warning for direct socket access
+        if docker_host == 'unix:///var/run/docker.sock':
+            app.logger.warning("SECURITY WARNING: Using direct Docker socket access. Consider using a socket proxy for better security.")
+
+        # Initialize Docker client
+        if docker_host == 'unix:///var/run/docker.sock':
+            docker_client = docker.from_env()
+        else:
+            # For TCP connections (including socket proxy)
+            docker_client = docker.DockerClient(base_url=docker_host)
+
+        # Test the connection
+        try:
+            docker_client.ping()
+            app.logger.info(f"Successfully connected to Docker at {docker_host}")
+        except Exception as ping_error:
+            app.logger.error(f"Failed to ping Docker daemon at {docker_host}: {str(ping_error)}")
+            docker_client = None
+            return None
+
         return docker_client
     except Exception as e:
         app.logger.error(f"Error initializing Docker client: {str(e)}")

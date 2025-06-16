@@ -1,0 +1,60 @@
+services:
+  # Docker Socket Proxy - provides secure read-only access to Docker API
+  socket-proxy:
+    image: 11notes/socket-proxy:stable
+    container_name: portall-socket-proxy
+    environment:
+      - ALLOW_RESTARTS=0
+      - ALLOW_START=0
+      - ALLOW_STOP=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run/proxy
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - portall-network
+
+  # Main Portall application
+  portall:
+    image: need4swede/portall:latest
+    container_name: portall
+    depends_on:
+      - socket-proxy
+    ports:
+      - "8080:8080"
+    environment:
+      - SECRET_KEY=your_secret_key
+      - DOCKER_HOST=tcp://socket-proxy:2375
+      - DOCKER_ENABLED=true
+    volumes:
+      - ./instance:/app/instance
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - portall-network
+
+networks:
+  portall-network:
+    driver: bridge
