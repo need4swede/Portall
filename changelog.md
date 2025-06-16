@@ -3,6 +3,8 @@
 ### Docker Integration
 - Auto-detection of Docker containers and port mappings
 - Configurable Docker connection settings
+- Socket proxy architecture using 11notes/socket-proxy:stable
+- Read-only Docker API access with network isolation
 
 ### Portainer Integration
 - Auto-detection of Portainer containers and port mappings
@@ -24,6 +26,11 @@
 - JSON exports now contain more information about your Portall instance
 - JSON imports from a v2.x export now restores your entire instance
 - CAUTION: This data now includes API keys if using Docker integrations!
+
+### Security
+- Added dedicated portall-network for service isolation
+- Implemented read-only containers with tmpfs mounts
+- Container hardening with capability restrictions
 
 ## Fixed:
 ### Inability to move IP tables
