@@ -6,7 +6,7 @@
 
 Portall provides an intuitive web-interface for generating, tracking, and organizing ports and services across multiple hosts.
 
-<img src="demo/img/ports.png" width="900">
+<img src="demo/gif/drag.gif">
 
 ## 🐳 Setup
 
@@ -21,6 +21,8 @@ docker-compose -f docker-compose.pull.yml up -d
 ```
 
 ## ✨ Core Functionality
+
+<img src="demo/img/ports.png" width="900">
 
 **Easy Port Management**
    - Easily add, remove and assign ports to different services and hosts.
@@ -60,20 +62,3 @@ docker-compose -f docker-compose.pull.yml up -d
 - 🌐 **Frontend**: HTML5, CSS3, Vanilla JavaScript
 - 🔗 **Integrations**: Docker API, Markdown rendering
 
-## 📸 Screenshots
-
-### Port Management
-<img src="demo/gif/add.gif">
-<img src="demo/gif/drag.gif">
-
-### Port Generator
-<img src="demo/gif/generate.gif">
-<img src="demo/img/generate.png" width="600">
-
-### Import Tool
-<img src="demo/gif/import.gif">
-<img src="demo/img/import.png" width="600">
-
-### Settings
-<img src="demo/img/port_settings.png" width="600">
-<img src="demo/img/theme_settings.png" width="600">
