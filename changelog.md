@@ -6,6 +6,9 @@ Added 'Verify SSL' toggle for portainer
 ### Docker Socket Permissions
 Permissions are now handled automatically
 
+### Host IP Decleration
+Set your host (via env variable) to override local IP declarations (ie, 127.0.0.1)
+
 ## Changed:
 ### Portainer Naming
 Changed how portainer IP tables are named on import
