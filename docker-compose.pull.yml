@@ -19,35 +19,6 @@ services:
     user: "0:0"  # Run as root to set permissions
     restart: "no"  # Only run once
 
-  # Docker Socket Proxy - provides secure read-only access to Docker API
-  socket-proxy:
-    image: 11notes/socket-proxy:stable
-    container_name: portall-socket-proxy
-    user: "0:${DOCKER_GID:-999}"  # Root user with docker group
-    environment:
-      - ALLOW_RESTARTS=0
-      - ALLOW_START=0
-      - ALLOW_STOP=0
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    ports:
-      - "127.0.0.1:2375:2375"
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /run/proxy
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    networks:
-      - portall-network
-
   # Main Portall application
   portall:
     image: need4swede/portall:latest
@@ -69,6 +40,46 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - portall-network
+
+  # Docker Socket Proxy - provides secure read-only access to Docker API
+  socket-proxy:
+    image: 11notes/socket-proxy:stable
+    container_name: portall-socket-proxy
+
+    # Platform-specific user configuration for Docker socket access
+    # Uncomment the line that matches your platform:
+
+    user: "0:998"     # Linux (Ubuntu/Debian) - ACTIVE
+    # user: "0:999"   # Linux (CentOS/RHEL/Arch) or Mac/Windows Docker Desktop
+    # user: "0:994"   # Linux (older CentOS/RHEL)
+    # user: "0:992"   # Linux (some RHEL variants)
+
+    # To find your Docker GID on Linux, run: stat -c '%g' /var/run/docker.sock
+    # Mac/Windows Docker Desktop typically use GID 999
+
+    environment:
+      - ALLOW_RESTARTS=0
+      - ALLOW_START=0
+      - ALLOW_STOP=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run/proxy
     cap_drop:
       - ALL
     cap_add:
