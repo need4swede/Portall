@@ -134,6 +134,10 @@ function handlePortainerSettingsSubmit(e) {
         formData.append('portainer_enabled', 'false');
     }
 
+    if (!$('#portainer-verify-ssl').is(':checked')) {
+        formData.append('portainer_verify_ssl', 'false');
+    }
+
     if (!$('#portainer-auto-detect').is(':checked')) {
         formData.append('portainer_auto_detect', 'false');
     }
@@ -309,6 +313,7 @@ function updatePortainerFormState() {
 
     $('#portainer-url').prop('disabled', !enabled);
     $('#portainer-api-key').prop('disabled', !enabled);
+    $('#portainer-verify-ssl').prop('disabled', !enabled);
     $('#portainer-auto-detect').prop('disabled', !enabled);
     $('#portainer-scan-interval').prop('disabled', !enabled);
     $('#portainer-import-button').prop('disabled', !enabled);
