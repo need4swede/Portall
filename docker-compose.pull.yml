@@ -51,7 +51,7 @@ services:
 
   # Docker Socket Proxy with automatic GID detection
   socket-proxy:
-    image: need4swede/portall-socket-proxy:latest
+    image: need4swede/socket-proxy:latest
     container_name: portall-socket-proxy
     environment:
       - ALLOW_RESTARTS=0
