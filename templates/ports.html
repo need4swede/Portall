@@ -23,6 +23,10 @@
                 <i class="fas fa-font"></i><i class="fas fa-sort" style="display:none;"></i>
             </button>
         </div>
+        <button type="button" class="btn btn-outline-primary btn-sm scan-ports-btn" data-ip="{{ ip }}"
+            title="Scan Ports">
+            <i class="fas fa-search"></i>
+        </button>
         <a href="#" class="edit-ip" data-ip="{{ ip }}" data-nickname="{{ data.nickname or '' }}">
             <i class="fas fa-pencil-alt"></i>
         </a>
@@ -320,6 +324,72 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="confirmPortChange">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Port Scan Modal -->
+<div class="modal fade" id="portScanModal" tabindex="-1" aria-labelledby="portScanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="portScanModalLabel">Port Scan for IP: <span id="scan-ip-display"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="port-scan-form">
+                    <input type="hidden" id="scan-ip-address" name="ip_address">
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="scan-port-start" class="form-label">Port Range Start</label>
+                            <input type="number" class="form-control" id="scan-port-start" name="port_range_start"
+                                min="1" max="65535" value="1024">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="scan-port-end" class="form-label">Port Range End</label>
+                            <input type="number" class="form-control" id="scan-port-end" name="port_range_end" min="1"
+                                max="65535" value="65535">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scan-excluded-ports" class="form-label">Excluded Ports (comma-separated)</label>
+                        <input type="text" class="form-control" id="scan-excluded-ports" name="excluded_ports"
+                            placeholder="22,80,443">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scan-type" class="form-label">Scan Type</label>
+                        <select class="form-select" id="scan-type" name="scan_type">
+                            <option value="TCP">TCP Only</option>
+                            <option value="UDP">UDP Only</option>
+                            <option value="BOTH">Both TCP and UDP</option>
+                        </select>
+                    </div>
+
+                    <div id="scan-progress" class="mb-3" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Scanning...</span>
+                            <span id="scan-status-text">Initializing...</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="scan-results" class="mb-3" style="display: none;">
+                        <h6>Scan Results</h6>
+                        <div id="scan-results-content"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="start-scan-btn">Start Scan</button>
             </div>
         </div>
     </div>

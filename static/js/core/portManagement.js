@@ -76,6 +76,7 @@ export function init() {
     initSortButtons();
     initPortHoverEvents();
     initAppPresets();
+    initPortScanning();
     $(document).off('click', '.copy-btn').on('click', '.copy-btn', function () {
         const url = $(this).data('url');
         console.log("Copy button clicked with URL:", url);
@@ -980,4 +981,390 @@ function showPresetError(message) {
             </div>
         </li>
     `);
+}
+
+/**
+ * Initialize port scanning functionality.
+ * Sets up event handlers for port scanning buttons and modals.
+ */
+function initPortScanning() {
+    console.log('Initializing port scanning...');
+
+    // Handle scan ports button click
+    $(document).on('click', '.scan-ports-btn', handleScanPortsClick);
+
+    // Handle start scan button click
+    $('#start-scan-btn').on('click', handleStartScanClick);
+
+    // Load default scan settings when modal is shown
+    $('#portScanModal').on('shown.bs.modal', loadScanSettings);
+}
+
+/**
+ * Handle click event on the "Scan Ports" button.
+ * Opens the port scan modal and populates it with the IP address.
+ */
+function handleScanPortsClick(e) {
+    e.preventDefault();
+    const ip = $(this).data('ip');
+
+    console.log('Scan ports clicked for IP:', ip);
+
+    // Populate the modal with IP address
+    $('#scan-ip-address').val(ip);
+    $('#scan-ip-display').text(ip);
+
+    // Reset form and progress
+    resetScanModal();
+
+    // Show the modal
+    const scanModal = new bootstrap.Modal(document.getElementById('portScanModal'));
+    scanModal.show();
+}
+
+/**
+ * Load scan settings from the server and populate the form.
+ */
+function loadScanSettings() {
+    $.ajax({
+        url: '/port_scanning_settings',
+        method: 'GET',
+        success: function (data) {
+            console.log('Loaded scan settings:', data);
+
+            // Populate form with settings
+            $('#scan-port-start').val(data.scan_range_start || '1024');
+            $('#scan-port-end').val(data.scan_range_end || '65535');
+            $('#scan-excluded-ports').val(data.scan_exclude || '');
+            $('#scan-type').val('TCP'); // Default to TCP
+        },
+        error: function (xhr, status, error) {
+            console.error('Error loading scan settings:', error);
+            // Use defaults if settings can't be loaded
+            $('#scan-port-start').val('1024');
+            $('#scan-port-end').val('65535');
+            $('#scan-excluded-ports').val('');
+            $('#scan-type').val('TCP');
+        }
+    });
+}
+
+/**
+ * Reset the scan modal to its initial state.
+ */
+function resetScanModal() {
+    // Hide progress and results
+    $('#scan-progress').hide();
+    $('#scan-results').hide();
+
+    // Reset progress bar
+    $('.progress-bar').css('width', '0%');
+    $('#scan-status-text').text('Initializing...');
+
+    // Clear results
+    $('#scan-results-content').empty();
+
+    // Enable start button
+    $('#start-scan-btn').prop('disabled', false).text('Start Scan');
+}
+
+/**
+ * Handle click event on the "Start Scan" button.
+ * Validates the form and initiates the port scan.
+ */
+function handleStartScanClick() {
+    const ip = $('#scan-ip-address').val();
+    const portStart = parseInt($('#scan-port-start').val());
+    const portEnd = parseInt($('#scan-port-end').val());
+    const excludedPorts = $('#scan-excluded-ports').val();
+    const scanType = $('#scan-type').val();
+
+    console.log('Starting port scan:', { ip, portStart, portEnd, excludedPorts, scanType });
+
+    // Validate inputs
+    if (!ip) {
+        showNotification('IP address is required', 'error');
+        return;
+    }
+
+    if (portStart < 1 || portStart > 65535 || portEnd < 1 || portEnd > 65535) {
+        showNotification('Port range must be between 1 and 65535', 'error');
+        return;
+    }
+
+    if (portStart > portEnd) {
+        showNotification('Start port must be less than or equal to end port', 'error');
+        return;
+    }
+
+    // Disable start button and show progress
+    $('#start-scan-btn').prop('disabled', true).text('Scanning...');
+    $('#scan-progress').show();
+    $('#scan-results').hide();
+
+    // Start the scan
+    startPortScan({
+        ip_address: ip,
+        port_range_start: portStart,
+        port_range_end: portEnd,
+        excluded_ports: excludedPorts,
+        scan_type: scanType
+    });
+}
+
+/**
+ * Start a port scan with the given parameters.
+ * Sends a request to the server to initiate the scan.
+ */
+function startPortScan(scanParams) {
+    $.ajax({
+        url: '/start_port_scan',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(scanParams),
+        success: function (response) {
+            if (response.success) {
+                console.log('Scan started successfully:', response);
+                showNotification('Port scan started', 'success');
+
+                // Start polling for scan status
+                pollScanStatus(response.scan_id);
+            } else {
+                console.error('Failed to start scan:', response);
+                showNotification('Failed to start scan: ' + response.message, 'error');
+                resetScanButton();
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error starting scan:', error);
+            let errorMessage = 'Error starting scan';
+
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage += ': ' + xhr.responseJSON.error;
+            }
+
+            showNotification(errorMessage, 'error');
+            resetScanButton();
+        }
+    });
+}
+
+/**
+ * Poll the server for scan status updates.
+ * Continues polling until the scan is complete or fails.
+ */
+function pollScanStatus(scanId) {
+    const pollInterval = setInterval(() => {
+        $.ajax({
+            url: `/scan_status/${scanId}`,
+            method: 'GET',
+            success: function (response) {
+                console.log('Scan status:', response);
+                updateScanProgress(response);
+
+                if (response.status === 'completed') {
+                    clearInterval(pollInterval);
+                    handleScanComplete(response);
+                } else if (response.status === 'failed') {
+                    clearInterval(pollInterval);
+                    handleScanFailed(response);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error polling scan status:', error);
+                clearInterval(pollInterval);
+                showNotification('Error checking scan status', 'error');
+                resetScanButton();
+            }
+        });
+    }, 2000); // Poll every 2 seconds
+}
+
+/**
+ * Update the scan progress display.
+ */
+function updateScanProgress(scanData) {
+    const status = scanData.status;
+    let progressPercent = 0;
+    let statusText = 'Initializing...';
+
+    if (status === 'in_progress') {
+        // Estimate progress based on ports scanned
+        if (scanData.ports_scanned > 0) {
+            const totalPorts = scanData.port_range_end - scanData.port_range_start + 1;
+            progressPercent = Math.min(90, (scanData.ports_scanned / totalPorts) * 100);
+            statusText = `Scanning ports... (${scanData.ports_scanned} ports checked)`;
+        } else {
+            progressPercent = 10;
+            statusText = 'Starting scan...';
+        }
+    } else if (status === 'completed') {
+        progressPercent = 100;
+        statusText = `Scan completed! Found ${scanData.ports_found} open ports`;
+    } else if (status === 'failed') {
+        statusText = 'Scan failed';
+    }
+
+    $('.progress-bar').css('width', progressPercent + '%');
+    $('#scan-status-text').text(statusText);
+}
+
+/**
+ * Handle scan completion.
+ */
+function handleScanComplete(scanData) {
+    console.log('Scan completed:', scanData);
+
+    // Update progress to 100%
+    $('.progress-bar').css('width', '100%');
+    $('#scan-status-text').text(`Scan completed! Found ${scanData.ports_found} open ports in ${scanData.scan_duration?.toFixed(2) || 'N/A'} seconds`);
+
+    // Show results
+    displayScanResults(scanData);
+
+    // Reset button
+    resetScanButton();
+
+    showNotification(`Port scan completed! Found ${scanData.ports_found} open ports`, 'success');
+}
+
+/**
+ * Handle scan failure.
+ */
+function handleScanFailed(scanData) {
+    console.log('Scan failed:', scanData);
+
+    $('#scan-status-text').text('Scan failed');
+    $('.progress-bar').removeClass('progress-bar-animated').addClass('bg-danger');
+
+    resetScanButton();
+    showNotification('Port scan failed', 'error');
+}
+
+/**
+ * Display scan results in the modal.
+ */
+function displayScanResults(scanData) {
+    const resultsContainer = $('#scan-results-content');
+    resultsContainer.empty();
+
+    if (scanData.ports_found === 0) {
+        resultsContainer.html(`
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No open ports found in the specified range.
+            </div>
+        `);
+    } else {
+        let discoveredPorts = [];
+        try {
+            discoveredPorts = JSON.parse(scanData.discovered_ports || '[]');
+        } catch (e) {
+            console.error('Error parsing discovered ports:', e);
+        }
+
+        let resultsHtml = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> Found ${scanData.ports_found} open ports
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        discoveredPorts.forEach(portInfo => {
+            const portExists = checkPortExists(scanData.ip_address, portInfo.port, portInfo.protocol);
+            const statusBadge = portExists
+                ? '<span class="badge bg-secondary">Already Added</span>'
+                : '<span class="badge bg-success">New</span>';
+
+            const actionButton = portExists
+                ? '<button class="btn btn-sm btn-outline-secondary" disabled>Already Added</button>'
+                : `<button class="btn btn-sm btn-primary add-discovered-port" data-ip="${scanData.ip_address}" data-port="${portInfo.port}" data-protocol="${portInfo.protocol}">Add Port</button>`;
+
+            resultsHtml += `
+                <tr>
+                    <td>${portInfo.port}</td>
+                    <td>${portInfo.protocol}</td>
+                    <td>${statusBadge}</td>
+                    <td>${actionButton}</td>
+                </tr>
+            `;
+        });
+
+        resultsHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        resultsContainer.html(resultsHtml);
+
+        // Handle add discovered port buttons
+        $('.add-discovered-port').on('click', handleAddDiscoveredPort);
+    }
+
+    $('#scan-results').show();
+}
+
+/**
+ * Handle adding a discovered port.
+ */
+function handleAddDiscoveredPort(e) {
+    const button = $(this);
+    const ip = button.data('ip');
+    const port = button.data('port');
+    const protocol = button.data('protocol');
+
+    console.log('Adding discovered port:', { ip, port, protocol });
+
+    // Disable button
+    button.prop('disabled', true).text('Adding...');
+
+    // Add the port
+    $.ajax({
+        url: '/add_port',
+        method: 'POST',
+        data: {
+            ip: ip,
+            ip_nickname: '', // Will be determined by the server
+            port_number: port,
+            description: 'Discovered',
+            protocol: protocol
+        },
+        success: function (response) {
+            if (response.success) {
+                showNotification(`Port ${port} added successfully`, 'success');
+                button.text('Added').removeClass('btn-primary').addClass('btn-success');
+
+                // Optionally reload the page to show the new port
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showNotification('Error adding port: ' + response.message, 'error');
+                button.prop('disabled', false).text('Add Port');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error adding discovered port:', error);
+            showNotification('Error adding port', 'error');
+            button.prop('disabled', false).text('Add Port');
+        }
+    });
+}
+
+/**
+ * Reset the scan button to its initial state.
+ */
+function resetScanButton() {
+    $('#start-scan-btn').prop('disabled', false).text('Start Scan');
+    $('.progress-bar').removeClass('bg-danger').addClass('progress-bar-striped progress-bar-animated');
 }

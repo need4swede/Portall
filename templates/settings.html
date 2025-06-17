@@ -138,6 +138,95 @@
                     <button type="button" id="clear-port-settings" class="btn btn-secondary">Clear Values</button>
                 </div>
 
+            </form>
+
+            <!-- Port Scanning Settings -->
+            <h2>Port Scanning Settings</h2>
+            <form id="port-scanning-settings-form" class="glass-card">
+
+                <!-- Enable Port Scanning -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="port-scanning-enabled"
+                        name="port_scanning_enabled" value="true">
+                    <label class="form-check-label" for="port-scanning-enabled">Enable Port Scanning</label>
+                </div>
+
+                <!-- Auto-add Discovered Ports -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-add-discovered" name="auto_add_discovered"
+                        value="true">
+                    <label class="form-check-label" for="auto-add-discovered">Automatically add discovered ports</label>
+                    <small class="d-block form-text text-muted">When disabled, discovered ports require manual
+                        approval</small>
+                </div>
+
+                <!-- Default Scan Range -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="scan-range-start" class="form-label">Default Scan Range (Start)</label>
+                        <input type="number" class="form-control" id="scan-range-start" name="scan_range_start" min="1"
+                            max="65535" value="1024">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="scan-range-end" class="form-label">Default Scan Range (End)</label>
+                        <input type="number" class="form-control" id="scan-range-end" name="scan_range_end" min="1"
+                            max="65535" value="65535">
+                    </div>
+                </div>
+
+                <!-- Scan Exclusions -->
+                <div class="mb-3">
+                    <label for="scan-exclude" class="form-label">Exclude Ports from Scanning (comma-separated)</label>
+                    <input type="text" class="form-control" id="scan-exclude" name="scan_exclude"
+                        placeholder="22,80,443">
+                </div>
+
+                <!-- Performance Settings -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="scan-timeout" class="form-label">Port Timeout (ms)</label>
+                        <input type="number" class="form-control" id="scan-timeout" name="scan_timeout" min="100"
+                            max="5000" value="1000">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="scan-threads" class="form-label">Concurrent Scan Threads</label>
+                        <input type="number" class="form-control" id="scan-threads" name="scan_threads" min="1"
+                            max="100" value="50">
+                    </div>
+                </div>
+
+                <!-- Scan Interval -->
+                <div class="mb-3">
+                    <label for="scan-interval" class="form-label">Default Scan Interval (hours)</label>
+                    <select class="form-select" id="scan-interval" name="scan_interval">
+                        <option value="1">Every Hour</option>
+                        <option value="6">Every 6 Hours</option>
+                        <option value="12">Every 12 Hours</option>
+                        <option value="24" selected>Daily</option>
+                        <option value="168">Weekly</option>
+                    </select>
+                </div>
+
+                <!-- Results Retention -->
+                <div class="mb-3">
+                    <label for="scan-retention" class="form-label">Scan Results Retention (days)</label>
+                    <input type="number" class="form-control" id="scan-retention" name="scan_retention" min="1"
+                        max="365" value="30">
+                </div>
+
+                <!-- Port Verification -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="verify-ports-on-load"
+                        name="verify_ports_on_load" value="true">
+                    <label class="form-check-label" for="verify-ports-on-load">Verify port status on page load</label>
+                    <small class="d-block form-text text-muted">Quick connectivity check for existing ports (may add
+                        slight delay)</small>
+                </div>
+
+                <!-- Save Button -->
+                <div class="mb-3">
+                    <button type="submit" class="btn btn-primary">Save Port Scanning Settings</button>
+                </div>
 
             </form>
         </div>

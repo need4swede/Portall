@@ -55,6 +55,9 @@ $(document).ready(function () {
     // Load port settings on page load
     loadPortSettings();
 
+    // Load port scanning settings on page load
+    loadPortScanningSettings();
+
     // Apply custom CSS on page load
     applyCustomCSS($('#custom-css').val());
 
@@ -367,6 +370,57 @@ $(document).ready(function () {
             error: function (xhr, status, error) {
                 console.error('Error loading About content:', status, error);
                 showNotification('Error loading About content.', 'error');
+            }
+        });
+    }
+
+    // Handle port scanning settings form submission
+    $('#port-scanning-settings-form').submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: '/port_scanning_settings',
+            method: 'POST',
+            data: $(this).serialize(),
+            success: function (response) {
+                console.log('Port scanning settings saved successfully:', response);
+                showNotification('Port scanning settings saved successfully!');
+            },
+            error: function (xhr, status, error) {
+                console.error('Error saving port scanning settings:', status, error);
+                showNotification('Error saving port scanning settings: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'), 'error');
+            }
+        });
+    });
+
+    /**
+     * Loads and updates the port scanning settings UI.
+     */
+    function loadPortScanningSettings() {
+        $.ajax({
+            url: '/port_scanning_settings',
+            method: 'GET',
+            success: function (data) {
+                console.log("Received port scanning settings:", data);
+
+                // Set checkbox values
+                $('#port-scanning-enabled').prop('checked', data.port_scanning_enabled === 'true');
+                $('#auto-add-discovered').prop('checked', data.auto_add_discovered === 'true');
+                $('#verify-ports-on-load').prop('checked', data.verify_ports_on_load === 'true');
+
+                // Set input values with defaults
+                $('#scan-range-start').val(data.scan_range_start || '1024');
+                $('#scan-range-end').val(data.scan_range_end || '65535');
+                $('#scan-exclude').val(data.scan_exclude || '');
+                $('#scan-timeout').val(data.scan_timeout || '1000');
+                $('#scan-threads').val(data.scan_threads || '50');
+                $('#scan-retention').val(data.scan_retention || '30');
+
+                // Set select value
+                $('#scan-interval').val(data.scan_interval || '24');
+            },
+            error: function (xhr, status, error) {
+                console.error('Error loading port scanning settings:', status, error);
+                showNotification('Error loading port scanning settings.', 'error');
             }
         });
     }

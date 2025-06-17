@@ -1,9 +1,70 @@
 services:
-  # Docker Socket Proxy - provides read-only access to Docker API
-  # Using minimal socket proxy for better compatibility
+  # Init container to set up proper permissions for the database directory
+  portall-init:
+    image: alpine:latest
+    container_name: portall-init
+    command: |
+      sh -c "
+        echo 'Setting up instance directory permissions...'
+        mkdir -p /app/instance
+        chmod 777 /app/instance
+        # Try to set ownership to the user that will run the main container
+        chown ${USER_ID:-1000}:${GROUP_ID:-1000} /app/instance 2>/dev/null || echo 'Note: Could not change ownership (this is normal in some environments)'
+        echo 'Instance directory setup complete:'
+        ls -la /app/instance
+        echo 'Permissions setup complete'
+      "
+    volumes:
+      - ./instance:/app/instance
+    user: "0:0"  # Run as root to set permissions
+    restart: "no"  # Only run once
+
+  # Main Portall application
+  portall:
+    build: .
+    container_name: portall
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    depends_on:
+      - socket-proxy
+      - portall-init  # Wait for permissions to be set
+    ports:
+      - "8080:8080"
+    environment:
+      - SECRET_KEY=your_secret_key
+      - DOCKER_HOST=tcp://socket-proxy:2375
+      - DOCKER_ENABLED=true
+    volumes:
+      - ./instance:/app/instance
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - portall-network
+
+  # Docker Socket Proxy - provides secure read-only access to Docker API
   socket-proxy:
     image: 11notes/socket-proxy:stable
     container_name: portall-socket-proxy
+
+    # Platform-specific user configuration for Docker socket access
+    # Uncomment the line that matches your platform:
+
+    user: "0:998"     # Linux (Ubuntu/Debian) - ACTIVE
+    # user: "0:999"   # Linux (CentOS/RHEL/Arch) or Mac/Windows Docker Desktop
+    # user: "0:994"   # Linux (older CentOS/RHEL)
+    # user: "0:992"   # Linux (some RHEL variants)
+
+    # To find your Docker GID on Linux, run: stat -c '%g' /var/run/docker.sock
+    # Mac/Windows Docker Desktop typically use GID 999
+
     environment:
       - ALLOW_RESTARTS=0
       - ALLOW_START=0
@@ -28,41 +89,12 @@ services:
     networks:
       - portall-network
 
-  # Main Portall application
-  portall:
-    build: .
-    container_name: portall
-    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    depends_on:
-      - socket-proxy
-    ports:
-      - "8080:8080"
-    environment:
-      - SECRET_KEY=your_secret_key
-      - DOCKER_HOST=tcp://socket-proxy:2375
-      - DOCKER_ENABLED=true
-    volumes:
-      - ./instance:/app/instance
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    # Note: Not using read_only for main app as it needs to write to database
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    networks:
-      - portall-network
-
 # Alternative: Using the tecnativa socket proxy (more features but more complex)
 # Uncomment this and comment out the minimal proxy above if preferred
 # socket-proxy-tecnativa:
 #   image: tecnativa/docker-socket-proxy:latest
 #   container_name: portall-socket-proxy-tecnativa
+#   user: "0:${DOCKER_GID:-999}"  # Root user with docker group
 #   environment:
 #     # Enable only the API endpoints we need (read-only)
 #     - CONTAINERS=1
@@ -95,7 +127,7 @@ services:
 #   read_only: true
 #   tmpfs:
 #     - /tmp
-#     - /usr/local/etc/haproxy  # Allow HAProxy to write config files
+#     - /usr/local/etc/haproxy # Allow HAProxy to write config files
 #   cap_drop:
 #     - ALL
 #   cap_add:
