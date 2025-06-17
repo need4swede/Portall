@@ -102,7 +102,7 @@ def docker_settings():
         try:
             docker_settings = {}
             for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval',
-                       'portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_auto_detect', 'portainer_scan_interval',
+                       'portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_verify_ssl', 'portainer_auto_detect', 'portainer_scan_interval',
                        'komodo_enabled', 'komodo_url', 'komodo_api_key', 'komodo_api_secret', 'komodo_auto_detect', 'komodo_scan_interval']:
                 setting = Setting.query.filter_by(key=key).first()
                 docker_settings[key] = setting.value if setting else ''
@@ -138,11 +138,12 @@ def docker_settings():
                 })
 
             # Portainer form
-            if any(key in form_keys for key in ['portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_auto_detect', 'portainer_scan_interval']):
+            if any(key in form_keys for key in ['portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_verify_ssl', 'portainer_auto_detect', 'portainer_scan_interval']):
                 settings_to_update.update({
                     'portainer_enabled': request.form.get('portainer_enabled', 'false'),
                     'portainer_url': request.form.get('portainer_url', ''),
                     'portainer_api_key': request.form.get('portainer_api_key', ''),
+                    'portainer_verify_ssl': request.form.get('portainer_verify_ssl', 'true'),
                     'portainer_auto_detect': request.form.get('portainer_auto_detect', 'false'),
                     'portainer_scan_interval': request.form.get('portainer_scan_interval', '300')
                 })
@@ -342,8 +343,11 @@ def import_from_portainer():
             'X-API-Key': portainer_api_key
         }
 
+        # Get SSL verification setting
+        verify_ssl = get_setting('portainer_verify_ssl', 'true').lower() == 'true'
+
         # Get endpoints (Docker environments)
-        endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers)
+        endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers, verify=verify_ssl)
         if endpoints_response.status_code != 200:
             return jsonify({'error': f'Failed to get Portainer endpoints: {endpoints_response.text}'}), 500
 
@@ -374,7 +378,8 @@ def import_from_portainer():
             # Get containers for this endpoint
             containers_response = requests.get(
                 f"{portainer_url}/api/endpoints/{endpoint_id}/docker/containers/json",
-                headers=headers
+                headers=headers,
+                verify=verify_ssl
             )
 
             if containers_response.status_code != 200:
@@ -1109,9 +1114,12 @@ def start_auto_scan_threads():
                                 'X-API-Key': portainer_api_key
                             }
 
+                            # Get SSL verification setting
+                            verify_ssl = get_setting('portainer_verify_ssl', 'true').lower() == 'true'
+
                             # Get endpoints (Docker environments)
                             worker_logger.info(f"Requesting endpoints from {portainer_url}/api/endpoints")
-                            endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers)
+                            endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers, verify=verify_ssl)
                             worker_logger.info(f"Endpoints response status: {endpoints_response.status_code}")
 
                             if endpoints_response.status_code != 200:
@@ -1148,7 +1156,8 @@ def start_auto_scan_threads():
                                 worker_logger.info(f"Requesting containers from endpoint {endpoint_id} ({endpoint_name})")
                                 containers_response = requests.get(
                                     f"{portainer_url}/api/endpoints/{endpoint_id}/docker/containers/json",
-                                    headers=headers
+                                    headers=headers,
+                                    verify=verify_ssl
                                 )
                                 worker_logger.info(f"Containers response status: {containers_response.status_code}")
 

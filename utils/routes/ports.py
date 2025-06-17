@@ -219,8 +219,11 @@ def import_from_portainer_auto():
         'X-API-Key': portainer_api_key
     }
 
+    # Get SSL verification setting
+    verify_ssl = get_setting('portainer_verify_ssl', 'true').lower() == 'true'
+
     # Get endpoints (Docker environments)
-    endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers)
+    endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers, verify=verify_ssl)
     if endpoints_response.status_code != 200:
         app.logger.error(f"Failed to get Portainer endpoints: {endpoints_response.text}")
         return
@@ -254,7 +257,8 @@ def import_from_portainer_auto():
         # Get containers for this endpoint
         containers_response = requests.get(
             f"{portainer_url}/api/endpoints/{endpoint_id}/docker/containers/json",
-            headers=headers
+            headers=headers,
+            verify=verify_ssl
         )
 
         if containers_response.status_code != 200:

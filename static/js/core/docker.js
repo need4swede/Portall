@@ -51,6 +51,7 @@ function loadDockerSettings() {
             $('#portainer-enabled').prop('checked', data.portainer_enabled === 'true');
             $('#portainer-url').val(data.portainer_url || '');
             $('#portainer-api-key').val(data.portainer_api_key || '');
+            $('#portainer-verify-ssl').prop('checked', data.portainer_verify_ssl !== 'false'); // Default to true
             $('#portainer-auto-detect').prop('checked', data.portainer_auto_detect === 'true');
             $('#portainer-scan-interval').val(data.portainer_scan_interval || '300');
 
