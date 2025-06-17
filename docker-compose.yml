@@ -1,6 +1,5 @@
 services:
-  # Docker Socket Proxy - provides read-only access to Docker API
-  # Using minimal socket proxy for better compatibility
+  # Docker Socket Proxy - provides secure read-only access to Docker API
   socket-proxy:
     image: 11notes/socket-proxy:stable
     container_name: portall-socket-proxy
@@ -32,21 +31,20 @@ services:
   portall:
     build: .
     container_name: portall
-    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     depends_on:
       - socket-proxy
     ports:
       - "8080:8080"
     environment:
-      - SECRET_KEY=your_secret_key
+      - SECRET_KEY=your_secret_key_change_this
       - DOCKER_HOST=tcp://socket-proxy:2375
       - DOCKER_ENABLED=true
+      - DATABASE_URL=sqlite:////app/instance/portall.db
     volumes:
       - ./instance:/app/instance
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    # Note: Not using read_only for main app as it needs to write to database
     tmpfs:
       - /tmp
     cap_drop:
@@ -63,6 +61,7 @@ services:
 # socket-proxy-tecnativa:
 #   image: tecnativa/docker-socket-proxy:latest
 #   container_name: portall-socket-proxy-tecnativa
+#   user: "0:${DOCKER_GID:-999}"  # Root user with docker group
 #   environment:
 #     # Enable only the API endpoints we need (read-only)
 #     - CONTAINERS=1
@@ -95,7 +94,7 @@ services:
 #   read_only: true
 #   tmpfs:
 #     - /tmp
-#     - /usr/local/etc/haproxy  # Allow HAProxy to write config files
+#     - /usr/local/etc/haproxy # Allow HAProxy to write config files
 #   cap_drop:
 #     - ALL
 #   cap_add:
