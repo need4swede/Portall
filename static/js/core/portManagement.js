@@ -1250,8 +1250,12 @@ function displayScanResults(scanData) {
 
     if (scanData.ports_found === 0) {
         resultsContainer.html(`
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> No open ports found in the specified range.
+            <div class="scan-no-results glass-card">
+                <div class="scan-result-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h4>No Open Ports Found</h4>
+                <p>No open ports were discovered in the specified range.</p>
             </div>
         `);
     } else {
@@ -1262,56 +1266,120 @@ function displayScanResults(scanData) {
             console.error('Error parsing discovered ports:', e);
         }
 
-        let resultsHtml = `
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> Found ${scanData.ports_found} open ports
-            </div>
-            <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Port</th>
-                            <th>Protocol</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        discoveredPorts.forEach(portInfo => {
-            const portExists = checkPortExists(scanData.ip_address, portInfo.port, portInfo.protocol);
-            const statusBadge = portExists
-                ? '<span class="badge bg-secondary">Already Added</span>'
-                : '<span class="badge bg-success">New</span>';
-
-            const actionButton = portExists
-                ? '<button class="btn btn-sm btn-outline-secondary" disabled>Already Added</button>'
-                : `<button class="btn btn-sm btn-primary add-discovered-port" data-ip="${scanData.ip_address}" data-port="${portInfo.port}" data-protocol="${portInfo.protocol}">Add Port</button>`;
-
-            resultsHtml += `
-                <tr>
-                    <td>${portInfo.port}</td>
-                    <td>${portInfo.protocol}</td>
-                    <td>${statusBadge}</td>
-                    <td>${actionButton}</td>
-                </tr>
+        // Check if auto-add is enabled
+        checkAutoAddSetting().then(autoAddEnabled => {
+            let resultsHtml = `
+                <div class="scan-results-header glass-card">
+                    <div class="scan-result-icon success">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h4>Scan Complete</h4>
+                    <p>Found ${scanData.ports_found} open ports</p>
+                    ${autoAddEnabled ? '<div class="auto-add-notice"><i class="fas fa-magic"></i> Auto-add is enabled</div>' : ''}
+                </div>
+                <div class="scan-results-grid">
             `;
+
+            discoveredPorts.forEach(portInfo => {
+                const portExists = checkPortExists(scanData.ip_address, portInfo.port, portInfo.protocol);
+
+                let statusInfo = {};
+                let actionContent = '';
+
+                if (autoAddEnabled) {
+                    if (portExists) {
+                        statusInfo = {
+                            class: 'already-exists',
+                            icon: 'fas fa-check-circle',
+                            text: 'Already Added',
+                            description: 'This port was already in your collection'
+                        };
+                        actionContent = '<div class="scan-action-disabled">Already Added</div>';
+                    } else {
+                        statusInfo = {
+                            class: 'auto-added',
+                            icon: 'fas fa-magic',
+                            text: 'Auto-Added',
+                            description: 'Automatically added to your collection'
+                        };
+                        actionContent = '<div class="scan-action-success"><i class="fas fa-check"></i> Added</div>';
+                    }
+                } else {
+                    if (portExists) {
+                        statusInfo = {
+                            class: 'already-exists',
+                            icon: 'fas fa-check-circle',
+                            text: 'Already Added',
+                            description: 'This port is already in your collection'
+                        };
+                        actionContent = '<div class="scan-action-disabled">Already Added</div>';
+                    } else {
+                        statusInfo = {
+                            class: 'new-port',
+                            icon: 'fas fa-plus-circle',
+                            text: 'New Port',
+                            description: 'Click to add this port to your collection'
+                        };
+                        actionContent = `<button class="scan-action-button add-discovered-port" data-ip="${scanData.ip_address}" data-port="${portInfo.port}" data-protocol="${portInfo.protocol}">
+                            <i class="fas fa-plus"></i> Add Port
+                        </button>`;
+                    }
+                }
+
+                resultsHtml += `
+                    <div class="scan-result-card glass-card ${statusInfo.class}">
+                        <div class="scan-result-header">
+                            <div class="port-info">
+                                <span class="port-number">${portInfo.port}</span>
+                                <span class="port-protocol ${portInfo.protocol.toLowerCase()}">${portInfo.protocol}</span>
+                            </div>
+                            <div class="port-status">
+                                <i class="${statusInfo.icon}"></i>
+                            </div>
+                        </div>
+                        <div class="scan-result-body">
+                            <div class="status-info">
+                                <span class="status-text">${statusInfo.text}</span>
+                                <span class="status-description">${statusInfo.description}</span>
+                            </div>
+                            <div class="scan-result-action">
+                                ${actionContent}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultsHtml += '</div>';
+            resultsContainer.html(resultsHtml);
+
+            // Handle add discovered port buttons
+            $('.add-discovered-port').on('click', handleAddDiscoveredPort);
         });
-
-        resultsHtml += `
-                    </tbody>
-                </table>
-            </div>
-        `;
-
-        resultsContainer.html(resultsHtml);
-
-        // Handle add discovered port buttons
-        $('.add-discovered-port').on('click', handleAddDiscoveredPort);
     }
 
     $('#scan-results').show();
+}
+
+/**
+ * Check if auto-add discovered ports is enabled.
+ * @returns {Promise<boolean>} Promise that resolves to true if auto-add is enabled
+ */
+function checkAutoAddSetting() {
+    return new Promise((resolve) => {
+        $.ajax({
+            url: '/port_scanning_settings',
+            method: 'GET',
+            success: function (data) {
+                const autoAddEnabled = data.auto_add_discovered === 'true';
+                resolve(autoAddEnabled);
+            },
+            error: function () {
+                // Default to false if we can't get the setting
+                resolve(false);
+            }
+        });
+    });
 }
 
 /**
