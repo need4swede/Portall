@@ -1,3 +1,29 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v2.0.3" target="_blank">v2.0.3</a>
+## Added:
+### Portainer SSL
+Added 'Verify SSL' toggle for portainer
+
+### Docker Socket Permissions
+Permissions are now handled automatically
+
+## Changed:
+### Portainer Naming
+Changed how portainer IP tables are named on import
+
+### Caddyfile Imports
+Added additional syntax support for Caddyfile imports
+
+# <a href="https://github.com/need4swede/portall/releases/tag/v2.0.2" target="_blank">v2.0.2</a>
+## Fixed:
+### Port Scanning
+Fixed an issue where Port Scanning wasn't available
+
+### Startup Script
+Fixed issue with startup script not initializing properly
+
+### Migration Logic
+Fixed issue where migrations weren't completing successfully
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v2.0.1" target="_blank">v2.0.1</a>
 ## Fixed:
 ### Database Permission Issue
