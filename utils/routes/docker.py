@@ -301,7 +301,7 @@ def scan_docker_ports():
                             ip_address=host_ip,
                             nickname=host_identifier,  # Set the host identifier as the nickname
                             port_number=host_port,
-                            description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
+                            description=f"{container.name} ({port_number}/{protocol})",
                             port_protocol=protocol.upper(),
                             order=max_order + 1,
                             source='docker',
@@ -1044,7 +1044,7 @@ def start_auto_scan_threads():
                                                 ip_address=host_ip,
                                                 nickname=host_identifier,  # Set the host identifier as the nickname
                                                 port_number=host_port,
-                                                description=f"Docker ({host_identifier}): {container.name} ({port_number}/{protocol})",
+                                                description=f"{container.name} ({port_number}/{protocol})",
                                                 port_protocol=protocol.upper(),
                                                 order=max_order + 1,
                                                 source='docker',

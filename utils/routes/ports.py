@@ -181,6 +181,7 @@ def import_from_docker_auto():
         docker_ports_in_db = Port.query.filter(
             db.or_(
                 Port.source == 'docker',
+                Port.description.like(f"%"),  # For backward compatibility
                 Port.description.like(f"Docker ({host_identifier}):%"),  # For backward compatibility
                 Port.description.like("[D] %")  # For backward compatibility
             )
