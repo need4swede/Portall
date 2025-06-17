@@ -80,6 +80,112 @@ def get_docker_client():
         app.logger.error(f"Error initializing Docker client: {str(e)}")
         return None
 
+def clean_and_validate_ip(ip_string):
+    """
+    Clean and validate IP address with extensive edge case handling.
+    Supports various input formats and handles common user mistakes.
+    """
+    import re
+
+    if not ip_string:
+        return None
+
+    # Remove whitespace
+    cleaned = ip_string.strip()
+
+    if not cleaned:
+        return None
+
+    app.logger.debug(f"Cleaning IP string: '{ip_string}' -> '{cleaned}'")
+
+    # Remove protocol prefixes
+    for prefix in ['http://', 'https://', 'tcp://', 'udp://', 'ftp://']:
+        if cleaned.lower().startswith(prefix):
+            cleaned = cleaned[len(prefix):]
+            app.logger.debug(f"Removed protocol prefix, now: '{cleaned}'")
+
+    # Remove trailing slashes and paths
+    if '/' in cleaned:
+        cleaned = cleaned.split('/')[0]
+        app.logger.debug(f"Removed path, now: '{cleaned}'")
+
+    # Remove port numbers (but not for IPv6)
+    if ':' in cleaned and not cleaned.count(':') > 1:  # Not IPv6
+        cleaned = cleaned.split(':')[0]
+        app.logger.debug(f"Removed port, now: '{cleaned}'")
+
+    # Handle special cases
+    if cleaned.lower() in ['localhost', 'local']:
+        app.logger.debug("Converting localhost to 127.0.0.1")
+        return '127.0.0.1'
+
+    # Validate IP format using regex
+    ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    if not re.match(ip_pattern, cleaned):
+        app.logger.debug(f"IP format validation failed for: '{cleaned}'")
+        return None
+
+    # Validate IP ranges (0-255 for each octet)
+    try:
+        parts = cleaned.split('.')
+        if not all(0 <= int(part) <= 255 for part in parts):
+            app.logger.debug(f"IP range validation failed for: '{cleaned}'")
+            return None
+    except ValueError:
+        app.logger.debug(f"IP parsing failed for: '{cleaned}'")
+        return None
+
+    app.logger.debug(f"IP validation successful: '{cleaned}'")
+    return cleaned
+
+def get_server_ip():
+    """
+    Simple server IP detection with robust validation and fallback.
+    Uses HOST_IP environment variable with extensive input validation.
+    """
+    app.logger.info("=== Starting server IP detection ===")
+
+    # Get HOST_IP environment variable
+    host_ip = os.environ.get('HOST_IP', '').strip()
+    app.logger.info(f"HOST_IP environment variable: '{host_ip}'")
+
+    if host_ip:
+        # Clean and validate the IP
+        cleaned_ip = clean_and_validate_ip(host_ip)
+        if cleaned_ip:
+            app.logger.info(f"✓ SUCCESS: Using HOST_IP: {cleaned_ip}")
+            app.logger.info(f"=== Server IP detection complete: {cleaned_ip} (via HOST_IP) ===")
+            return cleaned_ip
+        else:
+            app.logger.warning(f"✗ Invalid HOST_IP '{host_ip}', falling back to 127.0.0.1")
+    else:
+        app.logger.info("✗ No HOST_IP set, using default 127.0.0.1")
+
+    app.logger.info("=== Server IP detection complete: 127.0.0.1 (fallback) ===")
+    return '127.0.0.1'
+
+def get_final_host_ip(detected_ip, source='docker'):
+    """
+    Determine the final host IP to use based on detection and settings.
+    Only replaces 127.0.0.1 for Docker integrations when valid HOST_IP is set.
+    """
+    # Get the server IP (which includes HOST_IP validation)
+    server_ip = get_server_ip()
+
+    # Only replace 127.0.0.1 if:
+    # 1. We have a valid HOST_IP set (server_ip != '127.0.0.1')
+    # 2. This is from a Docker integration
+    # 3. The detected IP is 127.0.0.1
+    if (server_ip != '127.0.0.1' and
+        source in ['docker', 'portainer', 'komodo'] and
+        detected_ip == '127.0.0.1'):
+        app.logger.info(f"Replacing Docker localhost IP with HOST_IP: {detected_ip} -> {server_ip}")
+        return server_ip
+
+    # For all other cases, use the detected IP as-is
+    app.logger.debug(f"Using detected IP as-is: {detected_ip} (source: {source})")
+    return detected_ip
+
 def get_setting(key, default):
     """Helper function to retrieve settings from the database."""
     setting = Setting.query.filter_by(key=key).first()
@@ -237,7 +343,7 @@ def scan_docker_ports():
 
         # Get Docker host for identification in case of multiple Docker instances
         docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
-        host_identifier = "local" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
+        host_identifier = "Docker" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
 
         for container in containers:
             # Add container to DockerService table
@@ -265,9 +371,12 @@ def scan_docker_ports():
                 for binding in host_bindings:
                     host_ip = binding.get('HostIp', '0.0.0.0')
                     if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                        # Use a meaningful IP for Docker containers
-                        # If it's a local Docker instance, use 127.0.0.1, otherwise use the host identifier
-                        host_ip = '127.0.0.1' if host_identifier == 'local' else host_identifier
+                        # Use the detected server IP instead of localhost
+                        detected_server_ip = get_server_ip()
+                        host_ip = detected_server_ip
+                    else:
+                        # Apply the final host IP logic for Docker integrations
+                        host_ip = get_final_host_ip(host_ip, 'docker')
 
                     host_port = int(binding.get('HostPort', 0))
 
@@ -1007,7 +1116,7 @@ def start_auto_scan_threads():
                         if client is not None:
                             # Get Docker host for identification in case of multiple Docker instances
                             docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
-                            host_identifier = "local" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
+                            host_identifier = "Docker" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
 
                             # Get all running containers
                             containers = client.containers.list()
@@ -1029,9 +1138,9 @@ def start_auto_scan_threads():
                                     for binding in host_bindings:
                                         host_ip = binding.get('HostIp', '0.0.0.0')
                                         if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                                            # Use a meaningful IP for Docker containers
-                                            # If it's a local Docker instance, use 127.0.0.1, otherwise use the host identifier
-                                            host_ip = '127.0.0.1' if host_identifier == 'local' else host_identifier
+                                            # Use the detected server IP instead of localhost
+                                            detected_server_ip = get_server_ip()
+                                            host_ip = detected_server_ip
 
                                         host_port = int(binding.get('HostPort', 0))
 

@@ -33,6 +33,7 @@ services:
       - SECRET_KEY=your_secret_key
       - DOCKER_HOST=tcp://socket-proxy:2375
       - DOCKER_ENABLED=true
+      - HOST_IP=  # Defaults to 127.0.0.1
     volumes:
       - ./instance:/app/instance
     restart: unless-stopped
