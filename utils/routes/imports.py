@@ -107,7 +107,8 @@ def import_caddyfile(content):
     Parse a Caddyfile and extract port information.
 
     This function processes a Caddyfile content, extracting domain names and
-    their associated reverse proxy configurations.
+    their associated reverse proxy configurations. It supports both domain-block
+    reverse_proxy directives and standalone reverse_proxy directives.
 
     Args:
         content (str): The content of the Caddyfile
@@ -127,6 +128,10 @@ def import_caddyfile(content):
             current_domain = line.split('{')[0].strip()
             continue
 
+        if line == '}':                           # domain block closer
+            current_domain = None
+            continue
+
         if line.startswith('reverse_proxy'):
             # take everything after the directive, may contain multiple backends
             backends = line.split(None, 1)[1].split(',')
@@ -144,11 +149,18 @@ def import_caddyfile(content):
                 port = parsed.port or 80           # fall-back when port is omitted
 
                 if ip and port:
+                    # Generate description based on context
+                    if current_domain:
+                        description = current_domain
+                    else:
+                        # For standalone reverse_proxy, use the backend as description
+                        description = f"Reverse proxy to {backend}"
+
                     entries.append({
                         'ip'           : ip,
                         'nickname'     : None,
                         'port'         : int(port),
-                        'description'  : current_domain,
+                        'description'  : description,
                         'port_protocol': 'TCP'
                     })
 
