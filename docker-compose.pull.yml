@@ -31,6 +31,7 @@ services:
   portall:
     image: need4swede/portall:latest
     container_name: portall
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     depends_on:
       - socket-proxy
     ports:

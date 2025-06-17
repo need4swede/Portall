@@ -15,7 +15,7 @@ from flask import url_for                       # For generating URLs
 from sqlalchemy import func                     # For using SQL functions
 
 # Local Imports
-from utils.database import db, Port, Setting    # For accessing the database models
+from utils.database import db, Port, Setting, PortScan, PortScanSchedule    # For accessing the database models
 
 # Create the blueprint
 ports_bp = Blueprint('ports', __name__)
@@ -896,3 +896,419 @@ def update_ip_order():
         db.session.rollback()
         app.logger.error(f"Error updating IP panel order: {str(e)}")
         return jsonify({'success': False, 'message': f'Error updating IP panel order: {str(e)}'}), 500
+
+## Port Scanning ##
+
+@ports_bp.route('/port_scanning_settings', methods=['GET', 'POST'])
+def port_scanning_settings():
+    """
+    Handle GET and POST requests for port scanning settings.
+
+    GET: Retrieve current port scanning settings.
+    POST: Update port scanning settings.
+
+    Returns:
+        For GET: JSON object containing current port scanning settings
+        For POST: JSON object indicating success or failure of the update operation
+    """
+    if request.method == 'GET':
+        try:
+            scanning_settings = {}
+            for key in ['port_scanning_enabled', 'auto_add_discovered', 'scan_range_start', 'scan_range_end',
+                       'scan_exclude', 'scan_timeout', 'scan_threads', 'scan_interval', 'scan_retention',
+                       'verify_ports_on_load']:
+                setting = Setting.query.filter_by(key=key).first()
+                scanning_settings[key] = setting.value if setting else ''
+
+            return jsonify(scanning_settings)
+        except Exception as e:
+            app.logger.error(f"Error retrieving port scanning settings: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            settings_to_update = {
+                'port_scanning_enabled': request.form.get('port_scanning_enabled', 'false'),
+                'auto_add_discovered': request.form.get('auto_add_discovered', 'false'),
+                'scan_range_start': request.form.get('scan_range_start', '1024'),
+                'scan_range_end': request.form.get('scan_range_end', '65535'),
+                'scan_exclude': request.form.get('scan_exclude', ''),
+                'scan_timeout': request.form.get('scan_timeout', '1000'),
+                'scan_threads': request.form.get('scan_threads', '50'),
+                'scan_interval': request.form.get('scan_interval', '24'),
+                'scan_retention': request.form.get('scan_retention', '30'),
+                'verify_ports_on_load': request.form.get('verify_ports_on_load', 'false')
+            }
+
+            # Update settings in database
+            for key, value in settings_to_update.items():
+                setting = Setting.query.filter_by(key=key).first()
+                if setting:
+                    setting.value = value
+                else:
+                    new_setting = Setting(key=key, value=value)
+                    db.session.add(new_setting)
+
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Port scanning settings updated successfully'})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error saving port scanning settings: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+@ports_bp.route('/start_port_scan', methods=['POST'])
+def start_port_scan():
+    """
+    Start a port scan for a given IP address with custom parameters.
+
+    Returns:
+        JSON: A JSON response indicating success or failure of the operation.
+    """
+    try:
+        # Check if port scanning is enabled
+        if get_setting('port_scanning_enabled', 'false').lower() != 'true':
+            return jsonify({'error': 'Port scanning is disabled'}), 403
+
+        data = request.json
+        ip_address = data.get('ip_address')
+        port_range_start = data.get('port_range_start', int(get_setting('scan_range_start', '1024')))
+        port_range_end = data.get('port_range_end', int(get_setting('scan_range_end', '65535')))
+        excluded_ports = data.get('excluded_ports', get_setting('scan_exclude', ''))
+        scan_type = data.get('scan_type', 'TCP')
+
+        if not ip_address:
+            return jsonify({'error': 'IP address is required'}), 400
+
+        # Validate IP address format
+        import ipaddress
+        try:
+            ipaddress.ip_address(ip_address)
+        except ValueError:
+            return jsonify({'error': 'Invalid IP address format'}), 400
+
+        # Check if a scan is already in progress for this IP
+        existing_scan = PortScan.query.filter_by(ip_address=ip_address).filter(
+            PortScan.status.in_(['pending', 'in_progress'])
+        ).first()
+
+        if existing_scan:
+            return jsonify({
+                'success': False,
+                'message': f'A scan is already {existing_scan.status} for {ip_address}'
+            }), 409
+
+        # Create a new scan entry
+        scan = PortScan(
+            ip_address=ip_address,
+            port_range_start=port_range_start,
+            port_range_end=port_range_end,
+            excluded_ports=excluded_ports,
+            scan_type=scan_type,
+            scheduled_scan=False
+        )
+        db.session.add(scan)
+        db.session.commit()
+
+        # Start the scan in a background thread
+        import threading
+        threading.Thread(target=run_port_scan, args=(app._get_current_object(), scan.id), daemon=True).start()
+
+        return jsonify({
+            'success': True,
+            'message': f'Port scan started for {ip_address}',
+            'scan_id': scan.id
+        })
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error starting port scan: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@ports_bp.route('/scan_status/<int:scan_id>', methods=['GET'])
+def scan_status(scan_id):
+    """
+    Get the status of a port scan.
+
+    Args:
+        scan_id (int): The ID of the scan to check.
+
+    Returns:
+        JSON: A JSON response containing the scan status.
+    """
+    try:
+        scan = PortScan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+
+        return jsonify({
+            'id': scan.id,
+            'ip_address': scan.ip_address,
+            'status': scan.status,
+            'port_range_start': scan.port_range_start,
+            'port_range_end': scan.port_range_end,
+            'scan_type': scan.scan_type,
+            'ports_scanned': scan.ports_scanned,
+            'ports_found': scan.ports_found,
+            'scan_duration': scan.scan_duration,
+            'discovered_ports': scan.discovered_ports,
+            'created_at': scan.created_at.isoformat() if scan.created_at else None,
+            'completed_at': scan.completed_at.isoformat() if scan.completed_at else None
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting scan status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@ports_bp.route('/verify_ports', methods=['POST'])
+def verify_ports():
+    """
+    Verify the connectivity of existing ports.
+
+    Returns:
+        JSON: A JSON response with verification results.
+    """
+    try:
+        # Check if port verification is enabled
+        if get_setting('verify_ports_on_load', 'false').lower() != 'true':
+            return jsonify({'success': False, 'message': 'Port verification is disabled'}), 403
+
+        data = request.json
+        ip_address = data.get('ip_address')
+
+        if not ip_address:
+            return jsonify({'error': 'IP address is required'}), 400
+
+        # Get all ports for this IP
+        ports = Port.query.filter_by(ip_address=ip_address).all()
+
+        verification_results = []
+        for port in ports:
+            is_active = verify_port_connectivity(ip_address, port.port_number, port.port_protocol)
+            verification_results.append({
+                'port_id': port.id,
+                'port_number': port.port_number,
+                'protocol': port.port_protocol,
+                'is_active': is_active
+            })
+
+        return jsonify({
+            'success': True,
+            'results': verification_results
+        })
+    except Exception as e:
+        app.logger.error(f"Error verifying ports: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def verify_port_connectivity(ip_address, port_number, protocol):
+    """
+    Verify if a port is accessible.
+
+    Args:
+        ip_address (str): The IP address to check
+        port_number (int): The port number to check
+        protocol (str): The protocol (TCP/UDP)
+
+    Returns:
+        bool: True if port is accessible, False otherwise
+    """
+    import socket
+
+    try:
+        if protocol.upper() == 'TCP':
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(2)  # 2 second timeout
+                result = s.connect_ex((ip_address, port_number))
+                return result == 0
+        elif protocol.upper() == 'UDP':
+            # UDP verification is more complex, for now return True
+            # In a real implementation, you might send a UDP packet and wait for response
+            return True
+        else:
+            return False
+    except Exception:
+        return False
+
+def run_port_scan(app_instance, scan_id):
+    """
+    Run a port scan for the given scan ID.
+
+    Args:
+        app_instance: The Flask app instance
+        scan_id (int): The ID of the scan entry.
+    """
+    import socket
+    import subprocess
+    import time
+    import json
+    import logging
+    from datetime import datetime
+    from flask import current_app
+
+    # Set up logging for the thread
+    logger = logging.getLogger(__name__)
+
+    try:
+        with app_instance.app_context():
+            # Update scan status to in_progress
+            scan = PortScan.query.get(scan_id)
+            if not scan:
+                logger.error(f"Scan with ID {scan_id} not found")
+                return
+
+            scan.status = 'in_progress'
+            db.session.commit()
+
+            start_time = time.time()
+            open_ports = []
+
+            # Get scan settings
+            timeout = float(get_setting('scan_timeout', '1000')) / 1000  # Convert ms to seconds
+            max_threads = int(get_setting('scan_threads', '50'))
+
+            # Parse excluded ports
+            excluded_ports = set()
+            if scan.excluded_ports:
+                try:
+                    excluded_ports.update(int(p.strip()) for p in scan.excluded_ports.split(',') if p.strip().isdigit())
+                except:
+                    pass
+
+            # Generate port list
+            port_list = [p for p in range(scan.port_range_start, scan.port_range_end + 1)
+                        if p not in excluded_ports]
+
+            scan.ports_scanned = len(port_list)
+            db.session.commit()
+
+            logger.info(f"Starting port scan for {scan.ip_address}, scanning {len(port_list)} ports")
+
+            # Try to use nmap for faster scanning
+            try:
+                port_range = f"{scan.port_range_start}-{scan.port_range_end}"
+                excluded_str = ','.join(map(str, excluded_ports)) if excluded_ports else ''
+
+                nmap_cmd = ['nmap', '-p', port_range, '-T4', '--open', scan.ip_address]
+                if excluded_str:
+                    nmap_cmd.extend(['--exclude-ports', excluded_str])
+
+                result = subprocess.run(nmap_cmd, capture_output=True, text=True, timeout=300)
+
+                # Parse nmap output
+                for line in result.stdout.splitlines():
+                    if '/tcp' in line and 'open' in line:
+                        parts = line.split()
+                        port_protocol = parts[0].split('/')
+                        port = int(port_protocol[0])
+                        protocol = port_protocol[1].upper()
+                        if scan.scan_type == 'BOTH' or scan.scan_type == protocol:
+                            open_ports.append({'port': port, 'protocol': protocol})
+
+                logger.info(f"Nmap scan completed, found {len(open_ports)} open ports")
+
+            except (subprocess.SubprocessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+                # Fallback to Python socket scanning
+                logger.warning(f"Nmap not available or failed ({str(e)}), falling back to socket scanning")
+
+                import concurrent.futures
+
+                def scan_port(port):
+                    try:
+                        if scan.scan_type in ['TCP', 'BOTH']:
+                            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                                s.settimeout(timeout)
+                                result = s.connect_ex((scan.ip_address, port))
+                                if result == 0:
+                                    return {'port': port, 'protocol': 'TCP'}
+                    except:
+                        pass
+                    return None
+
+                # Use thread pool for concurrent scanning
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+                    futures = [executor.submit(scan_port, port) for port in port_list]
+                    for future in concurrent.futures.as_completed(futures):
+                        result = future.result()
+                        if result:
+                            open_ports.append(result)
+
+                logger.info(f"Socket scan completed, found {len(open_ports)} open ports")
+
+            # Update scan results
+            scan.ports_found = len(open_ports)
+            scan.discovered_ports = json.dumps(open_ports)
+            scan.scan_duration = time.time() - start_time
+            scan.status = 'completed'
+            scan.completed_at = datetime.utcnow()
+            db.session.commit()
+
+            # Auto-add discovered ports if enabled
+            if get_setting('auto_add_discovered', 'false').lower() == 'true':
+                add_discovered_ports_to_database(scan.ip_address, open_ports)
+
+            logger.info(f"Port scan completed for {scan.ip_address}. Found {len(open_ports)} open ports in {scan.scan_duration:.2f} seconds.")
+
+    except Exception as e:
+        logger.error(f"Error during port scan: {str(e)}")
+        try:
+            with app_instance.app_context():
+                scan = PortScan.query.get(scan_id)
+                if scan:
+                    scan.status = 'failed'
+                    scan.completed_at = datetime.utcnow()
+                    db.session.commit()
+        except Exception as commit_error:
+            logger.error(f"Error updating scan status to failed: {str(commit_error)}")
+
+def add_discovered_ports_to_database(ip_address, discovered_ports):
+    """
+    Add discovered ports to the database.
+
+    Args:
+        ip_address (str): The IP address
+        discovered_ports (list): List of discovered port dictionaries
+    """
+    try:
+        added_count = 0
+
+        for port_info in discovered_ports:
+            port_number = port_info['port']
+            protocol = port_info['protocol']
+
+            # Check if port already exists
+            existing_port = Port.query.filter_by(
+                ip_address=ip_address,
+                port_number=port_number,
+                port_protocol=protocol
+            ).first()
+
+            if not existing_port:
+                # Get the max order for this IP
+                max_order = db.session.query(db.func.max(Port.order)).filter_by(
+                    ip_address=ip_address
+                ).scalar() or 0
+
+                # Try to get service name
+                service_name = "Discovered"
+                try:
+                    import socket
+                    service = socket.getservbyport(port_number)
+                    service_name = f"Discovered: {service.capitalize()}"
+                except:
+                    pass
+
+                # Create new port entry
+                new_port = Port(
+                    ip_address=ip_address,
+                    port_number=port_number,
+                    description=service_name,
+                    port_protocol=protocol,
+                    order=max_order + 1,
+                    source='scan'
+                )
+                db.session.add(new_port)
+                added_count += 1
+
+        db.session.commit()
+        app.logger.info(f"Added {added_count} discovered ports to database for {ip_address}")
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding discovered ports to database: {str(e)}")
