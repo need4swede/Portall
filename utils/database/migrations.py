@@ -11,6 +11,7 @@ from alembic.util import CommandError
 # Import the standalone migration scripts
 import migration
 import migration_immutable
+import migration_settings
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -169,6 +170,21 @@ class MigrationManager:
                 logger.error(f"Error during is_immutable column migration: {e}")
         else:
             logger.info("Is_immutable column migration already applied. Skipping.")
+
+        # Run settings migration if not already applied
+        if not self._is_migration_applied("add_required_settings"):
+            logger.info("Running migration to add required settings...")
+            try:
+                success = migration_settings.run_migration()
+                if success:
+                    self._record_migration("add_required_settings")
+                    logger.info("Settings migration completed successfully.")
+                else:
+                    logger.error("Settings migration failed.")
+            except Exception as e:
+                logger.error(f"Error during settings migration: {e}")
+        else:
+            logger.info("Settings migration already applied. Skipping.")
 
     def run_migrations(self):
         """

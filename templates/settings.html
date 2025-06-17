@@ -299,6 +299,15 @@
                     <input type="password" class="form-control" id="portainer-api-key" name="portainer_api_key">
                 </div>
 
+                <!-- SSL Verification -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="portainer-verify-ssl"
+                        name="portainer_verify_ssl" value="true" checked>
+                    <label class="form-check-label" for="portainer-verify-ssl">Verify SSL certificates</label>
+                    <small class="d-block form-text text-muted">Disable this if Portainer uses self-signed
+                        certificates</small>
+                </div>
+
                 <!-- Auto Port Detection -->
                 <div class="mb-3 form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="portainer-auto-detect"
