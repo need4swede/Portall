@@ -3,6 +3,7 @@
 # Standard Imports
 import json                                     # For parsing JSON data
 import re                                       # For regular expressions
+from urllib.parse import urlsplit               # For splitting Caddyfile port
 
 # External Imports
 from flask import Blueprint                     # For creating a blueprint
@@ -115,27 +116,40 @@ def import_caddyfile(content):
         list: A list of dictionaries containing extracted port information
     """
     entries = []
-    lines = content.split('\n')
     current_domain = None
 
-    for line in lines:
-        line = line.strip()
-        if line and not line.startswith('#'):
-            if '{' in line:
-                # Extract domain name
-                current_domain = line.split('{')[0].strip()
-            elif 'reverse_proxy' in line:
-                # Extract IP and port from reverse proxy directive
-                parts = line.split()
-                if len(parts) > 1:
-                    ip_port = parts[-1]
-                    ip, port = ip_port.split(':')
+    for raw in content.splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#'):
+            continue
+
+        if line.endswith('{'):                    # domain block opener
+            current_domain = line.split('{')[0].strip()
+            continue
+
+        if line.startswith('reverse_proxy'):
+            # take everything after the directive, may contain multiple backends
+            backends = line.split(None, 1)[1].split(',')
+            for backend in backends:
+                backend = backend.strip()
+
+                # ensure we always have a scheme so urlsplit works
+                if '://' not in backend:
+                    backend_for_parse = f'//{backend}'
+                else:
+                    backend_for_parse = backend
+
+                parsed = urlsplit(backend_for_parse)
+                ip   = parsed.hostname
+                port = parsed.port or 80           # fall-back when port is omitted
+
+                if ip and port:
                     entries.append({
-                        'ip': ip,
-                        'nickname': None,
-                        'port': int(port),
-                        'description': current_domain,
-                        'port_protocol': 'TCP'  # Assume TCP
+                        'ip'           : ip,
+                        'nickname'     : None,
+                        'port'         : int(port),
+                        'description'  : current_domain,
+                        'port_protocol': 'TCP'
                     })
 
     return entries
