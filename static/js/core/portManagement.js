@@ -3,6 +3,7 @@
 import { showNotification } from '../ui/helpers.js';
 import { editPortModal, addPortModal, deletePortModal } from '../ui/modals.js';
 import { updatePortOrder as updatePortOrderAjax } from '../api/ajax.js';
+import { showLoadingAnimation, hideLoadingAnimation } from '../ui/loadingAnimation.js';
 
 /**
  * The IP address of the port to be deleted.
@@ -51,6 +52,12 @@ let currentSortOrder = null;
  * @type {Array|null}
  */
 let appPresets = null;
+
+/**
+ * Flag to track if a port scan has been completed in the current session
+ * @type {boolean}
+ */
+let scanCompletedInSession = false;
 
 
 /**
@@ -998,6 +1005,9 @@ function initPortScanning() {
 
     // Load default scan settings when modal is shown
     $('#portScanModal').on('shown.bs.modal', loadScanSettings);
+
+    // Handle modal close after scan completion
+    $('#portScanModal').on('hidden.bs.modal', handleScanModalClose);
 }
 
 /**
@@ -1214,6 +1224,9 @@ function updateScanProgress(scanData) {
  */
 function handleScanComplete(scanData) {
     console.log('Scan completed:', scanData);
+
+    // Mark that a scan has been completed in this session
+    scanCompletedInSession = true;
 
     // Update progress to 100%
     $('.progress-bar').css('width', '100%');
@@ -1607,4 +1620,27 @@ function addPortToUI(ipAddress, portData) {
     });
 
     console.log('Added new port to UI:', portData.port_number);
+}
+
+/**
+ * Handle the port scan modal close event.
+ * If a scan was completed in this session, trigger the "Anchors Aweigh" refresh animation.
+ */
+function handleScanModalClose() {
+    console.log('Port scan modal closed. Scan completed in session:', scanCompletedInSession);
+
+    if (scanCompletedInSession) {
+        console.log('Triggering Anchors Aweigh refresh animation...');
+
+        // Show the loading animation
+        showLoadingAnimation();
+
+        // Wait a moment for the animation to be visible, then refresh the page
+        setTimeout(() => {
+            location.reload();
+        }, 1500); // Give time for the animation to be seen
+
+        // Reset the flag
+        scanCompletedInSession = false;
+    }
 }
