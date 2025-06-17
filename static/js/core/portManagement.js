@@ -1219,8 +1219,16 @@ function handleScanComplete(scanData) {
     $('.progress-bar').css('width', '100%');
     $('#scan-status-text').text(`Scan completed! Found ${scanData.ports_found} open ports in ${scanData.scan_duration?.toFixed(2) || 'N/A'} seconds`);
 
-    // Show results
-    displayScanResults(scanData);
+    // Check if auto-add is enabled and refresh the port display if needed
+    checkAutoAddSetting().then(autoAddEnabled => {
+        if (autoAddEnabled && scanData.ports_found > 0) {
+            // Refresh the ports for this IP to show newly added ports
+            refreshPortsForIP(scanData.ip_address);
+        }
+
+        // Show results
+        displayScanResults(scanData);
+    });
 
     // Reset button
     resetScanButton();
@@ -1410,12 +1418,30 @@ function handleAddDiscoveredPort(e) {
         success: function (response) {
             if (response.success) {
                 showNotification(`Port ${port} added successfully`, 'success');
-                button.text('Added').removeClass('btn-primary').addClass('btn-success');
 
-                // Optionally reload the page to show the new port
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
+                // Update the button to show success
+                button.text('Added').removeClass('scan-action-button').addClass('scan-action-success');
+                button.html('<i class="fas fa-check"></i> Added');
+
+                // Add the port to the UI dynamically
+                const portData = {
+                    id: response.id || Date.now(), // Use response ID or fallback
+                    port_number: port,
+                    description: 'Discovered',
+                    protocol: protocol,
+                    order: response.order || 999,
+                    is_immutable: false
+                };
+
+                addPortToUI(ip, portData);
+
+                // Update the scan result card to show it's been added
+                const $scanCard = button.closest('.scan-result-card');
+                $scanCard.removeClass('new-port').addClass('auto-added');
+                $scanCard.find('.status-text').text('Added');
+                $scanCard.find('.status-description').text('Successfully added to your collection');
+                $scanCard.find('.port-status i').removeClass('fa-plus-circle').addClass('fa-check');
+
             } else {
                 showNotification('Error adding port: ' + response.message, 'error');
                 button.prop('disabled', false).text('Add Port');
@@ -1435,4 +1461,150 @@ function handleAddDiscoveredPort(e) {
 function resetScanButton() {
     $('#start-scan-btn').prop('disabled', false).text('Start Scan');
     $('.progress-bar').removeClass('bg-danger').addClass('progress-bar-striped progress-bar-animated');
+}
+
+/**
+ * Refresh the ports display for a specific IP address without refreshing the entire page.
+ * This fetches the latest port data and updates the UI dynamically.
+ */
+function refreshPortsForIP(ipAddress) {
+    console.log('Refreshing ports for IP:', ipAddress);
+
+    // Find the network switch panel for this IP
+    const $networkSwitch = $(`.network-switch[data-ip="${ipAddress}"]`);
+    if ($networkSwitch.length === 0) {
+        console.log('Network switch not found for IP:', ipAddress);
+        return;
+    }
+
+    const $switchPanel = $networkSwitch.find('.switch-panel');
+
+    // Get current ports to compare
+    const currentPorts = new Set();
+    $switchPanel.find('.port').each(function () {
+        const port = $(this).data('port');
+        const protocol = $(this).data('protocol');
+        currentPorts.add(`${port}-${protocol}`);
+    });
+
+    // Fetch updated port data from server
+    $.ajax({
+        url: '/ports',
+        method: 'GET',
+        success: function (html) {
+            // Parse the returned HTML to extract port data for this IP
+            const $tempDiv = $('<div>').html(html);
+            const $updatedNetworkSwitch = $tempDiv.find(`.network-switch[data-ip="${ipAddress}"]`);
+
+            if ($updatedNetworkSwitch.length === 0) {
+                console.log('Updated network switch not found for IP:', ipAddress);
+                return;
+            }
+
+            const $updatedSwitchPanel = $updatedNetworkSwitch.find('.switch-panel');
+            const newPorts = [];
+
+            // Extract new ports
+            $updatedSwitchPanel.find('.port').each(function () {
+                const port = $(this).data('port');
+                const protocol = $(this).data('protocol');
+                const portKey = `${port}-${protocol}`;
+
+                if (!currentPorts.has(portKey)) {
+                    newPorts.push($(this).closest('.port-slot')[0].outerHTML);
+                }
+            });
+
+            // Add new ports to the current panel with animation
+            newPorts.forEach((portHtml, index) => {
+                setTimeout(() => {
+                    const $newPort = $(portHtml);
+                    $newPort.css({
+                        opacity: 0,
+                        transform: 'translateY(20px)'
+                    });
+
+                    // Insert before the add-port-slot
+                    $switchPanel.find('.add-port-slot').before($newPort);
+
+                    // Animate in
+                    $newPort.animate({
+                        opacity: 1
+                    }, 300).css({
+                        transform: 'translateY(0)'
+                    });
+
+                    console.log('Added new port to UI:', $newPort.find('.port').data('port'));
+                }, index * 100); // Stagger the animations
+            });
+
+            if (newPorts.length > 0) {
+                showNotification(`${newPorts.length} new port(s) added automatically`, 'success');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error refreshing ports:', error);
+        }
+    });
+}
+
+/**
+ * Add a new port element to the UI dynamically.
+ * This creates and inserts a new port element with proper styling and event handlers.
+ */
+function addPortToUI(ipAddress, portData) {
+    const $switchPanel = $(`.switch-panel[data-ip="${ipAddress}"]`);
+    if ($switchPanel.length === 0) {
+        console.log('Switch panel not found for IP:', ipAddress);
+        return;
+    }
+
+    // Create the new port element
+    const newPortElement = `
+        <div class="port-slot active" draggable="true" data-port="${portData.port_number}" data-order="${portData.order}">
+            <div class="port active" data-ip="${ipAddress}" data-port="${portData.port_number}"
+                 data-description="${portData.description}" data-order="${portData.order}"
+                 data-id="${portData.id}" data-protocol="${portData.protocol}"
+                 data-immutable="${portData.is_immutable || false}">
+                <span class="port-number">${portData.port_number}</span>
+                <span class="port-description">${portData.description}</span>
+                <div class="port-tooltip">
+                    <div class="tooltip-header">
+                        <span class="tooltip-title">Port ${portData.port_number}</span>
+                        <span class="tooltip-protocol ${portData.protocol.toLowerCase()}">${portData.protocol}</span>
+                    </div>
+                    <div class="tooltip-content">
+                        <div class="tooltip-label">Description</div>
+                        <div class="tooltip-value">${portData.description}</div>
+                        <div class="tooltip-label">IP Address</div>
+                        <div class="tooltip-value">${ipAddress}</div>
+                    </div>
+                    <div class="tooltip-footer">
+                        <span>Click to edit</span>
+                        <span>ID: ${portData.id}</span>
+                    </div>
+                </div>
+            </div>
+            <p class="port-protocol ${portData.protocol.toLowerCase()}">${portData.protocol}</p>
+        </div>
+    `;
+
+    // Insert the new port element with animation
+    const $newPort = $(newPortElement);
+    $newPort.css({
+        opacity: 0,
+        transform: 'translateY(20px)'
+    });
+
+    // Insert before the add-port-slot
+    $switchPanel.find('.add-port-slot').before($newPort);
+
+    // Animate in
+    $newPort.animate({
+        opacity: 1
+    }, 300).css({
+        transform: 'translateY(0)'
+    });
+
+    console.log('Added new port to UI:', portData.port_number);
 }
