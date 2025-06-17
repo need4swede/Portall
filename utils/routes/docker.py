@@ -405,8 +405,8 @@ def import_from_portainer():
                         continue
 
                     host_ip = port_mapping.get('IP', '0.0.0.0')
-                    if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                        # Use the resolved IP address instead of placeholder IPs
+                    if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::' or host_ip == '127.0.0.1':
+                        # Use the resolved IP address instead of placeholder IPs or localhost
                         host_ip = server_ip
 
                     host_port = port_mapping['PublicPort']
@@ -438,11 +438,17 @@ def import_from_portainer():
                             ip_address=host_ip
                         ).scalar() or 0
 
-                        # Create new port entry with server name in description and as nickname
+                        # Generate incremental Portainer Server nickname for the IP
+                        existing_portainer_count = Port.query.filter(
+                            Port.nickname.like('Portainer Server %')
+                        ).distinct(Port.ip_address).count()
+                        ip_nickname = f"Portainer Server {existing_portainer_count + 1}"
+
+                        # Create new port entry with incremental Portainer Server nickname
                         # Set is_immutable to True for Portainer ports
                         new_port = Port(
                             ip_address=host_ip,
-                            nickname=server_name,  # Set the domain name as the nickname
+                            nickname=ip_nickname,  # Use "Portainer Server X" as the nickname
                             port_number=host_port,
                             description=service.name,
                             port_protocol=protocol.upper(),
@@ -1189,8 +1195,8 @@ def start_auto_scan_threads():
                                             continue
 
                                         host_ip = port_mapping.get('IP', '0.0.0.0')
-                                        if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                                            # Use the resolved IP address instead of placeholder IPs
+                                        if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::' or host_ip == '127.0.0.1':
+                                            # Use the resolved IP address instead of placeholder IPs or localhost
                                             host_ip = server_ip
 
                                         host_port = port_mapping['PublicPort']
@@ -1223,11 +1229,17 @@ def start_auto_scan_threads():
                                                 ip_address=host_ip
                                             ).scalar() or 0
 
-                                            # Create new port entry with server name in description and as nickname
+                                            # Generate incremental Portainer Server nickname for the IP
+                                            existing_portainer_count = Port.query.filter(
+                                                Port.nickname.like('Portainer Server %')
+                                            ).distinct(Port.ip_address).count()
+                                            ip_nickname = f"Portainer Server {existing_portainer_count + 1}"
+
+                                            # Create new port entry with incremental Portainer Server nickname
                                             # Set is_immutable to True for Portainer ports
                                             new_port = Port(
                                                 ip_address=host_ip,
-                                                nickname=server_name,  # Set the domain name as the nickname
+                                                nickname=ip_nickname,  # Use "Portainer Server X" as the nickname
                                                 port_number=host_port,
                                                 description=service.name,
                                                 port_protocol=protocol.upper(),
