@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
-# Install netcat for connectivity testing
-RUN apt-get update && apt-get install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
+# Install netcat for connectivity testing and nmap for port scanning
+RUN apt-get update && apt-get install -y netcat-traditional nmap && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and group
 RUN groupadd -r portall && useradd -r -g portall -s /bin/false portall
