@@ -1,3 +1,8 @@
+# <a href="https://github.com/need4swede/portall/releases/tag/v2.0.1" target="_blank">v2.0.1</a>
+## Fixed:
+### Database Permission Issue
+Fixed an issue where Portall was unable to write to the databsase
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v2.0.0" target="_blank">v2.0.0</a>
 ## Added:
 ### Docker Integration
