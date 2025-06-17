@@ -49,22 +49,12 @@ services:
     networks:
       - portall-network
 
-  # Docker Socket Proxy - provides secure read-only access to Docker API
+  # Docker Socket Proxy with automatic GID detection
   socket-proxy:
-    image: 11notes/socket-proxy:stable
+    build:
+      context: .
+      dockerfile: Dockerfile.socket-proxy
     container_name: portall-socket-proxy
-
-    # Platform-specific user configuration for Docker socket access
-    # Uncomment the line that matches your platform:
-
-    user: "0:998"     # Linux (Ubuntu/Debian) - ACTIVE
-    # user: "0:999"   # Linux (CentOS/RHEL/Arch) or Mac/Windows Docker Desktop
-    # user: "0:994"   # Linux (older CentOS/RHEL)
-    # user: "0:992"   # Linux (some RHEL variants)
-
-    # To find your Docker GID on Linux, run: stat -c '%g' /var/run/docker.sock
-    # Mac/Windows Docker Desktop typically use GID 999
-
     environment:
       - ALLOW_RESTARTS=0
       - ALLOW_START=0
@@ -88,54 +78,6 @@ services:
       - SETUID
     networks:
       - portall-network
-
-# Alternative: Using the tecnativa socket proxy (more features but more complex)
-# Uncomment this and comment out the minimal proxy above if preferred
-# socket-proxy-tecnativa:
-#   image: tecnativa/docker-socket-proxy:latest
-#   container_name: portall-socket-proxy-tecnativa
-#   user: "0:${DOCKER_GID:-999}"  # Root user with docker group
-#   environment:
-#     # Enable only the API endpoints we need (read-only)
-#     - CONTAINERS=1
-#     - SERVICES=1
-#     - NETWORKS=1
-#     - INFO=1
-#     - VERSION=1
-#     # Disable write operations
-#     - POST=0
-#     - BUILD=0
-#     - COMMIT=0
-#     - CONFIGS=0
-#     - DISTRIBUTION=0
-#     - EXEC=0
-#     - IMAGES=0
-#     - NODES=0
-#     - PLUGINS=0
-#     - SECRETS=0
-#     - SWARM=0
-#     - SYSTEM=0
-#     - TASKS=0
-#     - VOLUMES=0
-#   volumes:
-#     - /var/run/docker.sock:/var/run/docker.sock:ro
-#   ports:
-#     - "127.0.0.1:2375:2375"
-#   restart: unless-stopped
-#   security_opt:
-#     - no-new-privileges:true
-#   read_only: true
-#   tmpfs:
-#     - /tmp
-#     - /usr/local/etc/haproxy # Allow HAProxy to write config files
-#   cap_drop:
-#     - ALL
-#   cap_add:
-#     - CHOWN
-#     - SETGID
-#     - SETUID
-#   networks:
-#     - portall-network
 
 networks:
   portall-network:

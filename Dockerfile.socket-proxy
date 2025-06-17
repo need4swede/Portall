@@ -1,0 +1,15 @@
+FROM 11notes/socket-proxy:stable
+
+# Install su-exec for user switching (if not already present)
+USER root
+RUN apk add --no-cache su-exec 2>/dev/null || echo "su-exec already available"
+
+# Copy our GID detection script
+COPY docker-gid-detector.sh /usr/local/bin/docker-gid-detector.sh
+RUN chmod +x /usr/local/bin/docker-gid-detector.sh
+
+# Set our script as the entrypoint
+ENTRYPOINT ["/usr/local/bin/docker-gid-detector.sh"]
+
+# Default command (will be passed to our script)
+CMD ["/usr/local/bin/socket-proxy"]
