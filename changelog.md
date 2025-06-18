@@ -1,4 +1,9 @@
 # <a href="https://github.com/need4swede/portall/releases/tag/v2.0.3" target="_blank">v2.0.3</a>
+## Changed
+### Port Scanning UI
+Improved port scanning menu
+
+# <a href="https://github.com/need4swede/portall/releases/tag/v2.0.3" target="_blank">v2.0.3</a>
 ## Added:
 ### Portainer SSL
 Added 'Verify SSL' toggle for portainer
