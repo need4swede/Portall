@@ -304,6 +304,7 @@ class TagManager {
             document.getElementById('rule-description').value = rule.description || '';
             document.getElementById('rule-priority').value = rule.priority;
             document.getElementById('rule-enabled').checked = rule.enabled;
+            document.getElementById('rule-auto-execute').checked = rule.auto_execute;
             this.loadRuleConditions(rule.conditions);
             this.loadRuleActions(rule.actions);
         } else {
@@ -607,6 +608,7 @@ class TagManager {
         const description = document.getElementById('rule-description').value.trim();
         const priority = parseInt(document.getElementById('rule-priority').value);
         const enabled = document.getElementById('rule-enabled').checked;
+        const autoExecute = document.getElementById('rule-auto-execute').checked;
 
         if (!name) {
             this.showNotification('Rule name is required', 'error');
@@ -692,7 +694,7 @@ class TagManager {
             return;
         }
 
-        const data = { name, description, priority, enabled, conditions, actions };
+        const data = { name, description, priority, enabled, auto_execute: autoExecute, conditions, actions };
         const url = ruleId ? `/api/tagging-rules/${ruleId}` : '/api/tagging-rules';
         const method = ruleId ? 'PUT' : 'POST';
 

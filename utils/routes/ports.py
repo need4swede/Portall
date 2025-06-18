@@ -16,6 +16,7 @@ from sqlalchemy import func                     # For using SQL functions
 
 # Local Imports
 from utils.database import db, Port, Setting, PortScan, PortScanSchedule    # For accessing the database models
+from utils.tagging_engine import tagging_engine  # For automatic rule execution
 
 # Create the blueprint
 ports_bp = Blueprint('ports', __name__)
@@ -359,6 +360,12 @@ def add_port():
         db.session.add(port)
         db.session.commit()
 
+        # Apply automatic tagging rules to the new port
+        try:
+            tagging_engine.apply_automatic_rules_to_port(port)
+        except Exception as e:
+            app.logger.error(f"Error applying automatic tagging rules to new port {port.id}: {str(e)}")
+
         app.logger.info(f"Added new port {port_number} for IP: {ip_address} with order {port.order}")
         return jsonify({'success': True, 'message': 'Port added successfully', 'order': port.order})
     except Exception as e:
@@ -415,6 +422,13 @@ def edit_port():
             port_entry.description = description
             port_entry.port_protocol = protocol
             db.session.commit()
+
+            # Apply automatic tagging rules to the modified port
+            try:
+                tagging_engine.apply_automatic_rules_to_port(port_entry)
+            except Exception as e:
+                app.logger.error(f"Error applying automatic tagging rules to modified port {port_entry.id}: {str(e)}")
+
             return jsonify({'success': True, 'message': 'Port updated successfully'})
     except Exception as e:
         db.session.rollback()
@@ -589,6 +603,13 @@ def generate_port():
                     port_protocol=protocol, order=last_port_position + 1, source='manual')
         db.session.add(port)
         db.session.commit()
+
+        # Apply automatic tagging rules to the new port
+        try:
+            tagging_engine.apply_automatic_rules_to_port(port)
+        except Exception as e:
+            app.logger.error(f"Error applying automatic tagging rules to generated port {port.id}: {str(e)}")
+
         app.logger.info(f"Generated new port {new_port} for IP: {ip_address}")
     except Exception as e:
         db.session.rollback()
@@ -808,6 +829,12 @@ def add_ip():
 
         db.session.add(port)
         db.session.commit()
+
+        # Apply automatic tagging rules to the new port
+        try:
+            tagging_engine.apply_automatic_rules_to_port(port)
+        except Exception as e:
+            app.logger.error(f"Error applying automatic tagging rules to new IP port {port.id}: {str(e)}")
 
         app.logger.info(f"Added new IP {ip_address} with port {port_number}")
         return jsonify({'success': True, 'message': 'IP added successfully with default port'})
@@ -1312,6 +1339,17 @@ def add_discovered_ports_to_database(ip_address, discovered_ports):
                 added_count += 1
 
         db.session.commit()
+
+        # Apply automatic tagging rules to all newly discovered ports
+        if added_count > 0:
+            try:
+                new_ports = Port.query.filter_by(ip_address=ip_address, source='scan').all()
+                for port in new_ports:
+                    tagging_engine.apply_automatic_rules_to_port(port, commit=False)
+                db.session.commit()
+            except Exception as e:
+                app.logger.error(f"Error applying automatic tagging rules to discovered ports: {str(e)}")
+
         app.logger.info(f"Added {added_count} discovered ports to database for {ip_address}")
 
     except Exception as e:

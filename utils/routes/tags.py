@@ -356,6 +356,7 @@ def get_tagging_rules():
                 'name': rule.name,
                 'description': rule.description,
                 'enabled': rule.enabled,
+                'auto_execute': rule.auto_execute,
                 'priority': rule.priority,
                 'conditions': json.loads(rule.conditions),
                 'actions': json.loads(rule.actions),
@@ -380,6 +381,7 @@ def create_tagging_rule():
         name = data.get('name', '').strip()
         description = data.get('description', '').strip()
         enabled = data.get('enabled', True)
+        auto_execute = data.get('auto_execute', False)
         priority = data.get('priority', 0)
         conditions = data.get('conditions', {})
         actions = data.get('actions', [])
@@ -405,6 +407,7 @@ def create_tagging_rule():
             name=name,
             description=description if description else None,
             enabled=enabled,
+            auto_execute=auto_execute,
             priority=priority,
             conditions=conditions_json,
             actions=actions_json
@@ -447,6 +450,7 @@ def update_tagging_rule(rule_id):
         name = data.get('name', '').strip()
         description = data.get('description', '').strip()
         enabled = data.get('enabled')
+        auto_execute = data.get('auto_execute')
         priority = data.get('priority')
         conditions = data.get('conditions')
         actions = data.get('actions')
@@ -457,6 +461,8 @@ def update_tagging_rule(rule_id):
             rule.description = description if description else None
         if enabled is not None:
             rule.enabled = enabled
+        if auto_execute is not None:
+            rule.auto_execute = auto_execute
         if priority is not None:
             rule.priority = priority
         if conditions is not None:

@@ -45,6 +45,7 @@ class TaggingRule(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(500), nullable=True)
     enabled = db.Column(db.Boolean, default=True, nullable=False)
+    auto_execute = db.Column(db.Boolean, default=False, nullable=False)  # Whether to execute automatically
     priority = db.Column(db.Integer, default=0, nullable=False)  # Higher number = higher priority
 
     # Rule conditions stored as JSON

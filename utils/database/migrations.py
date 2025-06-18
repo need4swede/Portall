@@ -13,6 +13,7 @@ import migration
 import migration_immutable
 import migration_settings
 import migration_tags
+import migration_auto_execute
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -201,6 +202,21 @@ class MigrationManager:
                 logger.error(f"Error during tagging system migration: {e}")
         else:
             logger.info("Tagging system migration already applied. Skipping.")
+
+        # Run auto-execute migration if not already applied
+        if not self._is_migration_applied("add_auto_execute_column"):
+            logger.info("Running migration to add auto_execute column...")
+            try:
+                success = migration_auto_execute.run_migration()
+                if success:
+                    self._record_migration("add_auto_execute_column")
+                    logger.info("Auto-execute column migration completed successfully.")
+                else:
+                    logger.error("Auto-execute column migration failed.")
+            except Exception as e:
+                logger.error(f"Error during auto-execute column migration: {e}")
+        else:
+            logger.info("Auto-execute column migration already applied. Skipping.")
 
     def run_migrations(self):
         """
