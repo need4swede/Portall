@@ -12,7 +12,7 @@ let deleteIpAddress;
  * and modal event listeners for delete IP modal.
  */
 export function init() {
-    $('.edit-ip').click(handleEditIpClick);
+    $(document).on('click', '.edit-ip', handleEditIpClick);
     $('#save-ip').click(handleSaveIpClick);
     $('#delete-ip').click(handleDeleteIpClick);
     $('#confirm-delete-ip').click(handleConfirmDeleteIpClick);

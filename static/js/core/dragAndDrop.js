@@ -126,11 +126,12 @@ let conflictingPortData = null;
 
 /**
  * Initialize drag-and-drop event handlers.
- * Sets up event listeners for port slots and network switches.
+ * Sets up event listeners for port slots and network switches using event delegation.
+ * This ensures that dynamically added elements will automatically have event handlers.
  */
 export function init() {
-    $('.port-slot:not(.add-port-slot)').on('mousedown', handleMouseDown);
-    $('.network-switch').on('mousedown', handleNetworkSwitchMouseDown);
+    $(document).on('mousedown', '.port-slot:not(.add-port-slot)', handleMouseDown);
+    $(document).on('mousedown', '.network-switch', handleNetworkSwitchMouseDown);
     $('body').on('drop', handleBodyDrop);
 }
 

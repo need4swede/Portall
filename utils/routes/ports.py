@@ -367,7 +367,7 @@ def add_port():
             app.logger.error(f"Error applying automatic tagging rules to new port {port.id}: {str(e)}")
 
         app.logger.info(f"Added new port {port_number} for IP: {ip_address} with order {port.order}")
-        return jsonify({'success': True, 'message': 'Port added successfully', 'order': port.order})
+        return jsonify({'success': True, 'message': 'Port added successfully', 'order': port.order, 'id': port.id})
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error adding new port: {str(e)}")

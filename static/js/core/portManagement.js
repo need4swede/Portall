@@ -67,7 +67,7 @@ let scanCompletedInSession = false;
 export function init() {
     handlePortNumberInput(true);  // For edit
     handlePortNumberInput(false); // For add
-    $('.add-port').click(handleAddPortClick);
+    $(document).on('click', '.add-port', handleAddPortClick);
     $('#save-port').click(handleSavePortClick);
     $('#save-new-port').click(handleSaveNewPortClick);
     $('#generate-port').click(handleGeneratePortClick);
@@ -542,6 +542,11 @@ function handleSaveNewPortClick() {
             if (response.success) {
                 showNotification('Port added successfully', 'success');
 
+                // Get the IP nickname for the tooltip
+                const $networkSwitch = $(`.network-switch[data-ip="${ip}"]`);
+                const ipNickname = $networkSwitch.find('.switch-label .text-secondary').text().replace(/[()]/g, '').trim();
+                const ipDisplayText = ipNickname ? `${ip} (${ipNickname})` : ip;
+
                 // Create the new port element with enhanced tooltip
                 const newPortElement = `
                 <div class="port-slot active" draggable="true" data-port="${portNumber}" data-order="${response.order}">
@@ -559,7 +564,15 @@ function handleSaveNewPortClick() {
                                 <div class="tooltip-value">${description}</div>
 
                                 <div class="tooltip-label">IP Address</div>
-                                <div class="tooltip-value">${ip}</div>
+                                <div class="tooltip-value">${ipDisplayText}</div>
+
+                                <div class="tooltip-label">Tags</div>
+                                <div class="tooltip-value">
+                                    <div class="port-tags" data-port-id="${response.id}">
+                                        <!-- Tags will be loaded dynamically -->
+                                        <span class="text-muted">Loading tags...</span>
+                                    </div>
+                                </div>
                             </div>
                             <div class="tooltip-footer">
                                 <span>Click to edit</span>
@@ -572,7 +585,19 @@ function handleSaveNewPortClick() {
                 `;
 
                 // Insert the new port element before the add-port-slot
-                $(`.switch-panel[data-ip="${ip}"] .add-port-slot`).before(newPortElement);
+                const $newPortElement = $(newPortElement);
+                $(`.switch-panel[data-ip="${ip}"] .add-port-slot`).before($newPortElement);
+
+                // Ensure the new element has proper data attributes for drag and drop
+                $newPortElement.attr('draggable', 'true');
+                $newPortElement.addClass('active');
+
+                // Load tags for the newly created port
+                const portTagsContainer = $newPortElement.find('.port-tags')[0];
+                if (portTagsContainer) {
+                    // Call the loadTagsForNewPort function directly
+                    loadTagsForNewPort(response.id, portTagsContainer);
+                }
 
                 // Optionally, update the order of other ports if necessary
                 updatePortOrder(ip);
@@ -1620,6 +1645,37 @@ function addPortToUI(ipAddress, portData) {
     });
 
     console.log('Added new port to UI:', portData.port_number);
+}
+
+/**
+ * Fallback function to load tags for a newly created port
+ * This is used when the main loadPortTags function is not available
+ */
+function loadTagsForNewPort(portId, container) {
+    if (!container) return;
+
+    fetch(`/api/ports/${portId}/tags`)
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Failed to load tags');
+            }
+        })
+        .then(tags => {
+            if (tags.length === 0) {
+                container.innerHTML = '<span class="text-muted">No tags</span>';
+            } else {
+                const tagElements = tags.map(tag =>
+                    `<span class="tag-badge" style="background-color: ${tag.color}">${tag.name}</span>`
+                ).join('');
+                container.innerHTML = tagElements;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading port tags:', error);
+            container.innerHTML = '<span class="text-muted">Error loading tags</span>';
+        });
 }
 
 /**
