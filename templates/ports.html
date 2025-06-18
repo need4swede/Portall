@@ -51,6 +51,14 @@
 
                         <div class="tooltip-label">IP Address</div>
                         <div class="tooltip-value">{{ ip }}{% if data.nickname %} ({{ data.nickname }}){% endif %}</div>
+
+                        <div class="tooltip-label">Tags</div>
+                        <div class="tooltip-value">
+                            <div class="port-tags" data-port-id="{{ port.id }}">
+                                <!-- Tags will be loaded dynamically -->
+                                <span class="text-muted">Loading tags...</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="tooltip-footer">
                         <span>Click to edit</span>
@@ -324,6 +332,53 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="confirmPortChange">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Port Tag Management Modal -->
+<div class="modal fade" id="portTagModal" tabindex="-1" aria-labelledby="portTagModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="portTagModalLabel">Manage Tags for Port <span
+                        id="port-tag-port-info"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="port-tag-port-id">
+
+                <div class="mb-3">
+                    <label class="form-label">Current Tags</label>
+                    <div id="current-port-tags" class="border rounded p-2 bg-light min-height-50">
+                        <!-- Current tags will be displayed here -->
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Add Tags</label>
+                    <select id="available-tags" class="form-select" multiple size="5">
+                        <!-- Available tags will be loaded here -->
+                    </select>
+                    <div class="form-text">Hold Ctrl/Cmd to select multiple tags</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Quick Add New Tag</label>
+                    <div class="input-group">
+                        <input type="text" id="quick-tag-name" class="form-control" placeholder="Tag name">
+                        <input type="color" id="quick-tag-color" class="form-control form-control-color" value="#007bff"
+                            title="Tag color">
+                        <button type="button" id="quick-add-tag-btn" class="btn btn-outline-success">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-port-tags-btn">Save Tags</button>
             </div>
         </div>
     </div>

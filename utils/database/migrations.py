@@ -12,6 +12,7 @@ from alembic.util import CommandError
 import migration
 import migration_immutable
 import migration_settings
+import migration_tags
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -185,6 +186,21 @@ class MigrationManager:
                 logger.error(f"Error during settings migration: {e}")
         else:
             logger.info("Settings migration already applied. Skipping.")
+
+        # Run tagging system migration if not already applied
+        if not self._is_migration_applied("add_tagging_system"):
+            logger.info("Running migration to add tagging system...")
+            try:
+                success = migration_tags.run_migration()
+                if success:
+                    self._record_migration("add_tagging_system")
+                    logger.info("Tagging system migration completed successfully.")
+                else:
+                    logger.error("Tagging system migration failed.")
+            except Exception as e:
+                logger.error(f"Error during tagging system migration: {e}")
+        else:
+            logger.info("Tagging system migration already applied. Skipping.")
 
     def run_migrations(self):
         """

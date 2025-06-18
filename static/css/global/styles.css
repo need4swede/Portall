@@ -176,6 +176,18 @@ h1 {
     color: white;
 }
 
+[data-theme="dark"] .nav-tabs .nav-item.show .nav-link,
+.nav-tabs .nav-link.active {
+    color: #fff;
+    background-color: #2c2c2c;
+    border-color: var(--bs-nav-tabs-link-active-border-color);
+    border: none;
+    border-bottom-width: medium;
+    border-bottom-style: none;
+    border-bottom-color: currentcolor;
+    border-bottom: 1px;
+}
+
 /* Glass Card Effect */
 .glass-card {
     background-color: var(--bg-card);
@@ -1626,5 +1638,184 @@ h1 {
     .scan-action-button {
         width: 100%;
         justify-content: center;
+    }
+}
+
+/* Tag System Styles */
+.tag-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    margin: 0.125rem;
+    border-radius: 0.375rem;
+    color: white;
+    font-size: 0.875rem;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all var(--transition-fast) var(--ease-out);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tag-badge:hover {
+    opacity: 0.8;
+    color: white;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.port-tags {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.port-tags .tag-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.4rem;
+}
+
+.min-height-50 {
+    min-height: 50px;
+}
+
+.tag-item {
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    background: var(--bg-card);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.tag-item:hover {
+    background: var(--bg-sidebar);
+    transform: translateY(-1px);
+    box-shadow: var(--button-shadow);
+}
+
+/* Dark mode adjustments for tag items */
+[data-theme="dark"] .tag-item {
+    background: var(--bg-card);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .tag-item:hover {
+    background: var(--bg-sidebar);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.rule-item {
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    background: var(--bg-card);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.rule-item:hover {
+    background: var(--bg-sidebar);
+    transform: translateY(-1px);
+    box-shadow: var(--button-shadow);
+}
+
+.rule-item.disabled {
+    opacity: 0.6;
+    background: var(--bg-sidebar);
+}
+
+.condition-item,
+.action-item {
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--bg-sidebar);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.condition-item:hover,
+.action-item:hover {
+    background: var(--bg-card);
+    box-shadow: var(--button-shadow);
+}
+
+[data-theme="dark"] .condition-item .card,
+[data-theme="dark"] .action-item .card {
+    border: none;
+    background: #2c2c2c;
+    transition: all 0.15s ease-in-out;
+}
+
+.port-item {
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--bg-card);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.port-item:hover {
+    background: var(--bg-sidebar);
+    transform: translateY(-1px);
+    box-shadow: var(--button-shadow);
+}
+
+.usage-badge {
+    background-color: var(--text-secondary);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Tag management modal styles */
+#current-port-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+#current-port-tags:empty::after {
+    content: "No tags assigned";
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.tag-remove-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.7rem;
+    margin-left: 0.25rem;
+    cursor: pointer;
+    transition: color var(--transition-fast) var(--ease-out);
+}
+
+.tag-remove-btn:hover {
+    color: white;
+}
+
+/* Tag statistics styles */
+.tag-stats .h4 {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive tag styles */
+@media (max-width: 768px) {
+    .tag-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .port-tags .tag-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.3rem;
     }
 }

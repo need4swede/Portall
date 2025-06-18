@@ -25,6 +25,12 @@
                 role="tab" aria-controls="docker" aria-selected="false">Docker</button>
         </li>
 
+        <!-- Tagging -->
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tagging-tab" data-bs-toggle="tab" data-bs-target="#tagging" type="button"
+                role="tab" aria-controls="tagging" aria-selected="false">Tagging</button>
+        </li>
+
         <!-- Appearance -->
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="appearance-tab" data-bs-toggle="tab" data-bs-target="#appearance" type="button"
@@ -228,6 +234,154 @@
                     <button type="submit" class="btn btn-primary">Save Port Scanning Settings</button>
                 </div>
 
+            </form>
+        </div>
+
+        <!-- Tagging Settings -->
+        <div class="tab-pane fade" id="tagging" role="tabpanel" aria-labelledby="tagging-tab">
+            <h2>Tagging System Settings</h2>
+
+            <!-- Auto-Tagging Settings -->
+            <form id="auto-tagging-settings-form" class="glass-card mb-4">
+                <h3>Automated Tagging</h3>
+
+                <!-- Enable Auto-Tagging -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-tagging-enabled"
+                        name="auto_tagging_enabled" value="true">
+                    <label class="form-check-label" for="auto-tagging-enabled">Enable Automated Tagging</label>
+                    <small class="d-block form-text text-muted">Automatically apply tags to ports based on configured
+                        rules</small>
+                </div>
+
+                <!-- Auto-Tag New Ports -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-tag-new-ports" name="auto_tag_new_ports"
+                        value="true">
+                    <label class="form-check-label" for="auto-tag-new-ports">Auto-tag new ports</label>
+                    <small class="d-block form-text text-muted">Apply tagging rules to newly added ports
+                        automatically</small>
+                </div>
+
+                <!-- Auto-Tag Imported Ports -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-tag-imported-ports"
+                        name="auto_tag_imported_ports" value="true">
+                    <label class="form-check-label" for="auto-tag-imported-ports">Auto-tag imported ports</label>
+                    <small class="d-block form-text text-muted">Apply tagging rules to ports imported from Docker,
+                        Portainer, etc.</small>
+                </div>
+
+                <!-- Rule Execution Frequency -->
+                <div class="mb-3">
+                    <label for="rule-execution-frequency" class="form-label">Rule Execution Frequency</label>
+                    <select class="form-select" id="rule-execution-frequency" name="rule_execution_frequency">
+                        <option value="manual">Manual Only</option>
+                        <option value="hourly">Every Hour</option>
+                        <option value="daily" selected>Daily</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                    <small class="form-text text-muted">How often to automatically run all enabled tagging rules</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Auto-Tagging Settings</button>
+                <button type="button" id="run-all-rules-btn" class="btn btn-secondary">Run All Rules Now</button>
+            </form>
+
+            <!-- Tag Display Settings -->
+            <form id="tag-display-settings-form" class="glass-card mb-4">
+                <h3>Tag Display</h3>
+
+                <!-- Show Tags in Tooltips -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="show-tags-in-tooltips"
+                        name="show_tags_in_tooltips" value="true" checked>
+                    <label class="form-check-label" for="show-tags-in-tooltips">Show tags in port tooltips</label>
+                </div>
+
+                <!-- Show Tags on Port Cards -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="show-tags-on-cards" name="show_tags_on_cards"
+                        value="true">
+                    <label class="form-check-label" for="show-tags-on-cards">Show tags on port cards</label>
+                    <small class="d-block form-text text-muted">Display tag badges directly on port cards (may affect
+                        layout)</small>
+                </div>
+
+                <!-- Max Tags to Display -->
+                <div class="mb-3">
+                    <label for="max-tags-display" class="form-label">Maximum tags to display per port</label>
+                    <input type="number" class="form-control" id="max-tags-display" name="max_tags_display" min="1"
+                        max="10" value="5">
+                    <small class="form-text text-muted">Show "+" indicator when more tags exist</small>
+                </div>
+
+                <!-- Tag Badge Style -->
+                <div class="mb-3">
+                    <label class="form-label">Tag Badge Style</label>
+                    <div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tag_badge_style" id="badge-style-rounded"
+                                value="rounded" checked>
+                            <label class="form-check-label" for="badge-style-rounded">
+                                Rounded <span class="badge rounded-pill bg-primary">Example</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tag_badge_style" id="badge-style-square"
+                                value="square">
+                            <label class="form-check-label" for="badge-style-square">
+                                Square <span class="badge bg-primary">Example</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Display Settings</button>
+            </form>
+
+            <!-- Tag Management Settings -->
+            <form id="tag-management-settings-form" class="glass-card">
+                <h3>Tag Management</h3>
+
+                <!-- Allow Duplicate Tag Names -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="allow-duplicate-tag-names"
+                        name="allow_duplicate_tag_names" value="true">
+                    <label class="form-check-label" for="allow-duplicate-tag-names">Allow duplicate tag names</label>
+                    <small class="d-block form-text text-muted">When disabled, tag names must be unique
+                        (recommended)</small>
+                </div>
+
+                <!-- Auto-Generate Tag Colors -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-generate-colors"
+                        name="auto_generate_colors" value="true" checked>
+                    <label class="form-check-label" for="auto-generate-colors">Auto-generate tag colors</label>
+                    <small class="d-block form-text text-muted">Automatically assign colors to new tags for better
+                        visual distinction</small>
+                </div>
+
+                <!-- Default Tag Color -->
+                <div class="mb-3">
+                    <label for="default-tag-color" class="form-label">Default tag color</label>
+                    <input type="color" class="form-control form-control-color" id="default-tag-color"
+                        name="default_tag_color" value="#007bff">
+                </div>
+
+                <!-- Tag Cleanup -->
+                <div class="mb-3">
+                    <label class="form-label">Tag Cleanup</label>
+                    <div>
+                        <button type="button" id="cleanup-unused-tags-btn" class="btn btn-outline-warning">
+                            <i class="fas fa-broom"></i> Remove Unused Tags
+                        </button>
+                        <small class="d-block form-text text-muted mt-1">Remove tags that are not assigned to any
+                            ports</small>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Management Settings</button>
             </form>
         </div>
 
