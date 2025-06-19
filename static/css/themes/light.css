@@ -100,19 +100,23 @@ body {
 }
 
 .navbar .nav-link {
-    color: var(--text-color-primary);
+    color: var(--text-color-secondary);
     border-radius: 8px;
     transition: all var(--transition-fast) var(--ease-out);
+    font-weight: 500;
 }
 
 .navbar .nav-link:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 102, 204, 0.1);
     color: var(--accent-color);
+    transform: translateY(-1px);
 }
 
 .navbar .nav-link.active {
-    background-color: var(--accent-color);
+    background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
     color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
 }
 
 /* Glass Card Effect */

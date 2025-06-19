@@ -157,37 +157,81 @@ h1 {
 }
 
 .navbar .nav-link {
-    color: var(--text-primary);
+    color: var(--text-secondary);
     padding: 8px 16px;
     margin: 0 5px;
     border-radius: 8px;
     transition: all var(--transition-fast) var(--ease-out);
+    font-weight: 500;
 }
 
 .navbar .nav-link:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: var(--accent-color);
+    background-color: rgba(0, 102, 204, 0.1);
+    transform: translateY(-1px);
 }
 
 [data-theme="dark"] .navbar .nav-link:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(10, 132, 255, 0.15);
 }
 
 .navbar .nav-link.active {
-    background-color: var(--accent-color);
+    background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
     color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
+}
+
+[data-theme="dark"] .navbar .nav-link.active {
+    box-shadow: 0 2px 8px rgba(10, 132, 255, 0.4);
+}
+
+/* Bootstrap Nav Tabs Styling */
+.nav-tabs {
+    border-bottom: 2px solid var(--border-color);
+}
+
+.nav-tabs .nav-link {
+    color: var(--text-secondary);
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px 8px 0 0;
+    padding: 12px 20px;
+    margin-right: 5px;
+    font-weight: 500;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.nav-tabs .nav-link:hover {
+    background-color: rgba(0, 102, 204, 0.1);
+    border-color: transparent;
+    transform: translateY(-1px);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link:hover {
+    background-color: rgba(10, 132, 255, 0.15);
 }
 
 .nav-tabs .nav-item.show .nav-link,
 .nav-tabs .nav-link.active {
-    color: #fff;
-    background-color: var(--nav-link-active-bg);
-    border-color: var(--bs-nav-tabs-link-active-border-color);
-    border: none;
-    border-bottom-width: medium;
-    border-bottom-style: none;
-    border-bottom-color: currentcolor;
-    border-bottom: 1px;
+    color: white;
+    background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
+    border-color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link.active {
+    box-shadow: 0 2px 8px rgba(10, 132, 255, 0.4);
+}
+
+.nav-tabs .nav-link:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.25);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link:focus {
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
 }
 
 /* Glass Card Effect */
