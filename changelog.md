@@ -7,6 +7,13 @@ Added a new tagging system, with customizable rules, configurable templates, and
 ### Port Scanning UI
 Improved port scanning menu
 
+## Fixed
+### Port Conflict Movement
+Dismissing a port conflict now properly moves the migrating port back to its source IP.
+
+### Docker Removing Ports
+Fixed an issue where docker would remove new ports on different hosts if those port numbers were also imported from Docker.
+
 # <a href="https://github.com/need4swede/portall/releases/tag/v2.0.3" target="_blank">v2.0.3</a>
 ## Added:
 ### Portainer SSL

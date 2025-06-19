@@ -1361,14 +1361,14 @@ $('#portConflictModal').on('hidden.bs.modal', function () {
     if (conflictingPortData) {
         console.log('[DragDrop Debug] Port conflict modal dismissed without resolution - reverting drag operation');
 
-        // Call cancelDrop to revert the visual changes
-        cancelDrop();
+        // For consistency with the Cancel button behavior, reload the page
+        // This ensures the visual state always matches the backend state
+        location.reload();
 
         // Clear the conflicting port data
         conflictingPortData = null;
     }
 });
-
 /**
  * Event handler for changing port during conflict resolution.
  * Determines if the migrating or existing port is being changed,
