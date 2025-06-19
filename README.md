@@ -40,7 +40,7 @@ docker-compose -f docker-compose.pull.yml up -d
 <img src="demo/img/ports.png" width="900">
 
 **Easy Port Management**
-   - Easily add, remove and assign ports to different hosts, with over <a href="https://github.com/need4swede/Portall/resource/apps.json">360 pre-defined services</a> to choose from.
+   - Easily add, remove and assign ports to different hosts, with over <a href="https://github.com/need4swede/Portall/blob/main/resource/apps.json">360 pre-defined services</a> to choose from.
 
 **Port Number Generation**
    - Quickly generate unique port numbers to host your applications.
