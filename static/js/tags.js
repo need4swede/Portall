@@ -5,6 +5,8 @@ class TagManager {
         this.tags = [];
         this.rules = [];
         this.selectedPorts = [];
+        this.selectedTags = [];
+        this.selectedRules = [];
         this.init();
     }
 
@@ -38,6 +40,14 @@ class TagManager {
 
         // Bulk operations
         document.getElementById('execute-bulk-btn').addEventListener('click', () => this.executeBulkOperation());
+
+        // Tag selection
+        document.getElementById('select-all-tags').addEventListener('change', (e) => this.toggleSelectAllTags(e.target.checked));
+        document.getElementById('delete-selected-tags-btn').addEventListener('click', () => this.deleteSelectedTags());
+
+        // Rule selection
+        document.getElementById('select-all-rules').addEventListener('change', (e) => this.toggleSelectAllRules(e.target.checked));
+        document.getElementById('delete-selected-rules-btn').addEventListener('click', () => this.deleteSelectedRules());
 
         // Template management
         document.getElementById('template-category-filter').addEventListener('change', (e) => this.filterTemplates(e.target.value));
@@ -110,20 +120,27 @@ class TagManager {
 
         if (tagsToRender.length === 0) {
             container.innerHTML = '<p class="text-muted">No tags found.</p>';
+            this.updateTagSelectionUI();
             return;
         }
 
         container.innerHTML = tagsToRender.map(tag => `
             <div class="tag-item" data-tag-id="${tag.id}">
                 <div class="d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <div class="d-flex align-items-center mb-2">
-                            <span class="tag-badge" style="background-color: ${tag.color}">
-                                ${tag.name}
-                            </span>
-                            <span class="usage-badge ms-2">${tag.usage_count} ports</span>
+                    <div class="d-flex align-items-start">
+                        <div class="form-check me-3 mt-1">
+                            <input class="form-check-input tag-checkbox" type="checkbox" value="${tag.id}"
+                                   onchange="tagManager.onTagSelectionChange()">
                         </div>
-                        ${tag.description ? `<p class="text-muted mb-0">${tag.description}</p>` : ''}
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="tag-badge" style="background-color: ${tag.color}">
+                                    ${tag.name}
+                                </span>
+                                <span class="usage-badge ms-2">${tag.usage_count} ports</span>
+                            </div>
+                            ${tag.description ? `<p class="text-muted mb-0">${tag.description}</p>` : ''}
+                        </div>
                     </div>
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-primary" onclick="tagManager.editTag(${tag.id})">
@@ -136,6 +153,8 @@ class TagManager {
                 </div>
             </div>
         `).join('');
+
+        this.updateTagSelectionUI();
     }
 
     updateTagStats() {
@@ -297,6 +316,7 @@ class TagManager {
 
         if (this.rules.length === 0) {
             container.innerHTML = '<p class="text-muted">No tagging rules found.</p>';
+            this.updateRuleSelectionUI();
             return;
         }
 
@@ -330,24 +350,30 @@ class TagManager {
             return `
                 <div class="rule-item ${!rule.enabled ? 'disabled' : ''}" data-rule-id="${rule.id}">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center mb-2">
-                                <h6 class="mb-0 me-2">${rule.name}</h6>
-                                <span class="badge ${rule.enabled ? 'bg-success' : 'bg-secondary'} me-1">
-                                    ${rule.enabled ? 'Enabled' : 'Disabled'}
-                                </span>
-                                <span class="badge ${rule.auto_execute ? 'bg-primary' : 'bg-outline-secondary'} me-1">
-                                    ${rule.auto_execute ? '✅ Auto-execute: ON' : '❌ Auto-execute: OFF'}
-                                </span>
-                                <span class="badge bg-info me-1">Priority: ${rule.priority}</span>
+                        <div class="d-flex align-items-start">
+                            <div class="form-check me-3 mt-1">
+                                <input class="form-check-input rule-checkbox" type="checkbox" value="${rule.id}"
+                                       onchange="tagManager.onRuleSelectionChange()">
                             </div>
-                            <div class="small text-muted mb-2">
-                                Match ${conditionLogic} • ${conditionCount} condition${conditionCount !== 1 ? 's' : ''} • ${actionCount} action${actionCount !== 1 ? 's' : ''}
-                            </div>
-                            ${rule.description ? `<p class="text-muted mb-2">${rule.description}</p>` : ''}
-                            <div class="small text-muted">
-                                Executed ${rule.execution_count} times • ${rule.ports_affected} ports affected
-                                ${rule.last_executed ? `<br>Last run: ${new Date(rule.last_executed).toLocaleString()}` : ''}
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <h6 class="mb-0 me-2">${rule.name}</h6>
+                                    <span class="badge ${rule.enabled ? 'bg-success' : 'bg-secondary'} me-1">
+                                        ${rule.enabled ? 'Enabled' : 'Disabled'}
+                                    </span>
+                                    <span class="badge ${rule.auto_execute ? 'bg-primary' : 'bg-outline-secondary'} me-1">
+                                        ${rule.auto_execute ? '✅ Auto-execute: ON' : '❌ Auto-execute: OFF'}
+                                    </span>
+                                    <span class="badge bg-info me-1">Priority: ${rule.priority}</span>
+                                </div>
+                                <div class="small text-muted mb-2">
+                                    Match ${conditionLogic} • ${conditionCount} condition${conditionCount !== 1 ? 's' : ''} • ${actionCount} action${actionCount !== 1 ? 's' : ''}
+                                </div>
+                                ${rule.description ? `<p class="text-muted mb-2">${rule.description}</p>` : ''}
+                                <div class="small text-muted">
+                                    Executed ${rule.execution_count} times • ${rule.ports_affected} ports affected
+                                    ${rule.last_executed ? `<br>Last run: ${new Date(rule.last_executed).toLocaleString()}` : ''}
+                                </div>
                             </div>
                         </div>
                         <div class="btn-group btn-group-sm">
@@ -365,6 +391,8 @@ class TagManager {
                 </div>
             `;
         }).join('');
+
+        this.updateRuleSelectionUI();
     }
 
     showRuleModal(rule = null) {
@@ -1636,6 +1664,175 @@ class TagManager {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    // Selection functionality
+    onTagSelectionChange() {
+        this.selectedTags = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => parseInt(cb.value));
+        this.updateTagSelectionUI();
+    }
+
+    onRuleSelectionChange() {
+        this.selectedRules = Array.from(document.querySelectorAll('.rule-checkbox:checked')).map(cb => parseInt(cb.value));
+        this.updateRuleSelectionUI();
+    }
+
+    toggleSelectAllTags(selectAll) {
+        const checkboxes = document.querySelectorAll('.tag-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll);
+        this.onTagSelectionChange();
+    }
+
+    toggleSelectAllRules(selectAll) {
+        const checkboxes = document.querySelectorAll('.rule-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll);
+        this.onRuleSelectionChange();
+    }
+
+    updateTagSelectionUI() {
+        const count = this.selectedTags.length;
+        const countElement = document.getElementById('selected-tags-count');
+        const bulkActions = document.getElementById('tag-bulk-actions');
+        const selectAllCheckbox = document.getElementById('select-all-tags');
+
+        if (countElement) {
+            countElement.textContent = `${count} selected`;
+        }
+
+        if (bulkActions) {
+            bulkActions.style.display = count > 0 ? 'block' : 'none';
+        }
+
+        // Update select all checkbox state
+        if (selectAllCheckbox) {
+            const totalCheckboxes = document.querySelectorAll('.tag-checkbox').length;
+            if (count === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (count === totalCheckboxes) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.indeterminate = true;
+                selectAllCheckbox.checked = false;
+            }
+        }
+    }
+
+    updateRuleSelectionUI() {
+        const count = this.selectedRules.length;
+        const countElement = document.getElementById('selected-rules-count');
+        const bulkActions = document.getElementById('rule-bulk-actions');
+        const selectAllCheckbox = document.getElementById('select-all-rules');
+
+        if (countElement) {
+            countElement.textContent = `${count} selected`;
+        }
+
+        if (bulkActions) {
+            bulkActions.style.display = count > 0 ? 'block' : 'none';
+        }
+
+        // Update select all checkbox state
+        if (selectAllCheckbox) {
+            const totalCheckboxes = document.querySelectorAll('.rule-checkbox').length;
+            if (count === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (count === totalCheckboxes) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.indeterminate = true;
+                selectAllCheckbox.checked = false;
+            }
+        }
+    }
+
+    async deleteSelectedTags() {
+        if (this.selectedTags.length === 0) {
+            this.showNotification('No tags selected', 'error');
+            return;
+        }
+
+        const tagNames = this.selectedTags.map(id => {
+            const tag = this.tags.find(t => t.id === id);
+            return tag ? tag.name : `ID ${id}`;
+        }).join(', ');
+
+        const confirmed = await this.showConfirmationModal(
+            'Delete Selected Tags',
+            `Are you sure you want to delete ${this.selectedTags.length} selected tag(s)? This will remove them from all ports.\n\nTags: ${tagNames}`,
+            'Delete All',
+            'Cancel',
+            'btn-danger'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const response = await fetch('/api/tags/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag_ids: this.selectedTags })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                this.loadTags();
+                this.selectedTags = [];
+                this.updateTagSelectionUI();
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error deleting tags: ' + error.message, 'error');
+        }
+    }
+
+    async deleteSelectedRules() {
+        if (this.selectedRules.length === 0) {
+            this.showNotification('No rules selected', 'error');
+            return;
+        }
+
+        const ruleNames = this.selectedRules.map(id => {
+            const rule = this.rules.find(r => r.id === id);
+            return rule ? rule.name : `ID ${id}`;
+        }).join(', ');
+
+        const confirmed = await this.showConfirmationModal(
+            'Delete Selected Rules',
+            `Are you sure you want to delete ${this.selectedRules.length} selected rule(s)?\n\nRules: ${ruleNames}`,
+            'Delete All',
+            'Cancel',
+            'btn-danger'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const response = await fetch('/api/tagging-rules/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rule_ids: this.selectedRules })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                this.loadRules();
+                this.selectedRules = [];
+                this.updateRuleSelectionUI();
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error deleting rules: ' + error.message, 'error');
+        }
     }
 
     // Utility functions

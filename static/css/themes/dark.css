@@ -218,6 +218,10 @@ body {
     color: var(--text-color-secondary);
 }
 
+.form-check-label {
+    color: var(--text-color-secondary);
+}
+
 /* Modal */
 .modal-content {
     border-radius: 16px;

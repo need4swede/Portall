@@ -977,6 +977,82 @@ def import_tagging_config():
         logger.error(f"Error importing tagging config: {str(e)}")
         return jsonify({'success': False, 'message': f'Error importing tagging config: {str(e)}'}), 500
 
+@tags_bp.route('/api/tags/bulk-delete', methods=['POST'])
+def bulk_delete_tags():
+    """Delete multiple tags at once."""
+    try:
+        data = request.get_json()
+        tag_ids = data.get('tag_ids', [])
+
+        if not tag_ids:
+            return jsonify({'success': False, 'message': 'No tag IDs provided'}), 400
+
+        # Get tags to delete
+        tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
+
+        if len(tags) != len(tag_ids):
+            return jsonify({'success': False, 'message': 'Some tags not found'}), 404
+
+        tag_names = [tag.name for tag in tags]
+
+        # Delete all tags (cascade should handle port associations)
+        for tag in tags:
+            db.session.delete(tag)
+
+        db.session.commit()
+
+        logger.info(f"Bulk deleted {len(tags)} tags: {', '.join(tag_names)}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Successfully deleted {len(tags)} tag(s)',
+            'deleted_count': len(tags),
+            'deleted_tags': tag_names
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error bulk deleting tags: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error bulk deleting tags: {str(e)}'}), 500
+
+@tags_bp.route('/api/tagging-rules/bulk-delete', methods=['POST'])
+def bulk_delete_rules():
+    """Delete multiple tagging rules at once."""
+    try:
+        data = request.get_json()
+        rule_ids = data.get('rule_ids', [])
+
+        if not rule_ids:
+            return jsonify({'success': False, 'message': 'No rule IDs provided'}), 400
+
+        # Get rules to delete
+        rules = TaggingRule.query.filter(TaggingRule.id.in_(rule_ids)).all()
+
+        if len(rules) != len(rule_ids):
+            return jsonify({'success': False, 'message': 'Some rules not found'}), 404
+
+        rule_names = [rule.name for rule in rules]
+
+        # Delete all rules (cascade should handle execution logs)
+        for rule in rules:
+            db.session.delete(rule)
+
+        db.session.commit()
+
+        logger.info(f"Bulk deleted {len(rules)} rules: {', '.join(rule_names)}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Successfully deleted {len(rules)} rule(s)',
+            'deleted_count': len(rules),
+            'deleted_rules': rule_names
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error bulk deleting rules: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error bulk deleting rules: {str(e)}'}), 500
+
 @tags_bp.route('/api/tags/cleanup-unused', methods=['POST'])
 def cleanup_unused_tags():
     """Remove tags that are not assigned to any ports."""
