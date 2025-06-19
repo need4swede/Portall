@@ -250,9 +250,15 @@ class TagManager {
         const tag = this.tags.find(t => t.id === tagId);
         if (!tag) return;
 
-        if (!confirm(`Are you sure you want to delete the tag "${tag.name}"? This will remove it from all ports.`)) {
-            return;
-        }
+        const confirmed = await this.showConfirmationModal(
+            'Delete Tag',
+            `Are you sure you want to delete the tag "${tag.name}"? This will remove it from all ports.`,
+            'Delete',
+            'Cancel',
+            'btn-danger'
+        );
+
+        if (!confirmed) return;
 
         try {
             const response = await fetch(`/api/tags/${tagId}`, { method: 'DELETE' });
@@ -888,9 +894,15 @@ class TagManager {
         const rule = this.rules.find(r => r.id === ruleId);
         if (!rule) return;
 
-        if (!confirm(`Are you sure you want to delete the rule "${rule.name}"?`)) {
-            return;
-        }
+        const confirmed = await this.showConfirmationModal(
+            'Delete Rule',
+            `Are you sure you want to delete the rule "${rule.name}"?`,
+            'Delete',
+            'Cancel',
+            'btn-danger'
+        );
+
+        if (!confirmed) return;
 
         try {
             const response = await fetch(`/api/tagging-rules/${ruleId}`, { method: 'DELETE' });
@@ -924,9 +936,15 @@ class TagManager {
     }
 
     async executeAllRules() {
-        if (!confirm('Are you sure you want to execute all enabled tagging rules? This may affect many ports.')) {
-            return;
-        }
+        const confirmed = await this.showConfirmationModal(
+            'Execute All Rules',
+            'Are you sure you want to execute all enabled tagging rules? This may affect many ports.',
+            'Execute All',
+            'Cancel',
+            'btn-warning'
+        );
+
+        if (!confirmed) return;
 
         try {
             const response = await fetch('/api/tagging-rules/execute-all', { method: 'POST' });
@@ -1151,14 +1169,24 @@ class TagManager {
     }
 
     async applyQuickTemplate(templateId) {
-        if (!confirm(`Apply the ${templateId.replace('_', ' ')} template? This will create multiple tagging rules.`)) {
-            return;
-        }
-
         await this.applyTemplate(templateId);
     }
 
     async applyTemplate(templateId, customizeOptions = {}) {
+        // Get template name for confirmation
+        const template = this.templates[templateId];
+        const templateName = template ? template.name : templateId.replace('_', ' ');
+
+        const confirmed = await this.showConfirmationModal(
+            'Apply Template',
+            `Apply the "${templateName}" template? This will create multiple tagging rules.`,
+            'Apply Template',
+            'Cancel',
+            'btn-success'
+        );
+
+        if (!confirmed) return;
+
         try {
             const response = await fetch(`/api/tag-templates/${templateId}/apply`, {
                 method: 'POST',
@@ -1294,9 +1322,16 @@ class TagManager {
     }
 
     async backupConfiguration() {
-        if (!confirm('Create a backup of your current tagging configuration?')) {
-            return;
-        }
+        const confirmed = await this.showConfirmationModal(
+            'Backup Configuration',
+            'Create a backup of your current tagging configuration?',
+            'Create Backup',
+            'Cancel',
+            'btn-warning'
+        );
+
+        if (!confirmed) return;
+
         await this.exportConfiguration();
     }
 
@@ -1437,9 +1472,15 @@ class TagManager {
             return;
         }
 
-        if (!confirm('Are you sure you want to import this configuration? This will modify your current setup.')) {
-            return;
-        }
+        const confirmed = await this.showConfirmationModal(
+            'Import Configuration',
+            'Are you sure you want to import this configuration? This will modify your current setup.',
+            'Import Configuration',
+            'Cancel',
+            'btn-warning'
+        );
+
+        if (!confirmed) return;
 
         try {
             const response = await fetch('/api/tagging-config/import', {
@@ -1503,6 +1544,57 @@ class TagManager {
                 notification.remove();
             }
         }, 5000);
+    }
+
+    showConfirmationModal(title, message, confirmText = 'Confirm', cancelText = 'Cancel', confirmButtonClass = 'btn-primary') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirmationModal');
+            const titleElement = document.getElementById('confirmationModalTitle');
+            const messageElement = document.getElementById('confirmationModalMessage');
+            const confirmButton = document.getElementById('confirmationModalConfirm');
+            const cancelButton = document.getElementById('confirmationModalCancel');
+
+            // Set content
+            titleElement.textContent = title;
+            messageElement.textContent = message;
+            confirmButton.textContent = confirmText;
+            cancelButton.textContent = cancelText;
+
+            // Set button class
+            confirmButton.className = `btn ${confirmButtonClass}`;
+
+            // Create Bootstrap modal instance
+            const bootstrapModal = new bootstrap.Modal(modal);
+
+            // Handle confirm
+            const handleConfirm = () => {
+                bootstrapModal.hide();
+                resolve(true);
+                cleanup();
+            };
+
+            // Handle cancel/dismiss
+            const handleCancel = () => {
+                bootstrapModal.hide();
+                resolve(false);
+                cleanup();
+            };
+
+            // Cleanup function
+            const cleanup = () => {
+                confirmButton.removeEventListener('click', handleConfirm);
+                cancelButton.removeEventListener('click', handleCancel);
+                modal.removeEventListener('hidden.bs.modal', handleCancel);
+            };
+
+            // Add event listeners
+            confirmButton.addEventListener('click', handleConfirm);
+            cancelButton.addEventListener('click', handleCancel);
+            modal.addEventListener('hidden.bs.modal', handleCancel, { once: true });
+
+            // Show modal
+            bootstrapModal.show();
+        });
     }
 }
 
