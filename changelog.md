@@ -3,6 +3,9 @@
 ### Tags
 Added a new tagging system, with customizable rules, configurable templates, and sharing features
 
+### App List
+Added a curated list of 360+ apps and their default ports choose as presets
+
 ## Changed
 ### Port Scanning UI
 Improved port scanning menu

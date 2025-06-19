@@ -1,6 +1,7 @@
 # utils/tag_templates.py
 
 import json
+import os
 from typing import Dict, List, Any
 from datetime import datetime
 
@@ -8,7 +9,174 @@ class TagTemplateManager:
     """Manager for predefined tagging rule templates and presets."""
 
     def __init__(self):
+        self.apps_data = self._load_apps_data()
         self.templates = self._load_builtin_templates()
+
+    def _load_apps_data(self) -> List[Dict[str, Any]]:
+        """Load application data from apps.json."""
+        try:
+            apps_json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resource', 'apps.json')
+            with open(apps_json_path, 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def _generate_application_rules(self) -> List[Dict[str, Any]]:
+        """Generate intelligent categorical rules from apps.json data."""
+        if not self.apps_data:
+            return []
+
+        # Define application categories with their apps and colors
+        app_categories = {
+            "Media Server": {
+                "color": "#e5a00d",
+                "apps": ["Plex", "Jellyfin", "Emby", "Airsonic", "Navidrome", "Audiobookshelf", "Funkwhale", "Peertube"],
+                "description": "Media streaming and entertainment services"
+            },
+            "Home Automation": {
+                "color": "#41bdf5",
+                "apps": ["Home Assistant", "Frigate", "HomeBox"],
+                "description": "Home automation and IoT management"
+            },
+            "Security Tools": {
+                "color": "#dc3545",
+                "apps": ["Pi-hole", "AdGuard Home", "Authelia", "Authentik", "Bitwarden (Self-hosted)", "Vaultwarden", "Keycloak"],
+                "description": "Security, authentication, and privacy tools"
+            },
+            "File Storage": {
+                "color": "#0082c9",
+                "apps": ["Nextcloud", "Filebrowser", "Seafile", "Pydio", "WebDAV", "Syncthing", "Resilio Sync"],
+                "description": "File storage, sync, and sharing services"
+            },
+            "Media Management": {
+                "color": "#6f42c1",
+                "apps": ["Sonarr", "Radarr", "Lidarr", "Readarr", "Bazarr", "Prowlarr", "Whisparr", "Overseerr", "Jellyseerr", "Ombi", "Requestrr"],
+                "description": "Media acquisition and management tools"
+            },
+            "Download Client": {
+                "color": "#fd7e14",
+                "apps": ["qBittorrent", "Transmission", "rTorrent", "rFlood", "SABnzbd", "NZBGet", "NZBHydra2", "Jackett", "Jdownloader"],
+                "description": "Download clients and indexers"
+            },
+            "Monitoring": {
+                "color": "#198754",
+                "apps": ["Grafana", "Prometheus", "Netdata", "Uptime Kuma", "Zabbix", "Scrutiny", "Tautulli", "Speedtest Tracker"],
+                "description": "System monitoring and observability"
+            },
+            "Development": {
+                "color": "#6610f2",
+                "apps": ["GitLab", "Gitea", "Gogs", "Jenkins", "Drone CI", "Docker Registry"],
+                "description": "Development and CI/CD tools"
+            },
+            "Container Management": {
+                "color": "#13bef9",
+                "apps": ["Portainer", "Rancher", "Dockage", "Kubernetes", "K8s", "Docker Swarm", "Komodo"],
+                "description": "Container orchestration and management"
+            },
+            "Documentation": {
+                "color": "#20c997",
+                "apps": ["BookStack", "Wiki.js", "Trilium Notes", "Joplin Server"],
+                "description": "Documentation and note-taking platforms"
+            },
+            "Communication": {
+                "color": "#e83e8c",
+                "apps": ["Mattermost", "Rocket.Chat", "Jitsi Meet", "TeamSpeak", "TheLounge", "ZNC"],
+                "description": "Communication and collaboration tools"
+            },
+            "Analytics": {
+                "color": "#fd7e14",
+                "apps": ["Matomo", "Plausible Analytics", "Simple Analytics", "Umami"],
+                "description": "Web analytics and tracking"
+            },
+            "Backup": {
+                "color": "#6c757d",
+                "apps": ["Duplicacy Web Edition", "Kopia"],
+                "description": "Backup and archival solutions"
+            },
+            "Productivity": {
+                "color": "#0d6efd",
+                "apps": ["Kanboard", "Mealie", "Tandoor Recipes", "Monica", "Firefly III"],
+                "description": "Personal productivity and organization"
+            },
+            "Content Management": {
+                "color": "#198754",
+                "apps": ["WordPress", "Ghost", "Flarum", "Mastodon"],
+                "description": "Content management and publishing"
+            },
+            "Network Tools": {
+                "color": "#ffc107",
+                "apps": ["Nginx", "Nginx Proxy Manager", "Traefik", "OpenVPN", "WireGuard", "ntopng", "PiAlert"],
+                "description": "Network infrastructure and tools"
+            },
+            "Database": {
+                "color": "#6f42c1",
+                "apps": ["InfluxDB", "Loki"],
+                "description": "Database and data storage services"
+            },
+            "Automation": {
+                "color": "#20c997",
+                "apps": ["n8n", "Nodered", "Huginn"],
+                "description": "Workflow automation and integration"
+            },
+            "Remote Access": {
+                "color": "#fd7e14",
+                "apps": ["Kasm Workspaces", "Webtop"],
+                "description": "Remote desktop and access solutions"
+            }
+        }
+
+        rules = []
+        priority = 80  # Higher priority for categorical detection
+
+        for category, config in app_categories.items():
+            # Create a list of app names for regex matching
+            app_names = config["apps"]
+
+            # Build regex pattern for all apps in this category
+            app_patterns = []
+            for app_name in app_names:
+                # Extract keywords from app name for better matching
+                keywords = self._extract_keywords(app_name)
+                app_patterns.extend(keywords)
+
+            if app_patterns:
+                rule = {
+                    "name": f"Tag {category} Applications",
+                    "description": f"Identify {config['description']} - {', '.join(app_names[:3])}{'...' if len(app_names) > 3 else ''}",
+                    "priority": priority,
+                    "enabled": True,
+                    "auto_execute": True,
+                    "conditions": {
+                        "operator": "OR",
+                        "conditions": [
+                            {"type": "description_regex", "value": f"(?i)({'|'.join(app_patterns)})"}
+                        ]
+                    },
+                    "actions": [
+                        {"type": "add_tag", "tag_name": category, "tag_color": config["color"]}
+                    ]
+                }
+                rules.append(rule)
+                priority -= 1
+
+        return rules
+
+    def _extract_keywords(self, app_name: str) -> List[str]:
+        """Extract keywords from application name for regex matching."""
+        import re
+
+        # Remove common suffixes and prefixes
+        name = re.sub(r'\(.*?\)', '', app_name)  # Remove parentheses
+        name = re.sub(r'\b(Self-hosted|Web UI|Server|Edition)\b', '', name, flags=re.IGNORECASE)
+
+        # Split on common separators and filter out short words
+        keywords = []
+        for word in re.split(r'[-\s/]+', name):
+            word = word.strip()
+            if len(word) >= 3 and word.lower() not in ['the', 'and', 'for', 'web', 'app']:
+                keywords.append(re.escape(word))
+
+        return keywords if keywords else [re.escape(app_name)]
 
     def _load_builtin_templates(self) -> Dict[str, Dict[str, Any]]:
         """Load built-in rule templates for common scenarios."""
@@ -279,6 +447,13 @@ class TagTemplateManager:
                         ]
                     }
                 ]
+            },
+
+            "application_detection": {
+                "name": "Application Detection",
+                "description": "Automatically detect and tag applications by category based on apps.json data",
+                "category": "Applications",
+                "rules": self._generate_application_rules()
             }
         }
 

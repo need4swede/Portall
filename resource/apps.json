@@ -1,5 +1,9 @@
 [
     {
+        "name": "0 A.D.",
+        "external_port": 20595
+    },
+    {
         "name": "AdGuard Home",
         "external_port": 3000
     },
@@ -8,7 +12,35 @@
         "external_port": 8080
     },
     {
+        "name": "Alertmanager",
+        "external_port": 9093
+    },
+    {
+        "name": "Alerta",
+        "external_port": 8080
+    },
+    {
+        "name": "Algo VPN",
+        "external_port": 4500
+    },
+    {
         "name": "AMP (Application Management Panel)",
+        "external_port": 8080
+    },
+    {
+        "name": "Ampache",
+        "external_port": 80
+    },
+    {
+        "name": "Ant Media Server",
+        "external_port": 5080
+    },
+    {
+        "name": "Apache HTTP Server",
+        "external_port": 80
+    },
+    {
+        "name": "Apache SkyWalking",
         "external_port": 8080
     },
     {
@@ -22,6 +54,10 @@
     {
         "name": "Argo CD",
         "external_port": 8080
+    },
+    {
+        "name": "Actual Budget",
+        "external_port": 5006
     },
     {
         "name": "Audiobookshelf",
@@ -40,31 +76,135 @@
         "external_port": 7860
     },
     {
+        "name": "AzuraCast",
+        "external_port": 80
+    },
+    {
+        "name": "Bacula",
+        "external_port": 9101
+    },
+    {
+        "name": "Banshee",
+        "external_port": 8080
+    },
+    {
         "name": "Bazarr",
         "external_port": 6767
+    },
+    {
+        "name": "Beets",
+        "external_port": 8337
+    },
+    {
+        "name": "BicBucStriim",
+        "external_port": 80
+    },
+    {
+        "name": "BigBlueButton",
+        "external_port": 80
     },
     {
         "name": "Bitwarden (Self-hosted)",
         "external_port": 80
     },
     {
+        "name": "Black Candy",
+        "external_port": 4000
+    },
+    {
+        "name": "BlueWave Uptime",
+        "external_port": 3000
+    },
+    {
         "name": "BookStack",
         "external_port": 6875
+    },
+    {
+        "name": "Bubo Reader",
+        "external_port": 5000
+    },
+    {
+        "name": "BuildBot",
+        "external_port": 8010
     },
     {
         "name": "cAdvisor",
         "external_port": 8080
     },
     {
+        "name": "Cacti",
+        "external_port": 80
+    },
+    {
+        "name": "Caddy",
+        "external_port": 2019
+    },
+    {
         "name": "Calibre-server",
         "external_port": 8081
+    },
+    {
+        "name": "Calibre-Web",
+        "external_port": 8083
+    },
+    {
+        "name": "Castopod",
+        "external_port": 80
+    },
+    {
+        "name": "Centreon",
+        "external_port": 80
     },
     {
         "name": "Changedetection.io",
         "external_port": 8000
     },
     {
+        "name": "CheckMK",
+        "external_port": 80
+    },
+    {
+        "name": "ClearOS",
+        "external_port": 81
+    },
+    {
+        "name": "Cloudflare Tunnel",
+        "external_port": 8080
+    },
+    {
+        "name": "Code-server",
+        "external_port": 8080
+    },
+    {
+        "name": "Collabora Online",
+        "external_port": 9980
+    },
+    {
+        "name": "Collectd",
+        "external_port": 25826
+    },
+    {
+        "name": "CommaFeed",
+        "external_port": 8082
+    },
+    {
+        "name": "Concourse CI",
+        "external_port": 8080
+    },
+    {
+        "name": "Consul",
+        "external_port": 8500
+    },
+    {
+        "name": "Corteza",
+        "external_port": 80
+    },
+    {
         "name": "Cryptpad",
+        "external_port": 3000
+    },
+    {
+        "name": "CyTube",
         "external_port": 3000
     },
     {
@@ -84,6 +224,10 @@
         "external_port": 2377
     },
     {
+        "name": "Docmost",
+        "external_port": 3000
+    },
+    {
         "name": "Drone CI",
         "external_port": 80
     },
@@ -92,16 +236,44 @@
         "external_port": 3875
     },
     {
+        "name": "Duplicati",
+        "external_port": 8200
+    },
+    {
+        "name": "Elasticsearch",
+        "external_port": 9200
+    },
+    {
         "name": "ELK Stack",
         "external_port": 5601
+    },
+    {
+        "name": "Element",
+        "external_port": 8008
     },
     {
         "name": "Emby",
         "external_port": 8096
     },
     {
+        "name": "Envoy Proxy",
+        "external_port": 9901
+    },
+    {
+        "name": "EscapePod",
+        "external_port": 3000
+    },
+    {
+        "name": "EspoCRM",
+        "external_port": 80
+    },
+    {
         "name": "Etherpad",
         "external_port": 9001
+    },
+    {
+        "name": "Feeds Fun",
+        "external_port": 8000
     },
     {
         "name": "Filebrowser",
@@ -112,7 +284,31 @@
         "external_port": 8080
     },
     {
+        "name": "Flapjack",
+        "external_port": 3080
+    },
+    {
         "name": "Flarum",
+        "external_port": 80
+    },
+    {
+        "name": "flatnotes",
+        "external_port": 8080
+    },
+    {
+        "name": "Fluentd",
+        "external_port": 24224
+    },
+    {
+        "name": "Focalboard",
+        "external_port": 8000
+    },
+    {
+        "name": "Forgejo",
+        "external_port": 3000
+    },
+    {
+        "name": "FreeIPA",
         "external_port": 80
     },
     {
@@ -128,6 +324,10 @@
         "external_port": 5000
     },
     {
+        "name": "Gerrit",
+        "external_port": 29418
+    },
+    {
         "name": "Ghost",
         "external_port": 2368
     },
@@ -136,12 +336,20 @@
         "external_port": 3000
     },
     {
+        "name": "Gitiles",
+        "external_port": 80
+    },
+    {
         "name": "GitLab",
         "external_port": 80
     },
     {
         "name": "Gogs",
         "external_port": 3000
+    },
+    {
+        "name": "Gonic",
+        "external_port": 4747
     },
     {
         "name": "Gotify",
@@ -156,8 +364,24 @@
         "external_port": 9000
     },
     {
-        "name": "Homarr",
-        "external_port": 7575
+        "name": "HAProxy",
+        "external_port": 8404
+    },
+    {
+        "name": "Harbor",
+        "external_port": 80
+    },
+    {
+        "name": "Healthchecks.io",
+        "external_port": 8000
+    },
+    {
+        "name": "HedgeDoc",
+        "external_port": 3000
+    },
+    {
+        "name": "Heimdall",
+        "external_port": 80
     },
     {
         "name": "Home Assistant",
@@ -166,6 +390,10 @@
     {
         "name": "HomeBox",
         "external_port": 7867
+    },
+    {
+        "name": "Homarr",
+        "external_port": 7575
     },
     {
         "name": "Homer",
@@ -180,6 +408,10 @@
         "external_port": 3000
     },
     {
+        "name": "Icinga 2",
+        "external_port": 80
+    },
+    {
         "name": "Immich",
         "external_port": 2283
     },
@@ -188,8 +420,24 @@
         "external_port": 8086
     },
     {
+        "name": "Invoice Ninja",
+        "external_port": 80
+    },
+    {
+        "name": "InvoiceShelf",
+        "external_port": 80
+    },
+    {
+        "name": "IPFire",
+        "external_port": 444
+    },
+    {
         "name": "Jackett",
         "external_port": 9117
+    },
+    {
+        "name": "Jaeger",
+        "external_port": 16686
     },
     {
         "name": "Jdownloader",
@@ -232,12 +480,44 @@
         "external_port": 8080
     },
     {
+        "name": "Kimai",
+        "external_port": 8001
+    },
+    {
+        "name": "Koel",
+        "external_port": 80
+    },
+    {
+        "name": "Komga",
+        "external_port": 25600
+    },
+    {
+        "name": "Kong",
+        "external_port": 8001
+    },
+    {
         "name": "Kopia",
         "external_port": 51515
     },
     {
+        "name": "Kresus",
+        "external_port": 9876
+    },
+    {
         "name": "kube-state-metrics",
         "external_port": 8080
+    },
+    {
+        "name": "LibreNMS",
+        "external_port": 8000
+    },
+    {
+        "name": "LibreTime",
+        "external_port": 80
+    },
+    {
+        "name": "Librum",
+        "external_port": 3000
     },
     {
         "name": "Lidarr",
@@ -256,8 +536,16 @@
         "external_port": 3100
     },
     {
+        "name": "Madsonic",
+        "external_port": 4040
+    },
+    {
         "name": "Mailcow",
         "external_port": 80
+    },
+    {
+        "name": "Maloja",
+        "external_port": 42010
     },
     {
         "name": "Mastodon",
@@ -276,11 +564,35 @@
         "external_port": 9000
     },
     {
+        "name": "MediaCMS",
+        "external_port": 80
+    },
+    {
+        "name": "Memos",
+        "external_port": 5230
+    },
+    {
         "name": "Metabase",
         "external_port": 3000
     },
     {
+        "name": "Minetest",
+        "external_port": 30000
+    },
+    {
         "name": "Miniflux",
+        "external_port": 8080
+    },
+    {
+        "name": "MinIO",
+        "external_port": 9000
+    },
+    {
+        "name": "moOde Audio",
+        "external_port": 80
+    },
+    {
+        "name": "Moira",
         "external_port": 8080
     },
     {
@@ -288,12 +600,36 @@
         "external_port": 80
     },
     {
+        "name": "Monit",
+        "external_port": 2812
+    },
+    {
         "name": "Moodle",
         "external_port": 80
     },
     {
+        "name": "mStream",
+        "external_port": 3000
+    },
+    {
+        "name": "Munin",
+        "external_port": 4949
+    },
+    {
+        "name": "musikcube",
+        "external_port": 7905
+    },
+    {
         "name": "n8n",
         "external_port": 5678
+    },
+    {
+        "name": "Naemon",
+        "external_port": 80
+    },
+    {
+        "name": "Nagios Core",
+        "external_port": 80
     },
     {
         "name": "Navidrome",
@@ -312,6 +648,10 @@
         "external_port": 80
     },
     {
+        "name": "Nexus Repository",
+        "external_port": 8081
+    },
+    {
         "name": "Nginx",
         "external_port": 80
     },
@@ -322,6 +662,14 @@
     {
         "name": "NocoDB",
         "external_port": 8080
+    },
+    {
+        "name": "Node Exporter",
+        "external_port": 9100
+    },
+    {
+        "name": "Nomad",
+        "external_port": 4646
     },
     {
         "name": "Nodered",
@@ -340,20 +688,72 @@
         "external_port": 5076
     },
     {
+        "name": "Observium",
+        "external_port": 80
+    },
+    {
+        "name": "Obsidian Livesync",
+        "external_port": 5984
+    },
+    {
         "name": "Ombi",
         "external_port": 3579
+    },
+    {
+        "name": "OnlyOffice Document Server",
+        "external_port": 80
+    },
+    {
+        "name": "Open Streaming Platform",
+        "external_port": 80
+    },
+    {
+        "name": "OpenLDAP",
+        "external_port": 389
     },
     {
         "name": "OpenMediaVault",
         "external_port": 80
     },
     {
+        "name": "openITCOCKPIT",
+        "external_port": 80
+    },
+    {
+        "name": "OpenProject",
+        "external_port": 8080
+    },
+    {
+        "name": "OpenTelemetry Collector",
+        "external_port": 4317
+    },
+    {
+        "name": "OpenTTD",
+        "external_port": 3979
+    },
+    {
         "name": "OpenVPN",
         "external_port": 1194
     },
     {
+        "name": "OPNsense",
+        "external_port": 443
+    },
+    {
+        "name": "Outline",
+        "external_port": 3000
+    },
+    {
+        "name": "OvenMediaEngine",
+        "external_port": 80
+    },
+    {
         "name": "Overseerr",
         "external_port": 5055
+    },
+    {
+        "name": "Owncast",
+        "external_port": 8080
     },
     {
         "name": "Paperless-ngx",
@@ -366,6 +766,10 @@
     {
         "name": "Penpot",
         "external_port": 9001
+    },
+    {
+        "name": "pfSense",
+        "external_port": 443
     },
     {
         "name": "PhotoPrism",
@@ -384,6 +788,10 @@
         "external_port": 20211
     },
     {
+        "name": "Planka",
+        "external_port": 1337
+    },
+    {
         "name": "Plausible Analytics",
         "external_port": 8000
     },
@@ -392,8 +800,24 @@
         "external_port": 32400
     },
     {
+        "name": "Podcast Server",
+        "external_port": 8080
+    },
+    {
+        "name": "Podgrab",
+        "external_port": 8080
+    },
+    {
+        "name": "Polaris",
+        "external_port": 5050
+    },
+    {
         "name": "Portainer",
         "external_port": 9443
+    },
+    {
+        "name": "Pritunl",
+        "external_port": 443
     },
     {
         "name": "Prometheus",
@@ -420,12 +844,20 @@
         "external_port": 7878
     },
     {
+        "name": "Radium",
+        "external_port": 3000
+    },
+    {
         "name": "Rancher",
         "external_port": 80
     },
     {
         "name": "Readarr",
         "external_port": 8787
+    },
+    {
+        "name": "Redmine",
+        "external_port": 3000
     },
     {
         "name": "Requestrr",
@@ -436,8 +868,16 @@
         "external_port": 8888
     },
     {
+        "name": "Restreamer",
+        "external_port": 8080
+    },
+    {
         "name": "rFlood",
         "external_port": 3000
+    },
+    {
+        "name": "Riemann",
+        "external_port": 5555
     },
     {
         "name": "Rocket.Chat",
@@ -446,6 +886,10 @@
     {
         "name": "Roundcube",
         "external_port": 80
+    },
+    {
+        "name": "rtop",
+        "external_port": 2022
     },
     {
         "name": "rTorrent",
@@ -464,8 +908,20 @@
         "external_port": 8000
     },
     {
+        "name": "Sensu",
+        "external_port": 3000
+    },
+    {
+        "name": "Sentry",
+        "external_port": 9000
+    },
+    {
         "name": "Servarr",
         "external_port": 8310
+    },
+    {
+        "name": "Seyren",
+        "external_port": 8080
     },
     {
         "name": "Shaarli",
@@ -480,7 +936,19 @@
         "external_port": 8081
     },
     {
+        "name": "SigNoz",
+        "external_port": 3301
+    },
+    {
+        "name": "SilverBullet",
+        "external_port": 3000
+    },
+    {
         "name": "Simple Analytics",
+        "external_port": 80
+    },
+    {
+        "name": "SmokePing",
         "external_port": 80
     },
     {
@@ -488,16 +956,72 @@
         "external_port": 8000
     },
     {
+        "name": "SOGo",
+        "external_port": 20000
+    },
+    {
+        "name": "SoftEther VPN",
+        "external_port": 443
+    },
+    {
         "name": "Sonarr",
         "external_port": 8989
+    },
+    {
+        "name": "SonarQube",
+        "external_port": 9000
+    },
+    {
+        "name": "Sourcegraph",
+        "external_port": 7080
     },
     {
         "name": "Speedtest Tracker",
         "external_port": 8080
     },
     {
+        "name": "SRS",
+        "external_port": 1935
+    },
+    {
+        "name": "Standard Notes",
+        "external_port": 3000
+    },
+    {
         "name": "Stash",
         "external_port": 9999
+    },
+    {
+        "name": "Statping",
+        "external_port": 8080
+    },
+    {
+        "name": "Stirling-PDF",
+        "external_port": 8080
+    },
+    {
+        "name": "Streama",
+        "external_port": 8080
+    },
+    {
+        "name": "strongSwan",
+        "external_port": 4500
+    },
+    {
+        "name": "Stump",
+        "external_port": 10801
+    },
+    {
+        "name": "SuiteCRM",
+        "external_port": 80
+    },
+    {
+        "name": "SuperTuxKart",
+        "external_port": 2759
+    },
+    {
+        "name": "Suricata",
+        "external_port": 443
     },
     {
         "name": "Syncthing",
@@ -508,7 +1032,19 @@
         "external_port": 22067
     },
     {
+        "name": "SyncTube",
+        "external_port": 80
+    },
+    {
+        "name": "Taiga",
+        "external_port": 9000
+    },
+    {
         "name": "Tandoor Recipes",
+        "external_port": 8080
+    },
+    {
+        "name": "Tasks.md",
         "external_port": 8080
     },
     {
@@ -516,16 +1052,40 @@
         "external_port": 8181
     },
     {
+        "name": "TeamCity",
+        "external_port": 8111
+    },
+    {
         "name": "TeamSpeak",
         "external_port": 9987
+    },
+    {
+        "name": "The Battle for Wesnoth",
+        "external_port": 15000
+    },
+    {
+        "name": "The Epub",
+        "external_port": 80
     },
     {
         "name": "TheLounge",
         "external_port": 9000
     },
     {
+        "name": "Thruk",
+        "external_port": 80
+    },
+    {
+        "name": "TimeTagger",
+        "external_port": 8080
+    },
+    {
         "name": "Traefik",
         "external_port": 8080
+    },
+    {
+        "name": "Traggo",
+        "external_port": 3030
     },
     {
         "name": "Transmission",
@@ -544,8 +1104,28 @@
         "external_port": 80
     },
     {
+        "name": "Tube",
+        "external_port": 80
+    },
+    {
+        "name": "Turtl",
+        "external_port": 8181
+    },
+    {
+        "name": "Twenty",
+        "external_port": 3000
+    },
+    {
+        "name": "Ubooquity",
+        "external_port": 2202
+    },
+    {
         "name": "Umami",
         "external_port": 3000
+    },
+    {
+        "name": "Untangle",
+        "external_port": 443
     },
     {
         "name": "Upsnap",
@@ -556,12 +1136,44 @@
         "external_port": 3001
     },
     {
+        "name": "UrBackup",
+        "external_port": 55414
+    },
+    {
+        "name": "Vault",
+        "external_port": 8200
+    },
+    {
         "name": "Vaultwarden",
         "external_port": 80
     },
     {
+        "name": "Vector",
+        "external_port": 8686
+    },
+    {
+        "name": "Veloren",
+        "external_port": 14004
+    },
+    {
+        "name": "VictoriaLogs",
+        "external_port": 9428
+    },
+    {
+        "name": "VictoriaMetrics",
+        "external_port": 8428
+    },
+    {
+        "name": "Vikunja",
+        "external_port": 3456
+    },
+    {
         "name": "VPN Admin",
         "external_port": 943
+    },
+    {
+        "name": "VyOS",
+        "external_port": 443
     },
     {
         "name": "Wallabag",
@@ -576,8 +1188,16 @@
         "external_port": 3000
     },
     {
+        "name": "Wekan",
+        "external_port": 8080
+    },
+    {
         "name": "Whisparr",
         "external_port": 6969
+    },
+    {
+        "name": "Widelands",
+        "external_port": 7396
     },
     {
         "name": "Wiki.js",
@@ -588,8 +1208,20 @@
         "external_port": 51820
     },
     {
+        "name": "Woodpecker CI",
+        "external_port": 8000
+    },
+    {
         "name": "WordPress",
         "external_port": 80
+    },
+    {
+        "name": "Xonotic",
+        "external_port": 26000
+    },
+    {
+        "name": "Yarr",
+        "external_port": 7070
     },
     {
         "name": "Zabbix",
@@ -600,11 +1232,27 @@
         "external_port": 8080
     },
     {
+        "name": "Zeek",
+        "external_port": 443
+    },
+    {
         "name": "ZeroTier",
         "external_port": 9993
     },
     {
+        "name": "Zimbra",
+        "external_port": 80
+    },
+    {
+        "name": "Zipkin",
+        "external_port": 9411
+    },
+    {
         "name": "ZNC",
         "external_port": 6697
+    },
+    {
+        "name": "Zulip",
+        "external_port": 443
     }
 ]
