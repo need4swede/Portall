@@ -159,19 +159,22 @@ function handleSaveNewIpClick() {
     }
 
     // Send AJAX request to add the IP with a default port
+    console.log('Sending AJAX request to add IP:', { ip: ip, nickname: nickname });
+
     $.ajax({
         url: '/add_ip',
         method: 'POST',
         data: {
             ip: ip,
             nickname: nickname,
-            port_number: 12345,
+            port_number: 1234,  // Fixed to match the UI message
             description: 'Generic',
             protocol: 'TCP'
         },
         success: function (response) {
+            console.log('Add IP response:', response);
             if (response.success) {
-                showNotification('IP added successfully with port 12345', 'success');
+                showNotification('IP added successfully with port 1234', 'success');
                 location.reload(); // Reload the page to show the new IP
             } else {
                 showNotification('Error adding IP: ' + response.message, 'error');
@@ -179,7 +182,25 @@ function handleSaveNewIpClick() {
             addIpModal.hide();
         },
         error: function (xhr, status, error) {
-            showNotification('Error adding IP: ' + error, 'error');
+            console.error('AJAX error adding IP:', { xhr: xhr, status: status, error: error });
+            console.error('Response text:', xhr.responseText);
+
+            let errorMessage = 'Error adding IP: ' + error;
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = 'Error adding IP: ' + xhr.responseJSON.message;
+            } else if (xhr.responseText) {
+                try {
+                    const errorData = JSON.parse(xhr.responseText);
+                    if (errorData.message) {
+                        errorMessage = 'Error adding IP: ' + errorData.message;
+                    }
+                } catch (e) {
+                    // If response is not JSON, use the raw text
+                    errorMessage = 'Error adding IP: ' + xhr.responseText;
+                }
+            }
+
+            showNotification(errorMessage, 'error');
             addIpModal.hide();
         }
     });

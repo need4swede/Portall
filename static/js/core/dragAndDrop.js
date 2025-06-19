@@ -1342,8 +1342,31 @@ function proceedWithMove(portNumber, protocol, sourceIp, targetIp, targetElement
  * Hides the port conflict modal and reloads the page.
  */
 $('#cancelPortConflict').click(function () {
+    // Clear conflictingPortData to prevent the modal dismiss handler from triggering
+    // since the user has explicitly chosen to cancel
+    conflictingPortData = null;
+
     $('#portConflictModal').modal('hide');
     location.reload();
+});
+
+/**
+ * Event handler for when the port conflict modal is dismissed without resolution.
+ * This handles cases where the user clicks the "X" button, presses Escape, or clicks outside the modal.
+ * Reverts the visual drag operation to match the backend state.
+ */
+$('#portConflictModal').on('hidden.bs.modal', function () {
+    // Only call cancelDrop if we have conflicting port data (meaning the modal was shown for a conflict)
+    // and the modal wasn't hidden due to a user choosing an action (which would clear conflictingPortData)
+    if (conflictingPortData) {
+        console.log('[DragDrop Debug] Port conflict modal dismissed without resolution - reverting drag operation');
+
+        // Call cancelDrop to revert the visual changes
+        cancelDrop();
+
+        // Clear the conflicting port data
+        conflictingPortData = null;
+    }
 });
 
 /**
@@ -1354,6 +1377,11 @@ $('#cancelPortConflict').click(function () {
 $('#changeMigratingPort, #changeExistingPort').click(function () {
     const isChangingMigrating = $(this).attr('id') === 'changeMigratingPort';
     $('#portChangeType').text(isChangingMigrating ? 'migrating' : 'existing');
+
+    // Clear conflictingPortData to prevent the modal dismiss handler from triggering
+    // since the user has chosen a resolution path
+    conflictingPortData = null;
+
     $('#portConflictModal').modal('hide');
     $('#portChangeModal').modal('show');
 });

@@ -182,7 +182,6 @@ def import_from_docker_auto():
         docker_ports_in_db = Port.query.filter(
             db.or_(
                 Port.source == 'docker',
-                Port.description.like(f"%"),  # For backward compatibility
                 Port.description.like(f"Docker ({host_identifier}):%"),  # For backward compatibility
                 Port.description.like("[D] %")  # For backward compatibility
             )
@@ -804,17 +803,34 @@ def add_ip():
     Returns:
         JSON: A JSON response indicating success or failure of the operation.
     """
-    ip_address = request.form['ip']
-    nickname = request.form.get('nickname', '')
-    port_number = request.form.get('port_number', 8080)  # Default to 8080
-    description = request.form.get('description', 'Generic')  # Default to 'Generic'
-    protocol = request.form.get('protocol', 'TCP')  # Default to TCP
-
     try:
+        # Log the incoming request data
+        app.logger.info(f"Add IP request received. Form data: {dict(request.form)}")
+
+        ip_address = request.form.get('ip')
+        nickname = request.form.get('nickname', '')
+        port_number = int(request.form.get('port_number', 1234))  # Default to 1234
+        description = request.form.get('description', 'Generic')  # Default to 'Generic'
+        protocol = request.form.get('protocol', 'TCP')  # Default to TCP
+
+        # Validate required fields
+        if not ip_address:
+            app.logger.error("IP address is required but not provided")
+            return jsonify({'success': False, 'message': 'IP address is required'}), 400
+
+        app.logger.info(f"Processing add IP request: ip={ip_address}, nickname={nickname}, port={port_number}, protocol={protocol}")
+
         # Check if the IP already exists
         existing_ip = Port.query.filter_by(ip_address=ip_address).first()
         if existing_ip:
+            app.logger.warning(f"IP address {ip_address} already exists")
             return jsonify({'success': False, 'message': 'IP address already exists'}), 400
+
+        # Check if the port number already exists for this IP (shouldn't happen for new IP, but safety check)
+        existing_port = Port.query.filter_by(ip_address=ip_address, port_number=port_number, port_protocol=protocol).first()
+        if existing_port:
+            app.logger.warning(f"Port {port_number} ({protocol}) already exists for IP {ip_address}")
+            return jsonify({'success': False, 'message': f'Port {port_number} ({protocol}) already exists for this IP'}), 400
 
         # Create a new port entry for the IP
         port = Port(
@@ -827,20 +843,28 @@ def add_ip():
             source='manual'  # Set source to 'manual'
         )
 
+        app.logger.info(f"Creating new port entry: {port.__dict__}")
         db.session.add(port)
         db.session.commit()
+        app.logger.info(f"Port entry committed to database with ID: {port.id}")
 
         # Apply automatic tagging rules to the new port
         try:
             tagging_engine.apply_automatic_rules_to_port(port)
+            app.logger.info(f"Automatic tagging rules applied to port {port.id}")
         except Exception as e:
             app.logger.error(f"Error applying automatic tagging rules to new IP port {port.id}: {str(e)}")
 
-        app.logger.info(f"Added new IP {ip_address} with port {port_number}")
+        app.logger.info(f"Successfully added new IP {ip_address} with port {port_number}")
         return jsonify({'success': True, 'message': 'IP added successfully with default port'})
+
+    except ValueError as e:
+        db.session.rollback()
+        app.logger.error(f"ValueError adding new IP: {str(e)}")
+        return jsonify({'success': False, 'message': f'Invalid data provided: {str(e)}'}), 400
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error adding new IP: {str(e)}")
+        app.logger.error(f"Unexpected error adding new IP: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': f'Error adding IP: {str(e)}'}), 500
 
 @ports_bp.route('/delete_ip', methods=['POST'])
