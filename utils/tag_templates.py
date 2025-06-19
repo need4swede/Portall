@@ -230,7 +230,7 @@ class TagTemplateManager:
                         "conditions": {
                             "operator": "AND",
                             "conditions": [
-                                {"type": "description_regex", "value": "(?i)(web|http||apache|iis)"}
+                                {"type": "description_regex", "value": "(?i)(web|http|apache|iis)"}
                             ]
                         },
                         "actions": [
