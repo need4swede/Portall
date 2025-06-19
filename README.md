@@ -22,7 +22,17 @@ docker-compose -f docker-compose.pull.yml up -d
 
 ### Environment
 ```bash
-HOST_IP: Set this as the IP of your host. It will default to 127.0.0.1
+      # Flask secret key for session security
+      - SECRET_KEY
+
+      # Docker API endpoint
+      - DOCKER_HOST
+
+      # Enable Docker integration features
+      - DOCKER_ENABLED
+
+      # Set this as the IP of your host. If unset will default to 127.0.0.1
+      - HOST_IP
 ```
 
 ## ✨ Core Functionality
