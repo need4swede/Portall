@@ -488,8 +488,8 @@ code {
 }
 
 /* Dark mode specific styles */
-.condition-item .card,
-.action-item .card {
+[data-theme="dark"] .condition-item .card,
+[data-theme="dark"] .action-item .card {
     border: none;
     background: #2c2c2c;
     transition: all 0.15s ease-in-out;
