@@ -30,6 +30,7 @@
     --warning-color: #ff9f0a;
     --success-color: #30d158;
     --danger-color: #ff453a;
+    --nav-link-active-bg: #2c2c2c;
 
     /* Animation timing */
     --transition-fast: 0.2s;
@@ -480,4 +481,12 @@ code {
 
 .show-more:hover {
     color: var(--color-blue-dark);
+}
+
+/* Dark mode specific styles */
+.condition-item .card,
+.action-item .card {
+    border: none;
+    background: #2c2c2c;
+    transition: all 0.15s ease-in-out;
 }

@@ -24,6 +24,7 @@
     --danger-color: #ff3b30;
     --text-primary: #1d1d1f;
     --text-secondary: #86868b;
+    --nav-link-active-bg: #f5f5f7;
 
     /* Enhanced shadows for depth */
     --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
