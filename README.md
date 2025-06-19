@@ -20,24 +20,35 @@ docker-compose up -d
 docker-compose -f docker-compose.pull.yml up -d
 ```
 
+### Environment
+```bash
+HOST_IP: Set this as the IP of your host. It will default to 127.0.0.1
+```
+
 ## ✨ Core Functionality
 
 <img src="demo/img/ports.png" width="900">
 
 **Easy Port Management**
-   - Easily add, remove and assign ports to different services and hosts.
+   - Easily add, remove and assign ports to different hosts, with over 360 pre-defined services to choose from.
 
 **Port Number Generation**
    - Quickly generate unique port numbers to host your applications.
 
-**Import Tools**
-   - Import existing configurations by pasting your Caddyfile, Docker-Compose or JSON data.
+**Robust Tagging System**
+   - Create custom tagging rules for all your services, with built-in templates.
 
-**Custom Rules**
-   - Define your own port ranges and set exclusions for the port generator.
+**Docker Integration**
+   - Query ports directly from your Docker instance, with support for third-party tools like Portainer and Komodo.
+
+**Port Scanning**
+   - Setup automatic port scanning to add ports across various hosts.
+
+**Import and Export Tools**
+   - Import existing configurations, like your Caddyfile and docker-compose stack, and easily backup your setup using JSON.
 
 **Docker Socket Proxy**
-  - Uses `11notes/socket-proxy:stable` for secure, read-only Docker API access
+  - Uses a custom socket-proxy based off `11notes/socket-proxy:stable` for secure, read-only Docker API access
 
 ## 🎨 UI Goodies
 
