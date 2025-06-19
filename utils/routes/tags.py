@@ -960,3 +960,31 @@ def import_tagging_config():
         db.session.rollback()
         logger.error(f"Error importing tagging config: {str(e)}")
         return jsonify({'success': False, 'message': f'Error importing tagging config: {str(e)}'}), 500
+
+@tags_bp.route('/api/tags/cleanup-unused', methods=['POST'])
+def cleanup_unused_tags():
+    """Remove tags that are not assigned to any ports."""
+    try:
+        # Find tags that have no port associations
+        unused_tags = db.session.query(Tag).outerjoin(PortTag).filter(PortTag.tag_id.is_(None)).all()
+
+        removed_count = len(unused_tags)
+
+        # Delete unused tags
+        for tag in unused_tags:
+            db.session.delete(tag)
+
+        db.session.commit()
+
+        logger.info(f"Cleaned up {removed_count} unused tags")
+
+        return jsonify({
+            'success': True,
+            'message': f'Removed {removed_count} unused tags',
+            'removed_count': removed_count
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error cleaning up unused tags: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error cleaning up unused tags: {str(e)}'}), 500
