@@ -20,6 +20,8 @@ Commands:
 Examples:
     python3 manage_migrations.py status
     python3 manage_migrations.py migrate
+    python3 manage_migrations.py migrate --backup-strategy single
+    python3 manage_migrations.py migrate --backup-strategy individual
     python3 manage_migrations.py backup --reason "before_upgrade"
     python3 manage_migrations.py restore --backup "portall_backup_migration_20231218_143022.db"
     python3 manage_migrations.py cleanup --keep 5
@@ -110,13 +112,14 @@ def show_status(migration_manager):
             print(f"  Size: {format_size(size)}")
             print(f"  Last Modified: {mtime.strftime('%Y-%m-%d %H:%M:%S')}")
 
-def run_migrations(migration_manager):
+def run_migrations(migration_manager, single_backup=True):
     """Run pending migrations."""
-    print("🔄 Running Migrations")
-    print("=" * 30)
+    backup_strategy = "single backup" if single_backup else "individual backups"
+    print(f"🔄 Running Migrations (strategy: {backup_strategy})")
+    print("=" * 50)
 
     try:
-        success = migration_manager.run_standalone_migrations()
+        success = migration_manager.run_standalone_migrations(single_backup=single_backup)
         if success:
             print("✅ All migrations completed successfully!")
         else:
@@ -248,6 +251,13 @@ def main():
         help='Number of backups to keep during cleanup'
     )
 
+    parser.add_argument(
+        '--backup-strategy',
+        choices=['single', 'individual'],
+        default='single',
+        help='Backup strategy for migrations: "single" creates one backup before all migrations, "individual" creates backup before each migration (default: single)'
+    )
+
     args = parser.parse_args()
 
     if args.command == 'help':
@@ -263,7 +273,8 @@ def main():
                 show_status(migration_manager)
 
             elif args.command == 'migrate':
-                run_migrations(migration_manager)
+                single_backup = args.backup_strategy == 'single'
+                run_migrations(migration_manager, single_backup)
 
             elif args.command == 'backup':
                 create_backup(migration_manager, args.reason)

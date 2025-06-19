@@ -302,21 +302,24 @@ class MigrationManager:
             logger.error(f"Error restoring from backup: {e}")
             return False
 
-    def _run_migration_safely(self, migration_name, migration_func):
+    def _run_migration_safely(self, migration_name, migration_func, backup_path=None, create_backup=True):
         """
         Runs a migration with automatic backup and rollback on failure.
 
         Args:
             migration_name (str): Name of the migration.
             migration_func (callable): Function to execute the migration.
+            backup_path (str, optional): Path to existing backup to use for rollback.
+            create_backup (bool): Whether to create a new backup before migration.
 
         Returns:
             bool: True if migration was successful, False otherwise.
         """
         logger.info(f"🔄 Starting migration: {migration_name}")
 
-        # Create backup before migration
-        backup_path = self._create_backup(f"before_{migration_name}")
+        # Create backup before migration if requested and no backup path provided
+        if create_backup and not backup_path:
+            backup_path = self._create_backup(f"before_{migration_name}")
 
         try:
             # Run the migration
@@ -406,10 +409,14 @@ class MigrationManager:
 
         return status
 
-    def run_standalone_migrations(self):
+    def run_standalone_migrations(self, single_backup=True):
         """
         Runs all standalone migration scripts that haven't been applied yet.
         Uses safe migration execution with automatic backup and rollback.
+
+        Args:
+            single_backup (bool): If True, creates one backup before all migrations.
+                                If False, creates a backup before each migration (legacy behavior).
         """
         migrations_to_run = [
             ("add_source_column", migration.run_migration),
@@ -419,15 +426,77 @@ class MigrationManager:
             ("add_auto_execute_column", migration_auto_execute.run_migration)
         ]
 
+        # Filter to only pending migrations
+        pending_migrations = []
         for migration_name, migration_func in migrations_to_run:
             if not self._is_migration_applied(migration_name):
-                success = self._run_migration_safely(migration_name, migration_func)
-                if not success:
-                    logger.error(f"Migration {migration_name} failed. Stopping migration process.")
-                    return False
+                pending_migrations.append((migration_name, migration_func))
             else:
                 logger.info(f"Migration {migration_name} already applied. Skipping.")
 
+        if not pending_migrations:
+            logger.info("No pending migrations to run.")
+            return True
+
+        if single_backup:
+            return self._run_migrations_with_single_backup(pending_migrations)
+        else:
+            return self._run_migrations_with_individual_backups(pending_migrations)
+
+    def _run_migrations_with_single_backup(self, pending_migrations):
+        """
+        Runs migrations with a single initial backup.
+
+        Args:
+            pending_migrations (list): List of (migration_name, migration_func) tuples.
+
+        Returns:
+            bool: True if all migrations succeeded, False otherwise.
+        """
+        logger.info(f"🔄 Starting migration batch with single backup strategy")
+        logger.info(f"Pending migrations: {[name for name, _ in pending_migrations]}")
+
+        # Create one backup before all migrations
+        backup_path = self._create_backup("migration_batch")
+        if not backup_path:
+            logger.warning("Could not create initial backup. Proceeding without backup.")
+        else:
+            logger.info(f"✅ Created initial backup: {os.path.basename(backup_path)}")
+
+        # Run all migrations using the same backup
+        for migration_name, migration_func in pending_migrations:
+            success = self._run_migration_safely(
+                migration_name,
+                migration_func,
+                backup_path=backup_path,
+                create_backup=False
+            )
+            if not success:
+                logger.error(f"Migration {migration_name} failed. Stopping migration process.")
+                return False
+
+        logger.info("✅ All migrations completed successfully with single backup strategy.")
+        return True
+
+    def _run_migrations_with_individual_backups(self, pending_migrations):
+        """
+        Runs migrations with individual backups (legacy behavior).
+
+        Args:
+            pending_migrations (list): List of (migration_name, migration_func) tuples.
+
+        Returns:
+            bool: True if all migrations succeeded, False otherwise.
+        """
+        logger.info(f"🔄 Starting migration batch with individual backup strategy")
+
+        for migration_name, migration_func in pending_migrations:
+            success = self._run_migration_safely(migration_name, migration_func)
+            if not success:
+                logger.error(f"Migration {migration_name} failed. Stopping migration process.")
+                return False
+
+        logger.info("✅ All migrations completed successfully with individual backup strategy.")
         return True
 
     def run_migrations(self):
