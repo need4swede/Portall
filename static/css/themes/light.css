@@ -377,7 +377,7 @@ code {
 
 #settingsTabs .nav-link:hover,
 #settingsTabs .nav-link.active {
-    color: var(--color-blue);
+    color: var(--color-white);
 }
 
 .tab-content>.tab-pane {

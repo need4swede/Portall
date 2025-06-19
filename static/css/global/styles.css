@@ -65,6 +65,9 @@
     /* Layout */
     --border-radius: 0.5rem;
     --box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+
+    /* Bootstrap */
+    --bg-info: rgb(0, 106, 158);
 }
 
 [data-theme="dark"] {
@@ -1845,6 +1848,11 @@ h1 {
 .tag-stats .h4 {
     font-weight: 700;
     margin-bottom: 0.5rem;
+}
+
+/* Bootstrap */
+.bg-info {
+    background-color: var(--bg-info);
 }
 
 /* Responsive tag styles */
