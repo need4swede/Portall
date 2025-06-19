@@ -58,6 +58,10 @@ $(document).ready(function () {
     // Load port scanning settings on page load
     loadPortScanningSettings();
 
+    // Load tagging settings on page load
+    loadTagDisplaySettings();
+    loadTagManagementSettings();
+
     // Apply custom CSS on page load
     applyCustomCSS($('#custom-css').val());
 
@@ -392,6 +396,63 @@ $(document).ready(function () {
         });
     });
 
+    // Handle tag display settings form submission
+    $('#tag-display-settings-form').submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: '/tag_display_settings',
+            method: 'POST',
+            data: $(this).serialize(),
+            success: function (response) {
+                console.log('Tag display settings saved successfully:', response);
+                showNotification('Tag display settings saved successfully!');
+            },
+            error: function (xhr, status, error) {
+                console.error('Error saving tag display settings:', status, error);
+                showNotification('Error saving tag display settings: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'), 'error');
+            }
+        });
+    });
+
+    // Handle tag management settings form submission
+    $('#tag-management-settings-form').submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: '/tag_management_settings',
+            method: 'POST',
+            data: $(this).serialize(),
+            success: function (response) {
+                console.log('Tag management settings saved successfully:', response);
+                showNotification('Tag management settings saved successfully!');
+            },
+            error: function (xhr, status, error) {
+                console.error('Error saving tag management settings:', status, error);
+                showNotification('Error saving tag management settings: ' + (xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error occurred'), 'error');
+            }
+        });
+    });
+
+    // Handle cleanup unused tags button
+    $('#cleanup-unused-tags-btn').click(function () {
+        if (confirm('Are you sure you want to remove all unused tags? This action cannot be undone.')) {
+            $.ajax({
+                url: '/api/tags/cleanup-unused',
+                method: 'POST',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification(`Removed ${response.removed_count} unused tags.`);
+                    } else {
+                        showNotification('Error cleaning up tags: ' + response.message, 'error');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error cleaning up unused tags:', status, error);
+                    showNotification('Error cleaning up unused tags: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Unknown error occurred'), 'error');
+                }
+            });
+        }
+    });
+
     /**
      * Loads and updates the port scanning settings UI.
      */
@@ -421,6 +482,61 @@ $(document).ready(function () {
             error: function (xhr, status, error) {
                 console.error('Error loading port scanning settings:', status, error);
                 showNotification('Error loading port scanning settings.', 'error');
+            }
+        });
+    }
+
+    /**
+     * Loads and updates the tag display settings UI.
+     */
+    function loadTagDisplaySettings() {
+        $.ajax({
+            url: '/tag_display_settings',
+            method: 'GET',
+            success: function (data) {
+                console.log("Received tag display settings:", data);
+
+                // Set checkbox values
+                $('#show-tags-in-tooltips').prop('checked', data.show_tags_in_tooltips === 'true');
+                $('#show-tags-on-cards').prop('checked', data.show_tags_on_cards === 'true');
+
+                // Set input values with defaults
+                $('#max-tags-display').val(data.max_tags_display || '5');
+
+                // Set radio button values
+                if (data.tag_badge_style) {
+                    $(`input[name="tag_badge_style"][value="${data.tag_badge_style}"]`).prop('checked', true);
+                } else {
+                    $('#badge-style-rounded').prop('checked', true); // Default
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error loading tag display settings:', status, error);
+                showNotification('Error loading tag display settings.', 'error');
+            }
+        });
+    }
+
+    /**
+     * Loads and updates the tag management settings UI.
+     */
+    function loadTagManagementSettings() {
+        $.ajax({
+            url: '/tag_management_settings',
+            method: 'GET',
+            success: function (data) {
+                console.log("Received tag management settings:", data);
+
+                // Set checkbox values
+                $('#allow-duplicate-tag-names').prop('checked', data.allow_duplicate_tag_names === 'true');
+                $('#auto-generate-colors').prop('checked', data.auto_generate_colors === 'true');
+
+                // Set color input value
+                $('#default-tag-color').val(data.default_tag_color || '#007bff');
+            },
+            error: function (xhr, status, error) {
+                console.error('Error loading tag management settings:', status, error);
+                showNotification('Error loading tag management settings.', 'error');
             }
         });
     }

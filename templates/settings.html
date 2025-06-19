@@ -517,7 +517,7 @@
         <div class="tab-pane fade" id="data" role="tabpanel" aria-labelledby="data-tab">
             <h2>Data Management</h2>
 
-            <!-- Export Data Section -->
+            <!-- Import Data Section -->
             <div class="mb-4 glass-card">
                 <h3>Import Data</h3>
                 <p>Import Port entries to Portall</p>
@@ -528,8 +528,31 @@
             <!-- Export Data Section -->
             <div class="mb-4 glass-card">
                 <h3>Export Data</h3>
-                <p>Export all Port entries to a file.</p>
-                <button id="export-entries-button" class="btn btn-primary">Export Entries</button>
+                <p>Export all data including ports with their tags, tagging rules, and system settings to a
+                    comprehensive JSON file.</p>
+
+                <div class="mb-3">
+                    <h5>Export includes:</h5>
+                    <ul class="list-unstyled ms-3">
+                        <li><i class="fas fa-check text-success"></i> All port entries with assigned tags</li>
+                        <li><i class="fas fa-check text-success"></i> All tags and their properties (name, color,
+                            description)</li>
+                        <li><i class="fas fa-check text-success"></i> All tagging rules and their configurations</li>
+                        <li><i class="fas fa-check text-success"></i> Tagging system settings</li>
+                        <li><i class="fas fa-check text-success"></i> Docker, Portainer, and Komodo integration settings
+                        </li>
+                    </ul>
+                </div>
+
+                <button id="export-entries-button" class="btn btn-primary">
+                    <i class="fas fa-download"></i> Export Complete Configuration
+                </button>
+
+                <small class="d-block text-muted mt-2">
+                    <i class="fas fa-info-circle"></i>
+                    The exported file can be used to backup your complete Portall configuration or migrate to another
+                    instance.
+                </small>
             </div>
 
             <!-- Purge Data Section -->

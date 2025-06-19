@@ -64,6 +64,9 @@ def import_data():
                 grouped_data[ip] = []
             grouped_data[ip].append(item)
 
+        # Store port-tag associations for later processing
+        port_tag_associations = []
+
         for ip, items in grouped_data.items():
             # Get the maximum order for this IP
             max_order = db.session.query(db.func.max(Port.order)).filter(Port.ip_address == ip).scalar()
@@ -88,10 +91,21 @@ def import_data():
                     )
                     db.session.add(port)
                     added_count += 1
+
+                    # Store tag associations for later processing
+                    if 'tags' in item:
+                        port_tag_associations.append({
+                            'port_data': item,
+                            'tags': item['tags']
+                        })
                 else:
                     skipped_count += 1
 
         db.session.commit()
+
+        # Process port-tag associations after ports are committed
+        if port_tag_associations:
+            process_port_tag_associations(port_tag_associations)
 
         return jsonify({
             'success': True,
@@ -270,11 +284,11 @@ def import_json(content):
     Parse JSON content and extract port information and settings.
 
     This function processes JSON content, supporting both the legacy format
-    (a list of port entries) and the new format (an object with 'ports',
-    'docker', 'portainer', and 'komodo' properties).
+    (a list of port entries) and the new comprehensive format (an object with 'ports',
+    'tags', 'tagging_rules', and various settings properties).
 
-    For the new format, it also updates the settings for docker, portainer,
-    and komodo in the database.
+    For the new format, it also updates all settings, imports tags and tagging rules,
+    and restores port-tag associations.
 
     Args:
         content (str): JSON-formatted string containing port information and settings
@@ -289,9 +303,25 @@ def import_json(content):
         data = json.loads(content)
         entries = []
 
-        # Check if the data is in the new format (object with 'ports' property)
+        # Check if the data is in the new comprehensive format (version 3.0+)
         if isinstance(data, dict) and 'ports' in data:
-            # Import settings if they exist
+            # Import general settings if they exist
+            if 'general_settings' in data:
+                import_general_settings(data['general_settings'])
+
+            # Import port settings if they exist
+            if 'port_settings' in data:
+                import_port_settings(data['port_settings'])
+
+            # Import port scanning settings if they exist
+            if 'port_scanning_settings' in data:
+                import_port_scanning_settings(data['port_scanning_settings'])
+
+            # Import tagging settings if they exist
+            if 'tagging_settings' in data:
+                import_tagging_settings(data['tagging_settings'])
+
+            # Import integration settings if they exist
             if 'docker' in data:
                 import_settings('docker', data['docker'])
             if 'portainer' in data:
@@ -299,15 +329,29 @@ def import_json(content):
             if 'komodo' in data:
                 import_settings('komodo', data['komodo'])
 
+            # Import tags if they exist
+            if 'tags' in data:
+                import_tags(data['tags'])
+
+            # Import tagging rules if they exist
+            if 'tagging_rules' in data:
+                import_tagging_rules(data['tagging_rules'])
+
             # Extract port entries from the 'ports' array
             for item in data['ports']:
-                entries.append({
+                port_entry = {
                     'ip': item['ip_address'],
                     'nickname': item['nickname'],
                     'port': int(item['port_number']),
                     'description': item['description'],
                     'port_protocol': item['port_protocol'].upper()
-                })
+                }
+
+                # Store tags for later association (after ports are created)
+                if 'tags' in item:
+                    port_entry['tags'] = item['tags']
+
+                entries.append(port_entry)
         else:
             # Legacy format (list of port entries)
             for item in data:
@@ -342,20 +386,24 @@ def import_settings(service_type, settings):
         'docker': {
             'enabled': 'docker_enabled',
             'path': 'docker_host',
-            'auto_scan': 'docker_auto_detect'
+            'auto_scan': 'docker_auto_detect',
+            'scan_interval': 'docker_scan_interval'
         },
         'portainer': {
             'enabled': 'portainer_enabled',
             'path': 'portainer_url',
             'auto_scan': 'portainer_auto_detect',
-            'api_key': 'portainer_api_key'
+            'api_key': 'portainer_api_key',
+            'verify_ssl': 'portainer_verify_ssl',
+            'scan_interval': 'portainer_scan_interval'
         },
         'komodo': {
             'enabled': 'komodo_enabled',
             'path': 'komodo_url',
             'auto_scan': 'komodo_auto_detect',
             'api_key': 'komodo_api_key',
-            'api_secret': 'komodo_api_secret'
+            'api_secret': 'komodo_api_secret',
+            'scan_interval': 'komodo_scan_interval'
         }
     }
 
@@ -371,9 +419,9 @@ def import_settings(service_type, settings):
             # Update or create the setting
             setting = Setting.query.filter_by(key=db_key).first()
             if setting:
-                setting.value = value
+                setting.value = str(value)
             else:
-                setting = Setting(key=db_key, value=value)
+                setting = Setting(key=db_key, value=str(value))
                 db.session.add(setting)
 
 # Import Helpers
@@ -426,6 +474,159 @@ def parse_port_and_protocol(port_value):
 
     # If we can't parse it, raise an error
     raise ValueError(f"Unable to parse port value: {port_value}")
+
+def import_general_settings(settings):
+    """
+    Import general application settings.
+
+    Args:
+        settings (dict): The general settings to import
+    """
+    from utils.database import Setting
+
+    for key, value in settings.items():
+        if value is not None:
+            setting = Setting.query.filter_by(key=key).first()
+            if setting:
+                setting.value = str(value)
+            else:
+                setting = Setting(key=key, value=str(value))
+                db.session.add(setting)
+
+def import_port_settings(settings):
+    """
+    Import port generation settings.
+
+    Args:
+        settings (dict): The port settings to import
+    """
+    from utils.database import Setting
+
+    for key, value in settings.items():
+        if value is not None and value != '':
+            setting = Setting.query.filter_by(key=key).first()
+            if setting:
+                setting.value = str(value)
+            else:
+                setting = Setting(key=key, value=str(value))
+                db.session.add(setting)
+
+def import_port_scanning_settings(settings):
+    """
+    Import port scanning settings.
+
+    Args:
+        settings (dict): The port scanning settings to import
+    """
+    from utils.database import Setting
+
+    for key, value in settings.items():
+        if value is not None:
+            setting = Setting.query.filter_by(key=key).first()
+            if setting:
+                setting.value = str(value)
+            else:
+                setting = Setting(key=key, value=str(value))
+                db.session.add(setting)
+
+def import_tagging_settings(settings):
+    """
+    Import tagging system settings.
+
+    Args:
+        settings (dict): The tagging settings to import
+    """
+    from utils.database import Setting
+
+    for key, value in settings.items():
+        if value is not None:
+            setting = Setting.query.filter_by(key=key).first()
+            if setting:
+                setting.value = str(value)
+            else:
+                setting = Setting(key=key, value=str(value))
+                db.session.add(setting)
+
+def import_tags(tags_data):
+    """
+    Import tags from exported data.
+
+    Args:
+        tags_data (list): List of tag dictionaries to import
+    """
+    from utils.database import Tag
+
+    for tag_data in tags_data:
+        # Check if tag already exists by name
+        existing_tag = Tag.query.filter_by(name=tag_data['name']).first()
+        if not existing_tag:
+            tag = Tag(
+                name=tag_data['name'],
+                color=tag_data.get('color', '#007bff'),
+                description=tag_data.get('description')
+            )
+            db.session.add(tag)
+
+def import_tagging_rules(rules_data):
+    """
+    Import tagging rules from exported data.
+
+    Args:
+        rules_data (list): List of tagging rule dictionaries to import
+    """
+    from utils.database import TaggingRule
+
+    for rule_data in rules_data:
+        # Check if rule already exists by name
+        existing_rule = TaggingRule.query.filter_by(name=rule_data['name']).first()
+        if not existing_rule:
+            rule = TaggingRule(
+                name=rule_data['name'],
+                description=rule_data.get('description'),
+                enabled=rule_data.get('enabled', True),
+                auto_execute=rule_data.get('auto_execute', False),
+                priority=rule_data.get('priority', 0),
+                conditions=json.dumps(rule_data['conditions']),
+                actions=json.dumps(rule_data['actions'])
+            )
+            db.session.add(rule)
+
+def process_port_tag_associations(port_tag_associations):
+    """
+    Process port-tag associations after ports have been created.
+
+    Args:
+        port_tag_associations (list): List of dictionaries containing port data and associated tags
+    """
+    from utils.database import Tag, PortTag
+
+    for association in port_tag_associations:
+        port_data = association['port_data']
+        tags = association['tags']
+
+        # Find the port that was just created
+        port = Port.query.filter_by(
+            ip_address=port_data['ip'],
+            port_number=port_data['port'],
+            port_protocol=port_data['port_protocol']
+        ).first()
+
+        if port:
+            for tag_data in tags:
+                # Find the tag by name (tags should have been imported already)
+                tag = Tag.query.filter_by(name=tag_data['name']).first()
+                if tag:
+                    # Check if association already exists
+                    existing_association = PortTag.query.filter_by(
+                        port_id=port.id,
+                        tag_id=tag.id
+                    ).first()
+
+                    if not existing_association:
+                        port_tag = PortTag(port_id=port.id, tag_id=tag.id)
+                        db.session.add(port_tag)
+
+    db.session.commit()
 
 def get_max_order():
     """

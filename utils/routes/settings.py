@@ -263,26 +263,124 @@ def export_entries():
         komodo_api_secret = get_setting('komodo_api_secret', '')
         komodo_auto_detect = get_setting('komodo_auto_detect', 'false')
 
-        # Create export data dictionary with ports and settings
+        # Get all tags with their properties
+        from utils.database import Tag, TaggingRule
+        tags = Tag.query.all()
+        tags_data = [{
+            'id': tag.id,
+            'name': tag.name,
+            'color': tag.color,
+            'description': tag.description,
+            'created_at': tag.created_at.isoformat() if tag.created_at else None
+        } for tag in tags]
+
+        # Get all tagging rules
+        rules = TaggingRule.query.all()
+        rules_data = [{
+            'id': rule.id,
+            'name': rule.name,
+            'description': rule.description,
+            'enabled': rule.enabled,
+            'auto_execute': rule.auto_execute,
+            'priority': rule.priority,
+            'conditions': json.loads(rule.conditions),
+            'actions': json.loads(rule.actions),
+            'execution_count': rule.execution_count,
+            'ports_affected': rule.ports_affected,
+            'last_executed': rule.last_executed.isoformat() if rule.last_executed else None,
+            'created_at': rule.created_at.isoformat() if rule.created_at else None
+        } for rule in rules]
+
+        # Add tags to port data
+        from utils.database import PortTag
+        for port_dict in port_data:
+            port_id = Port.query.filter_by(
+                ip_address=port_dict['ip_address'],
+                port_number=port_dict['port_number'],
+                port_protocol=port_dict['port_protocol']
+            ).first().id
+
+            port_tags = db.session.query(Tag).join(PortTag).filter(PortTag.port_id == port_id).all()
+            port_dict['tags'] = [{
+                'id': tag.id,
+                'name': tag.name,
+                'color': tag.color,
+                'description': tag.description
+            } for tag in port_tags]
+
+        # Get general application settings
+        general_settings = {
+            'default_ip': get_setting('default_ip', ''),
+            'theme': get_setting('theme', 'light'),
+            'custom_css': get_setting('custom_css', '')
+        }
+
+        # Get port generation settings
+        port_settings = {
+            'port_start': get_setting('port_start', ''),
+            'port_end': get_setting('port_end', ''),
+            'port_exclude': get_setting('port_exclude', ''),
+            'port_length': get_setting('port_length', '4'),
+            'copy_format': get_setting('copy_format', 'port_only')
+        }
+
+        # Get port scanning settings
+        port_scanning_settings = {
+            'port_scanning_enabled': get_setting('port_scanning_enabled', 'false'),
+            'auto_add_discovered': get_setting('auto_add_discovered', 'false'),
+            'scan_range_start': get_setting('scan_range_start', '1024'),
+            'scan_range_end': get_setting('scan_range_end', '65535'),
+            'scan_exclude': get_setting('scan_exclude', ''),
+            'scan_timeout': get_setting('scan_timeout', '1000'),
+            'scan_threads': get_setting('scan_threads', '50'),
+            'scan_interval': get_setting('scan_interval', '24'),
+            'scan_retention': get_setting('scan_retention', '30'),
+            'verify_ports_on_load': get_setting('verify_ports_on_load', 'false')
+        }
+
+        # Get tagging system settings
+        tagging_settings = {
+            'show_tags_in_tooltips': get_setting('show_tags_in_tooltips', 'true'),
+            'show_tags_on_cards': get_setting('show_tags_on_cards', 'false'),
+            'max_tags_display': get_setting('max_tags_display', '5'),
+            'tag_badge_style': get_setting('tag_badge_style', 'rounded'),
+            'allow_duplicate_tag_names': get_setting('allow_duplicate_tag_names', 'false'),
+            'auto_generate_colors': get_setting('auto_generate_colors', 'true'),
+            'default_tag_color': get_setting('default_tag_color', '#007bff')
+        }
+
+        # Create export data dictionary with comprehensive settings
         export_data = {
+            'exported_at': datetime.now().isoformat(),
+            'version': '3.0',  # Updated version to reflect comprehensive settings export
             'ports': port_data,
+            'tags': tags_data,
+            'tagging_rules': rules_data,
+            'general_settings': general_settings,
+            'port_settings': port_settings,
+            'port_scanning_settings': port_scanning_settings,
+            'tagging_settings': tagging_settings,
             'docker': {
                 'enabled': docker_enabled.lower() == 'true',
                 'path': docker_host,
-                'auto_scan': docker_auto_detect.lower() == 'true'
+                'auto_scan': docker_auto_detect.lower() == 'true',
+                'scan_interval': get_setting('docker_scan_interval', '300')
             },
             'portainer': {
                 'enabled': portainer_enabled.lower() == 'true',
                 'path': portainer_url,
                 'auto_scan': portainer_auto_detect.lower() == 'true',
-                'api_key': portainer_api_key if portainer_enabled.lower() == 'true' else ''
+                'api_key': portainer_api_key if portainer_enabled.lower() == 'true' else '',
+                'verify_ssl': get_setting('portainer_verify_ssl', 'true'),
+                'scan_interval': get_setting('portainer_scan_interval', '300')
             },
             'komodo': {
                 'enabled': komodo_enabled.lower() == 'true',
                 'path': komodo_url,
                 'auto_scan': komodo_auto_detect.lower() == 'true',
                 'api_key': komodo_api_key if komodo_enabled.lower() == 'true' else '',
-                'api_secret': komodo_api_secret if komodo_enabled.lower() == 'true' else ''
+                'api_secret': komodo_api_secret if komodo_enabled.lower() == 'true' else '',
+                'scan_interval': get_setting('komodo_scan_interval', '300')
             }
         }
 
@@ -331,6 +429,169 @@ def purge_entries():
         db.session.rollback()
         app.logger.error(f"Error purging entries: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@settings_bp.route('/port_scanning_settings', methods=['GET', 'POST'])
+def port_scanning_settings():
+    """
+    Handle GET and POST requests for port scanning settings.
+    """
+    if request.method == 'GET':
+        try:
+            scanning_settings = {}
+            for key in ['port_scanning_enabled', 'auto_add_discovered', 'scan_range_start', 'scan_range_end',
+                       'scan_exclude', 'scan_timeout', 'scan_threads', 'scan_interval', 'scan_retention',
+                       'verify_ports_on_load']:
+                setting = Setting.query.filter_by(key=key).first()
+                scanning_settings[key] = setting.value if setting else ''
+
+            return jsonify(scanning_settings)
+        except Exception as e:
+            app.logger.error(f"Error retrieving port scanning settings: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            # Extract port scanning settings from form data
+            settings_to_update = {
+                'port_scanning_enabled': 'true' if request.form.get('port_scanning_enabled') else 'false',
+                'auto_add_discovered': 'true' if request.form.get('auto_add_discovered') else 'false',
+                'scan_range_start': request.form.get('scan_range_start', '1024'),
+                'scan_range_end': request.form.get('scan_range_end', '65535'),
+                'scan_exclude': request.form.get('scan_exclude', ''),
+                'scan_timeout': request.form.get('scan_timeout', '1000'),
+                'scan_threads': request.form.get('scan_threads', '50'),
+                'scan_interval': request.form.get('scan_interval', '24'),
+                'scan_retention': request.form.get('scan_retention', '30'),
+                'verify_ports_on_load': 'true' if request.form.get('verify_ports_on_load') else 'false'
+            }
+
+            # Update or create port scanning settings in the database
+            for key, value in settings_to_update.items():
+                setting = Setting.query.filter_by(key=key).first()
+                if setting:
+                    setting.value = value
+                else:
+                    new_setting = Setting(key=key, value=value)
+                    db.session.add(new_setting)
+
+            db.session.commit()
+            app.logger.info("Port scanning settings updated successfully")
+            return jsonify({'success': True, 'message': 'Port scanning settings updated successfully'})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error saving port scanning settings: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+@settings_bp.route('/tag_display_settings', methods=['GET', 'POST'])
+def tag_display_settings():
+    """
+    Handle GET and POST requests for tag display settings.
+    """
+    if request.method == 'GET':
+        try:
+            tag_settings = {}
+            for key in ['show_tags_in_tooltips', 'show_tags_on_cards', 'max_tags_display', 'tag_badge_style']:
+                setting = Setting.query.filter_by(key=key).first()
+                if setting:
+                    tag_settings[key] = setting.value
+                else:
+                    # Set defaults
+                    if key == 'show_tags_in_tooltips':
+                        tag_settings[key] = 'true'
+                    elif key == 'show_tags_on_cards':
+                        tag_settings[key] = 'false'
+                    elif key == 'max_tags_display':
+                        tag_settings[key] = '5'
+                    elif key == 'tag_badge_style':
+                        tag_settings[key] = 'rounded'
+                    else:
+                        tag_settings[key] = ''
+
+            return jsonify(tag_settings)
+        except Exception as e:
+            app.logger.error(f"Error retrieving tag display settings: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            # Extract tag display settings from form data
+            tag_settings = {
+                'show_tags_in_tooltips': 'true' if request.form.get('show_tags_in_tooltips') else 'false',
+                'show_tags_on_cards': 'true' if request.form.get('show_tags_on_cards') else 'false',
+                'max_tags_display': request.form.get('max_tags_display', '5'),
+                'tag_badge_style': request.form.get('tag_badge_style', 'rounded')
+            }
+
+            # Update or create tag display settings in the database
+            for key, value in tag_settings.items():
+                setting = Setting.query.filter_by(key=key).first()
+                if setting:
+                    setting.value = value
+                else:
+                    new_setting = Setting(key=key, value=value)
+                    db.session.add(new_setting)
+
+            db.session.commit()
+            app.logger.info("Tag display settings updated successfully")
+            return jsonify({'success': True, 'message': 'Tag display settings updated successfully'})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error saving tag display settings: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+@settings_bp.route('/tag_management_settings', methods=['GET', 'POST'])
+def tag_management_settings():
+    """
+    Handle GET and POST requests for tag management settings.
+    """
+    if request.method == 'GET':
+        try:
+            tag_settings = {}
+            for key in ['allow_duplicate_tag_names', 'auto_generate_colors', 'default_tag_color']:
+                setting = Setting.query.filter_by(key=key).first()
+                if setting:
+                    tag_settings[key] = setting.value
+                else:
+                    # Set defaults
+                    if key == 'allow_duplicate_tag_names':
+                        tag_settings[key] = 'false'
+                    elif key == 'auto_generate_colors':
+                        tag_settings[key] = 'true'
+                    elif key == 'default_tag_color':
+                        tag_settings[key] = '#007bff'
+                    else:
+                        tag_settings[key] = ''
+
+            return jsonify(tag_settings)
+        except Exception as e:
+            app.logger.error(f"Error retrieving tag management settings: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            # Extract tag management settings from form data
+            tag_settings = {
+                'allow_duplicate_tag_names': 'true' if request.form.get('allow_duplicate_tag_names') else 'false',
+                'auto_generate_colors': 'true' if request.form.get('auto_generate_colors') else 'false',
+                'default_tag_color': request.form.get('default_tag_color', '#007bff')
+            }
+
+            # Update or create tag management settings in the database
+            for key, value in tag_settings.items():
+                setting = Setting.query.filter_by(key=key).first()
+                if setting:
+                    setting.value = value
+                else:
+                    new_setting = Setting(key=key, value=value)
+                    db.session.add(new_setting)
+
+            db.session.commit()
+            app.logger.info("Tag management settings updated successfully")
+            return jsonify({'success': True, 'message': 'Tag management settings updated successfully'})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error saving tag management settings: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
 
 @settings_bp.route('/get_about_content')
 def get_about_content():
