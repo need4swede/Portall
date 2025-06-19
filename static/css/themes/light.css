@@ -375,7 +375,11 @@ code {
     transition: color var(--transition-duration) ease;
 }
 
-#settingsTabs .nav-link:hover,
+#settingsTabs .nav-link:hover {
+    color: var(--color-blue-dark);
+
+}
+
 #settingsTabs .nav-link.active {
     color: var(--color-white);
 }
