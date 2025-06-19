@@ -211,7 +211,7 @@ class TaggingEngine:
         return stats
 
     def _evaluate_rule_conditions(self, port: Port, rule: TaggingRule) -> bool:
-        """Evaluate if a port matches all conditions in a rule."""
+        """Evaluate if a port matches conditions in a rule."""
         try:
             conditions = json.loads(rule.conditions)
 
@@ -221,10 +221,10 @@ class TaggingEngine:
                     # Complex condition with AND/OR logic
                     return self._evaluate_complex_condition(port, conditions)
                 else:
-                    # Simple condition object
+                    # Simple condition object - treat as single condition
                     return self._evaluate_simple_condition(port, conditions)
             elif isinstance(conditions, list):
-                # List of conditions (default AND logic)
+                # List of conditions (default AND logic for backward compatibility)
                 return all(self._evaluate_simple_condition(port, cond) for cond in conditions)
             else:
                 logger.warning(f"Invalid condition format in rule {rule.id}")

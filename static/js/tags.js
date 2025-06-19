@@ -39,6 +39,22 @@ class TagManager {
         document.getElementById('execute-bulk-btn').addEventListener('click', () => this.executeBulkOperation());
     }
 
+    setupConditionOperatorHandler() {
+        const operatorSelect = document.getElementById('condition-operator');
+        const helpText = document.getElementById('condition-logic-help');
+
+        if (operatorSelect && helpText) {
+            operatorSelect.addEventListener('change', (e) => {
+                const operator = e.target.value;
+                if (operator === 'OR') {
+                    helpText.textContent = 'At least one condition must be met (OR logic)';
+                } else {
+                    helpText.textContent = 'All conditions must be met (AND logic)';
+                }
+            });
+        }
+    }
+
     setupTabHandlers() {
         const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
         tabButtons.forEach(button => {
@@ -166,6 +182,11 @@ class TagManager {
         }
 
         modal.show();
+
+        // Setup the condition operator handler after modal is shown
+        setTimeout(() => {
+            this.setupConditionOperatorHandler();
+        }, 100);
     }
 
     async saveTag() {
@@ -259,37 +280,71 @@ class TagManager {
             return;
         }
 
-        container.innerHTML = this.rules.map(rule => `
-            <div class="rule-item ${!rule.enabled ? 'disabled' : ''}" data-rule-id="${rule.id}">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <div class="d-flex align-items-center mb-2">
-                            <h6 class="mb-0">${rule.name}</h6>
-                            <span class="badge ${rule.enabled ? 'bg-success' : 'bg-secondary'} ms-2">
-                                ${rule.enabled ? 'Enabled' : 'Disabled'}
-                            </span>
-                            <span class="badge bg-info ms-1">Priority: ${rule.priority}</span>
+        container.innerHTML = this.rules.map(rule => {
+            // Parse conditions to determine logic type
+            let conditionLogic = 'ALL conditions';
+            let conditionCount = 0;
+            try {
+                const conditions = JSON.parse(rule.conditions);
+                if (conditions.operator) {
+                    conditionLogic = conditions.operator === 'OR' ? 'ANY condition' : 'ALL conditions';
+                    conditionCount = conditions.conditions ? conditions.conditions.length : 0;
+                } else if (Array.isArray(conditions)) {
+                    conditionCount = conditions.length;
+                } else {
+                    conditionCount = 1;
+                }
+            } catch (e) {
+                conditionCount = 1;
+            }
+
+            // Parse actions to count them
+            let actionCount = 0;
+            try {
+                const actions = JSON.parse(rule.actions);
+                actionCount = Array.isArray(actions) ? actions.length : 1;
+            } catch (e) {
+                actionCount = 1;
+            }
+
+            return `
+                <div class="rule-item ${!rule.enabled ? 'disabled' : ''}" data-rule-id="${rule.id}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2">
+                                <h6 class="mb-0 me-2">${rule.name}</h6>
+                                <span class="badge ${rule.enabled ? 'bg-success' : 'bg-secondary'} me-1">
+                                    ${rule.enabled ? 'Enabled' : 'Disabled'}
+                                </span>
+                                <span class="badge ${rule.auto_execute ? 'bg-primary' : 'bg-outline-secondary'} me-1">
+                                    ${rule.auto_execute ? '✅ Auto-execute: ON' : '❌ Auto-execute: OFF'}
+                                </span>
+                                <span class="badge bg-info me-1">Priority: ${rule.priority}</span>
+                            </div>
+                            <div class="small text-muted mb-2">
+                                Match ${conditionLogic} • ${conditionCount} condition${conditionCount !== 1 ? 's' : ''} • ${actionCount} action${actionCount !== 1 ? 's' : ''}
+                            </div>
+                            ${rule.description ? `<p class="text-muted mb-2">${rule.description}</p>` : ''}
+                            <div class="small text-muted">
+                                Executed ${rule.execution_count} times • ${rule.ports_affected} ports affected
+                                ${rule.last_executed ? `<br>Last run: ${new Date(rule.last_executed).toLocaleString()}` : ''}
+                            </div>
                         </div>
-                        ${rule.description ? `<p class="text-muted mb-2">${rule.description}</p>` : ''}
-                        <div class="small text-muted">
-                            Executed ${rule.execution_count} times, affected ${rule.ports_affected} ports
-                            ${rule.last_executed ? `<br>Last executed: ${new Date(rule.last_executed).toLocaleString()}` : ''}
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-success" onclick="tagManager.executeRule(${rule.id})" title="Execute Rule">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="tagManager.editRule(${rule.id})" title="Edit Rule">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="tagManager.deleteRule(${rule.id})" title="Delete Rule">
+                                <i class="fas fa-trash"></i>
+                            </button>
                         </div>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-success" onclick="tagManager.executeRule(${rule.id})" title="Execute Rule">
-                            <i class="fas fa-play"></i>
-                        </button>
-                        <button class="btn btn-outline-primary" onclick="tagManager.editRule(${rule.id})" title="Edit Rule">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-outline-danger" onclick="tagManager.deleteRule(${rule.id})" title="Delete Rule">
-                            <i class="fas fa-trash"></i>
-                        </button>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     showRuleModal(rule = null) {
@@ -615,8 +670,10 @@ class TagManager {
             return;
         }
 
-        // Collect conditions
-        const conditions = [];
+        // Collect conditions with operator logic
+        const conditionOperator = document.getElementById('condition-operator').value || 'AND';
+        const conditionList = [];
+
         document.querySelectorAll('#rule-conditions .condition-item').forEach(item => {
             const type = item.querySelector('.condition-type').value;
 
@@ -641,14 +698,20 @@ class TagManager {
 
             // Only add condition if it has required data
             if (conditionData.value || (conditionData.start && conditionData.end)) {
-                conditions.push(conditionData);
+                conditionList.push(conditionData);
             }
         });
 
-        if (conditions.length === 0) {
+        if (conditionList.length === 0) {
             this.showNotification('At least one valid condition is required', 'error');
             return;
         }
+
+        // Structure conditions with operator
+        const conditions = {
+            operator: conditionOperator,
+            conditions: conditionList
+        };
 
         // Collect actions
         const actions = [];
