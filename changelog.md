@@ -1,4 +1,8 @@
-# <a href="https://github.com/need4swede/portall/releases/tag/v2.0.3" target="_blank">v2.0.3</a>
+# <a href="https://github.com/need4swede/portall/releases/tag/v2.0.4" target="_blank">v2.0.4</a>
+## Added
+### Tags
+Added a new tagging system, with customizable rules, configurable templates, and sharing features
+
 ## Changed
 ### Port Scanning UI
 Improved port scanning menu
