@@ -198,8 +198,20 @@ def get_port_tags(port_id):
     try:
         port = Port.query.get(port_id)
         if not port:
-            return jsonify([]), 404
+            return jsonify({'success': False, 'message': 'Port not found'}), 404
 
+        # Port data
+        port_data = {
+            'id': port.id,
+            'ip_address': port.ip_address,
+            'port_number': port.port_number,
+            'port_protocol': port.port_protocol,
+            'nickname': port.nickname,
+            'description': port.description,
+            'source': port.source
+        }
+
+        # Tags data
         tags_data = [{
             'id': tag.id,
             'name': tag.name,
@@ -207,11 +219,15 @@ def get_port_tags(port_id):
             'description': tag.description
         } for tag in port.tags]
 
-        return jsonify(tags_data)
+        return jsonify({
+            'success': True,
+            'port': port_data,
+            'tags': tags_data
+        })
 
     except Exception as e:
         logger.error(f"Error getting port tags: {str(e)}")
-        return jsonify([]), 500
+        return jsonify({'success': False, 'message': f'Error getting port tags: {str(e)}'}), 500
 
 @tags_bp.route('/api/ports/<int:port_id>/tags', methods=['POST'])
 def add_tags_to_port(port_id):

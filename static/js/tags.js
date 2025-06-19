@@ -1042,6 +1042,120 @@ class TagManager {
         document.getElementById('filter-results').style.display = 'none';
     }
 
+    // Port Tag Management
+    async showPortTagModal(portId) {
+        try {
+            // Load port details and current tags
+            const response = await fetch(`/api/ports/${portId}/tags`);
+            const data = await response.json();
+
+            if (!data.success) {
+                this.showNotification('Error loading port details: ' + data.message, 'error');
+                return;
+            }
+
+            const port = data.port;
+            const currentTags = data.tags || [];
+
+            // Create modal content
+            const modal = new bootstrap.Modal(document.getElementById('portTagModal'));
+
+            // Set port details
+            document.getElementById('port-tag-modal-title').textContent = `Manage Tags for ${port.ip_address}:${port.port_number}`;
+            document.getElementById('port-details').innerHTML = `
+                <div class="mb-3">
+                    <strong>Port:</strong> ${port.ip_address}:${port.port_number} (${port.port_protocol})
+                    ${port.nickname ? `<br><strong>Nickname:</strong> ${port.nickname}` : ''}
+                    ${port.description ? `<br><strong>Description:</strong> ${port.description}` : ''}
+                </div>
+            `;
+
+            // Set current tags
+            const currentTagsContainer = document.getElementById('current-port-tags');
+            if (currentTags.length === 0) {
+                currentTagsContainer.innerHTML = '<p class="text-muted">No tags assigned</p>';
+            } else {
+                currentTagsContainer.innerHTML = currentTags.map(tag => `
+                    <span class="tag-badge me-2 mb-2" style="background-color: ${tag.color}">
+                        ${tag.name}
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                onclick="tagManager.removePortTag(${portId}, ${tag.id})"
+                                title="Remove tag"></button>
+                    </span>
+                `).join('');
+            }
+
+            // Populate available tags dropdown
+            const availableTagsSelect = document.getElementById('available-port-tags');
+            const availableTags = this.tags.filter(tag =>
+                !currentTags.some(currentTag => currentTag.id === tag.id)
+            );
+
+            availableTagsSelect.innerHTML = '<option value="">Select a tag to add...</option>' +
+                availableTags.map(tag =>
+                    `<option value="${tag.id}" data-color="${tag.color}">${tag.name}</option>`
+                ).join('');
+
+            // Store port ID for later use
+            document.getElementById('port-tag-modal').setAttribute('data-port-id', portId);
+
+            modal.show();
+        } catch (error) {
+            this.showNotification('Error loading port tags: ' + error.message, 'error');
+        }
+    }
+
+    async addPortTag() {
+        const portId = document.getElementById('port-tag-modal').getAttribute('data-port-id');
+        const tagSelect = document.getElementById('available-port-tags');
+        const tagId = tagSelect.value;
+
+        if (!tagId) {
+            this.showNotification('Please select a tag to add', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/ports/${portId}/tags`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag_id: parseInt(tagId) })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification('Tag added successfully', 'success');
+                // Refresh the modal content
+                this.showPortTagModal(portId);
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error adding tag: ' + error.message, 'error');
+        }
+    }
+
+    async removePortTag(portId, tagId) {
+        try {
+            const response = await fetch(`/api/ports/${portId}/tags/${tagId}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification('Tag removed successfully', 'success');
+                // Refresh the modal content
+                this.showPortTagModal(portId);
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error removing tag: ' + error.message, 'error');
+        }
+    }
+
     // Template Management
     async loadTemplates() {
         try {

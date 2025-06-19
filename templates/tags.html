@@ -421,6 +421,55 @@
     </div>
 </div>
 
+<!-- Port Tag Management Modal -->
+<div class="modal fade" id="portTagModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="port-tag-modal-title">Manage Port Tags</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="port-tag-modal" data-port-id="">
+                    <!-- Port Details -->
+                    <div id="port-details" class="mb-4">
+                        <!-- Port information will be loaded here -->
+                    </div>
+
+                    <!-- Current Tags -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-tags"></i> Current Tags</h6>
+                        <div id="current-port-tags" class="p-3">
+                            <!-- Current tags will be displayed here -->
+                        </div>
+                    </div>
+
+                    <!-- Add New Tag -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-plus"></i> Add Tag</h6>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <select id="available-port-tags" class="form-select">
+                                    <option value="">Select a tag to add...</option>
+                                    <!-- Available tags will be loaded here -->
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-primary" onclick="tagManager.addPortTag()">
+                                    <i class="fas fa-plus"></i> Add Tag
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Confirmation Modal -->
 <div class="modal fade" id="confirmationModal" tabindex="-1">
     <div class="modal-dialog">
