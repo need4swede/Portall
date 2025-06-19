@@ -418,6 +418,15 @@ def scan_docker_ports():
                             is_immutable=True
                         )
                         db.session.add(new_port)
+                        db.session.flush()  # Ensure we have the port ID
+
+                        # Apply automatic tagging rules to the new port
+                        try:
+                            from utils.tagging_engine import tagging_engine
+                            tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                        except Exception as e:
+                            app.logger.error(f"Error applying automatic tagging rules to Docker port {new_port.id}: {str(e)}")
+
                         added_to_port_table += 1
 
         db.session.commit()
@@ -566,6 +575,15 @@ def import_from_portainer():
                             is_immutable=True
                         )
                         db.session.add(new_port)
+                        db.session.flush()  # Ensure we have the port ID
+
+                        # Apply automatic tagging rules to the new port
+                        try:
+                            from utils.tagging_engine import tagging_engine
+                            tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                        except Exception as e:
+                            app.logger.error(f"Error applying automatic tagging rules to Portainer port {new_port.id}: {str(e)}")
+
                         added_to_port_table += 1
 
         db.session.commit()
@@ -891,6 +909,15 @@ def import_from_komodo():
                                 is_immutable=True
                             )
                             db.session.add(new_port)
+                            db.session.flush()  # Ensure we have the port ID
+
+                            # Apply automatic tagging rules to the new port
+                            try:
+                                from utils.tagging_engine import tagging_engine
+                                tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                            except Exception as e:
+                                app.logger.error(f"Error applying automatic tagging rules to Komodo port {new_port.id}: {str(e)}")
+
                             added_to_port_table += 1
 
             except Exception as e:

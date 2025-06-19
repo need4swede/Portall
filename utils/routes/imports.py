@@ -87,9 +87,19 @@ def import_data():
                         port_number=item['port'],
                         description=item['description'],
                         port_protocol=item['port_protocol'],
-                        order=current_order
+                        order=current_order,
+                        source='import'
                     )
                     db.session.add(port)
+                    db.session.flush()  # Ensure we have the port ID
+
+                    # Apply automatic tagging rules to the new port
+                    try:
+                        from utils.tagging_engine import tagging_engine
+                        tagging_engine.apply_automatic_rules_to_port(port, commit=False)
+                    except Exception as e:
+                        print(f"Error applying automatic tagging rules to imported port {port.id}: {str(e)}")
+
                     added_count += 1
 
                     # Store tag associations for later processing

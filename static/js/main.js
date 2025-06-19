@@ -72,7 +72,9 @@ async function loadPortTags(portId, container) {
     try {
         const response = await fetch(`/api/ports/${portId}/tags`);
         if (response.ok) {
-            const tags = await response.json();
+            const data = await response.json();
+            // Extract tags array from the response
+            const tags = data.success ? data.tags : [];
             displayPortTags(tags, container);
         } else {
             container.innerHTML = '<span class="text-muted">No tags</span>';
@@ -128,7 +130,9 @@ async function loadCurrentPortTags(portId) {
     try {
         const response = await fetch(`/api/ports/${portId}/tags`);
         if (response.ok) {
-            const tags = await response.json();
+            const data = await response.json();
+            // Extract tags array from the response
+            const tags = data.success ? data.tags : [];
             const container = document.getElementById('current-port-tags');
 
             if (tags.length === 0) {

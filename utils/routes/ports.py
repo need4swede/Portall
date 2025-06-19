@@ -175,6 +175,14 @@ def import_from_docker_auto():
                             is_immutable=True
                         )
                         db.session.add(new_port)
+                        db.session.flush()  # Ensure we have the port ID
+
+                        # Apply automatic tagging rules to the new port
+                        try:
+                            tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                        except Exception as e:
+                            app.logger.error(f"Error applying automatic tagging rules to Docker auto-import port {new_port.id}: {str(e)}")
+
                         added_ports += 1
 
         # Find and remove ports that no longer exist in Docker
@@ -315,6 +323,14 @@ def import_from_portainer_auto():
                         is_immutable=True
                     )
                     db.session.add(new_port)
+                    db.session.flush()  # Ensure we have the port ID
+
+                    # Apply automatic tagging rules to the new port
+                    try:
+                        tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                    except Exception as e:
+                        app.logger.error(f"Error applying automatic tagging rules to Portainer auto-import port {new_port.id}: {str(e)}")
+
                     added_ports += 1
 
     # Find and remove ports that no longer exist in Portainer
@@ -1360,19 +1376,17 @@ def add_discovered_ports_to_database(ip_address, discovered_ports):
                     source='scan'
                 )
                 db.session.add(new_port)
+                db.session.flush()  # Ensure we have the port ID
+
+                # Apply automatic tagging rules to the new port
+                try:
+                    tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                except Exception as e:
+                    app.logger.error(f"Error applying automatic tagging rules to discovered port {new_port.id}: {str(e)}")
+
                 added_count += 1
 
         db.session.commit()
-
-        # Apply automatic tagging rules to all newly discovered ports
-        if added_count > 0:
-            try:
-                new_ports = Port.query.filter_by(ip_address=ip_address, source='scan').all()
-                for port in new_ports:
-                    tagging_engine.apply_automatic_rules_to_port(port, commit=False)
-                db.session.commit()
-            except Exception as e:
-                app.logger.error(f"Error applying automatic tagging rules to discovered ports: {str(e)}")
 
         app.logger.info(f"Added {added_count} discovered ports to database for {ip_address}")
 
