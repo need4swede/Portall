@@ -29,6 +29,12 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
+            <button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templates-panel"
+                type="button" role="tab">
+                <i class="fas fa-layer-group"></i> Templates
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
             <button class="nav-link" id="filter-tab" data-bs-toggle="tab" data-bs-target="#filter-panel" type="button"
                 role="tab">
                 <i class="fas fa-filter"></i> Filter Ports
@@ -83,6 +89,82 @@
                 <div class="card-body">
                     <div id="rules-list">
                         <!-- Rules will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Templates Panel -->
+        <div class="tab-pane fade" id="templates-panel" role="tabpanel">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Rule Templates</h5>
+                            <div class="d-flex gap-2">
+                                <select id="template-category-filter" class="form-select form-select-sm"
+                                    style="width: auto;">
+                                    <option value="">All Categories</option>
+                                </select>
+                                <button id="import-template-btn" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-upload"></i> Import
+                                </button>
+                                <button id="export-config-btn" class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-download"></i> Export Config
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="templates-list">
+                                <!-- Templates will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button id="apply-security-template" class="btn btn-outline-danger">
+                                    <i class="fas fa-shield-alt"></i> Apply Security Hardening
+                                </button>
+                                <button id="apply-infrastructure-template" class="btn btn-outline-primary">
+                                    <i class="fas fa-server"></i> Apply Infrastructure Mapping
+                                </button>
+                                <button id="apply-network-template" class="btn btn-outline-info">
+                                    <i class="fas fa-network-wired"></i> Apply Network Segmentation
+                                </button>
+                                <button id="apply-monitoring-template" class="btn btn-outline-success">
+                                    <i class="fas fa-chart-line"></i> Apply Monitoring Setup
+                                </button>
+                            </div>
+                            <hr>
+                            <div class="mb-3">
+                                <label class="form-label">Configuration Management</label>
+                                <div class="d-grid gap-2">
+                                    <button id="import-config-btn" class="btn btn-outline-secondary btn-sm">
+                                        <i class="fas fa-file-import"></i> Import Configuration
+                                    </button>
+                                    <button id="backup-config-btn" class="btn btn-outline-warning btn-sm">
+                                        <i class="fas fa-save"></i> Backup Current Setup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Template Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="template-stats">
+                                <!-- Statistics will be loaded here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

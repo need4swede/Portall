@@ -83,6 +83,7 @@ def run_migration():
                         name VARCHAR(100) NOT NULL,
                         description VARCHAR(500),
                         enabled BOOLEAN NOT NULL DEFAULT 1,
+                        auto_execute BOOLEAN NOT NULL DEFAULT 0,
                         priority INTEGER NOT NULL DEFAULT 0,
                         conditions TEXT NOT NULL,
                         actions TEXT NOT NULL,

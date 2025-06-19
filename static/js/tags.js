@@ -12,6 +12,7 @@ class TagManager {
         this.bindEvents();
         this.loadTags();
         this.loadRules();
+        this.loadTemplates();
         this.setupTabHandlers();
     }
 
@@ -37,6 +38,19 @@ class TagManager {
 
         // Bulk operations
         document.getElementById('execute-bulk-btn').addEventListener('click', () => this.executeBulkOperation());
+
+        // Template management
+        document.getElementById('template-category-filter').addEventListener('change', (e) => this.filterTemplates(e.target.value));
+        document.getElementById('import-template-btn').addEventListener('click', () => this.showImportTemplateModal());
+        document.getElementById('export-config-btn').addEventListener('click', () => this.exportConfiguration());
+        document.getElementById('import-config-btn').addEventListener('click', () => this.showImportConfigModal());
+        document.getElementById('backup-config-btn').addEventListener('click', () => this.backupConfiguration());
+
+        // Quick template actions
+        document.getElementById('apply-security-template').addEventListener('click', () => this.applyQuickTemplate('security_hardening'));
+        document.getElementById('apply-infrastructure-template').addEventListener('click', () => this.applyQuickTemplate('infrastructure_mapping'));
+        document.getElementById('apply-network-template').addEventListener('click', () => this.applyQuickTemplate('network_segmentation'));
+        document.getElementById('apply-monitoring-template').addEventListener('click', () => this.applyQuickTemplate('monitoring_setup'));
     }
 
     setupConditionOperatorHandler() {
@@ -618,19 +632,58 @@ class TagManager {
     loadRuleConditions(conditions) {
         this.clearRuleConditions();
 
-        if (Array.isArray(conditions)) {
-            conditions.forEach(condition => {
+        // Handle the new condition structure with operator and conditions array
+        if (conditions && typeof conditions === 'object') {
+            // Set the operator if it exists
+            const operatorSelect = document.getElementById('condition-operator');
+            if (operatorSelect && conditions.operator) {
+                operatorSelect.value = conditions.operator;
+            }
+
+            // Handle conditions array
+            let conditionsArray = [];
+            if (conditions.conditions && Array.isArray(conditions.conditions)) {
+                conditionsArray = conditions.conditions;
+            } else if (Array.isArray(conditions)) {
+                // Legacy format - direct array
+                conditionsArray = conditions;
+            } else if (conditions.type) {
+                // Single condition object
+                conditionsArray = [conditions];
+            }
+
+            // Add each condition
+            conditionsArray.forEach(condition => {
                 this.addCondition();
                 const conditionItems = document.querySelectorAll('#rule-conditions .condition-item');
                 const lastItem = conditionItems[conditionItems.length - 1];
-                lastItem.querySelector('.condition-type').value = condition.type;
-                lastItem.querySelector('.condition-value').value = condition.value || condition.start || '';
+
+                // Set condition type
+                const typeSelect = lastItem.querySelector('.condition-type');
+                if (typeSelect && condition.type) {
+                    typeSelect.value = condition.type;
+                    // Trigger the change event to update the input fields
+                    this.updateConditionInput(typeSelect);
+                }
+
+                // Set condition value(s)
+                if (condition.type === 'port_range') {
+                    const startInput = lastItem.querySelector('.condition-value-start');
+                    const endInput = lastItem.querySelector('.condition-value-end');
+                    if (startInput && condition.start) startInput.value = condition.start;
+                    if (endInput && condition.end) endInput.value = condition.end;
+                } else {
+                    const valueInput = lastItem.querySelector('.condition-value');
+                    if (valueInput && condition.value !== undefined) {
+                        valueInput.value = condition.value;
+                    }
+                }
             });
-        } else if (conditions.type) {
+        }
+
+        // If no conditions were loaded, add one empty condition
+        if (document.querySelectorAll('#rule-conditions .condition-item').length === 0) {
             this.addCondition();
-            const conditionItem = document.querySelector('#rule-conditions .condition-item');
-            conditionItem.querySelector('.condition-type').value = conditions.type;
-            conditionItem.querySelector('.condition-value').value = conditions.value || conditions.start || '';
         }
     }
 
@@ -641,12 +694,52 @@ class TagManager {
             this.addAction();
             const actionItems = document.querySelectorAll('#rule-actions .action-item');
             const lastItem = actionItems[actionItems.length - 1];
-            lastItem.querySelector('.action-type').value = action.type;
-            lastItem.querySelector('.action-tag-name').value = action.tag_name;
-            if (action.tag_color) {
-                lastItem.querySelector('.action-tag-color').value = action.tag_color;
+
+            // Set action type
+            const actionTypeSelect = lastItem.querySelector('.action-type');
+            if (actionTypeSelect && action.type) {
+                actionTypeSelect.value = action.type;
+                // Trigger change event to update UI
+                this.updateActionInput(actionTypeSelect);
+            }
+
+            // Set tag selection
+            const tagSelect = lastItem.querySelector('.action-tag-select');
+            if (tagSelect && action.tag_name) {
+                // Check if this tag exists in the dropdown
+                const existingOption = tagSelect.querySelector(`option[value="${action.tag_name}"]`);
+                if (existingOption) {
+                    // Use existing tag
+                    tagSelect.value = action.tag_name;
+                    this.updateTagSelection(tagSelect);
+                } else {
+                    // This is a new tag that will be created
+                    tagSelect.value = '__new__';
+                    this.updateTagSelection(tagSelect);
+
+                    // Fill in the new tag details
+                    const nameInput = lastItem.querySelector('.action-tag-name');
+                    const colorInput = lastItem.querySelector('.action-tag-color');
+                    const descInput = lastItem.querySelector('.action-tag-description');
+
+                    if (nameInput) nameInput.value = action.tag_name;
+                    if (colorInput && action.tag_color) colorInput.value = action.tag_color;
+                    if (descInput && action.tag_description) descInput.value = action.tag_description;
+
+                    // Update preview
+                    const preview = lastItem.querySelector('.action-tag-preview');
+                    if (preview && action.tag_name) {
+                        const color = action.tag_color || '#007bff';
+                        preview.innerHTML = `<span class="badge" style="background-color: ${color}; color: white;">${action.tag_name}</span>`;
+                    }
+                }
             }
         });
+
+        // If no actions were loaded, add one empty action
+        if (document.querySelectorAll('#rule-actions .action-item').length === 0) {
+            this.addAction();
+        }
     }
 
     clearRuleConditions() {
@@ -929,6 +1022,465 @@ class TagManager {
     clearFilter() {
         document.getElementById('filter-form').reset();
         document.getElementById('filter-results').style.display = 'none';
+    }
+
+    // Template Management
+    async loadTemplates() {
+        try {
+            const response = await fetch('/api/tag-templates');
+            const data = await response.json();
+
+            if (data.success) {
+                this.templates = data.templates;
+                this.templateCategories = data.categories;
+                this.renderTemplates();
+                this.updateTemplateStats();
+                this.loadTemplateCategoryFilter();
+            } else {
+                this.showNotification('Error loading templates: ' + data.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error loading templates: ' + error.message, 'error');
+        }
+    }
+
+    loadTemplateCategoryFilter() {
+        const select = document.getElementById('template-category-filter');
+        select.innerHTML = '<option value="">All Categories</option>' +
+            this.templateCategories.map(category =>
+                `<option value="${category}">${category}</option>`
+            ).join('');
+    }
+
+    filterTemplates(category) {
+        this.renderTemplates(category);
+    }
+
+    renderTemplates(categoryFilter = null) {
+        const container = document.getElementById('templates-list');
+
+        if (!this.templates) {
+            container.innerHTML = '<p class="text-muted">Loading templates...</p>';
+            return;
+        }
+
+        let templatesToRender = Object.entries(this.templates);
+
+        if (categoryFilter) {
+            templatesToRender = templatesToRender.filter(([id, template]) =>
+                template.category === categoryFilter
+            );
+        }
+
+        if (templatesToRender.length === 0) {
+            container.innerHTML = '<p class="text-muted">No templates found.</p>';
+            return;
+        }
+
+        container.innerHTML = templatesToRender.map(([templateId, template]) => `
+            <div class="template-item mb-3" data-template-id="${templateId}">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <h6 class="mb-0 me-2">${template.name}</h6>
+                                    <span class="badge bg-info">${template.category}</span>
+                                    <span class="badge bg-secondary ms-1">${template.rules.length} rules</span>
+                                </div>
+                                <p class="text-muted mb-2">${template.description}</p>
+                                <div class="small text-muted">
+                                    Rules: ${template.rules.map(rule => rule.name).join(', ')}
+                                </div>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-success" onclick="tagManager.applyTemplate('${templateId}')" title="Apply Template">
+                                    <i class="fas fa-play"></i> Apply
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="tagManager.previewTemplate('${templateId}')" title="Preview Template">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="tagManager.exportTemplate('${templateId}')" title="Export Template">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    updateTemplateStats() {
+        if (!this.templates) return;
+
+        const totalTemplates = Object.keys(this.templates).length;
+        const totalRules = Object.values(this.templates).reduce((sum, template) => sum + template.rules.length, 0);
+        const categoryCounts = {};
+
+        Object.values(this.templates).forEach(template => {
+            categoryCounts[template.category] = (categoryCounts[template.category] || 0) + 1;
+        });
+
+        const mostPopularCategory = Object.entries(categoryCounts).reduce((max, [category, count]) =>
+            count > max.count ? { category, count } : max, { category: '', count: 0 });
+
+        document.getElementById('template-stats').innerHTML = `
+            <div class="mb-3">
+                <h6>Available Templates</h6>
+                <div class="h4 text-primary">${totalTemplates}</div>
+            </div>
+            <div class="mb-3">
+                <h6>Total Rules</h6>
+                <div class="h4 text-success">${totalRules}</div>
+            </div>
+            ${mostPopularCategory.category ? `
+                <div class="mb-3">
+                    <h6>Most Popular Category</h6>
+                    <span class="badge bg-info">${mostPopularCategory.category}</span>
+                    <div class="text-muted small">${mostPopularCategory.count} templates</div>
+                </div>
+            ` : ''}
+            <div class="mb-3">
+                <h6>Categories</h6>
+                ${Object.entries(categoryCounts).map(([category, count]) =>
+            `<div class="small"><span class="badge bg-outline-secondary me-1">${category}</span> ${count}</div>`
+        ).join('')}
+            </div>
+        `;
+    }
+
+    async applyQuickTemplate(templateId) {
+        if (!confirm(`Apply the ${templateId.replace('_', ' ')} template? This will create multiple tagging rules.`)) {
+            return;
+        }
+
+        await this.applyTemplate(templateId);
+    }
+
+    async applyTemplate(templateId, customizeOptions = {}) {
+        try {
+            const response = await fetch(`/api/tag-templates/${templateId}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customize_options: customizeOptions })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const message = `Template applied successfully! Created ${result.stats.created} rules.`;
+                if (result.errors.length > 0) {
+                    this.showNotification(message + ` ${result.errors.length} errors occurred.`, 'warning');
+                } else {
+                    this.showNotification(message, 'success');
+                }
+                this.loadRules(); // Refresh rules list
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error applying template: ' + error.message, 'error');
+        }
+    }
+
+    async previewTemplate(templateId) {
+        try {
+            const response = await fetch(`/api/tag-templates/${templateId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.showTemplatePreviewModal(data.template);
+            } else {
+                this.showNotification(data.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error loading template: ' + error.message, 'error');
+        }
+    }
+
+    showTemplatePreviewModal(template) {
+        // Create a modal dynamically for template preview
+        const modalHtml = `
+            <div class="modal fade" id="templatePreviewModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Template Preview: ${template.name}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <strong>Category:</strong> <span class="badge bg-info">${template.category}</span>
+                            </div>
+                            <div class="mb-3">
+                                <strong>Description:</strong> ${template.description}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Rules (${template.rules.length}):</strong>
+                            </div>
+                            ${template.rules.map(rule => `
+                                <div class="card mb-2">
+                                    <div class="card-body">
+                                        <h6>${rule.name}</h6>
+                                        <p class="text-muted small">${rule.description}</p>
+                                        <div class="small">
+                                            <strong>Priority:</strong> ${rule.priority} |
+                                            <strong>Auto-execute:</strong> ${rule.auto_execute ? 'Yes' : 'No'}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-success" onclick="tagManager.applyTemplate('${template.name.toLowerCase().replace(/\s+/g, '_')}')">
+                                Apply Template
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if present
+        const existingModal = document.getElementById('templatePreviewModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to DOM and show
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('templatePreviewModal'));
+        modal.show();
+
+        // Clean up modal when hidden
+        document.getElementById('templatePreviewModal').addEventListener('hidden.bs.modal', function () {
+            this.remove();
+        });
+    }
+
+    async exportTemplate(templateId) {
+        try {
+            const response = await fetch(`/api/tag-templates/${templateId}/export`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.downloadFile(`template_${templateId}.json`, data.template_data);
+                this.showNotification('Template exported successfully', 'success');
+            } else {
+                this.showNotification(data.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error exporting template: ' + error.message, 'error');
+        }
+    }
+
+    async exportConfiguration() {
+        try {
+            const response = await fetch('/api/tagging-config/export');
+            const data = await response.json();
+
+            if (data.success) {
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                this.downloadFile(`portall_tagging_config_${timestamp}.json`, data.config);
+                this.showNotification('Configuration exported successfully', 'success');
+            } else {
+                this.showNotification(data.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error exporting configuration: ' + error.message, 'error');
+        }
+    }
+
+    async backupConfiguration() {
+        if (!confirm('Create a backup of your current tagging configuration?')) {
+            return;
+        }
+        await this.exportConfiguration();
+    }
+
+    showImportTemplateModal() {
+        const modalHtml = `
+            <div class="modal fade" id="importTemplateModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Import Template</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Template JSON Data</label>
+                                <textarea id="import-template-data" class="form-control" rows="10"
+                                    placeholder="Paste template JSON data here..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="tagManager.importTemplate()">
+                                Import Template
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if present
+        const existingModal = document.getElementById('importTemplateModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to DOM and show
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('importTemplateModal'));
+        modal.show();
+
+        // Clean up modal when hidden
+        document.getElementById('importTemplateModal').addEventListener('hidden.bs.modal', function () {
+            this.remove();
+        });
+    }
+
+    async importTemplate() {
+        const templateData = document.getElementById('import-template-data').value.trim();
+
+        if (!templateData) {
+            this.showNotification('Please provide template data', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/tag-templates/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ template_data: templateData })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification('Template imported successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('importTemplateModal')).hide();
+                this.loadTemplates(); // Refresh templates
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error importing template: ' + error.message, 'error');
+        }
+    }
+
+    showImportConfigModal() {
+        const modalHtml = `
+            <div class="modal fade" id="importConfigModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Import Configuration</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Warning:</strong> Importing configuration will add new tags and rules.
+                                Enable "Overwrite existing" to replace items with the same name.
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Configuration JSON Data</label>
+                                <textarea id="import-config-data" class="form-control" rows="10"
+                                    placeholder="Paste configuration JSON data here..."></textarea>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="import-overwrite">
+                                <label class="form-check-label" for="import-overwrite">
+                                    Overwrite existing tags and rules with same names
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-warning" onclick="tagManager.importConfiguration()">
+                                Import Configuration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if present
+        const existingModal = document.getElementById('importConfigModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to DOM and show
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('importConfigModal'));
+        modal.show();
+
+        // Clean up modal when hidden
+        document.getElementById('importConfigModal').addEventListener('hidden.bs.modal', function () {
+            this.remove();
+        });
+    }
+
+    async importConfiguration() {
+        const configData = document.getElementById('import-config-data').value.trim();
+        const overwrite = document.getElementById('import-overwrite').checked;
+
+        if (!configData) {
+            this.showNotification('Please provide configuration data', 'error');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to import this configuration? This will modify your current setup.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/tagging-config/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    config_data: configData,
+                    overwrite: overwrite
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const stats = result.stats;
+                const message = `Configuration imported! Created: ${stats.tags_created} tags, ${stats.rules_created} rules. Skipped: ${stats.tags_skipped} tags, ${stats.rules_skipped} rules.`;
+                this.showNotification(message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('importConfigModal')).hide();
+
+                // Refresh all data
+                this.loadTags();
+                this.loadRules();
+                this.loadTemplates();
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error importing configuration: ' + error.message, 'error');
+        }
+    }
+
+    downloadFile(filename, content) {
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     // Utility functions

@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, render_template, session
 from sqlalchemy import func, or_
 from utils.database import db, Port, Tag, PortTag, TaggingRule, RuleExecutionLog
 from utils.tagging_engine import tagging_engine
+from utils.tag_templates import tag_template_manager
 
 logger = logging.getLogger(__name__)
 
@@ -671,3 +672,291 @@ def filter_ports_by_tags():
     except Exception as e:
         logger.error(f"Error filtering ports: {str(e)}")
         return jsonify({'success': False, 'message': f'Error filtering ports: {str(e)}'}), 500
+
+## Template Management ##
+
+@tags_bp.route('/api/tag-templates', methods=['GET'])
+def get_tag_templates():
+    """Get all available tag templates."""
+    try:
+        category = request.args.get('category')
+        templates = tag_template_manager.get_templates_by_category(category)
+        categories = tag_template_manager.get_template_categories()
+
+        return jsonify({
+            'success': True,
+            'templates': templates,
+            'categories': categories
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting tag templates: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error getting tag templates: {str(e)}'}), 500
+
+@tags_bp.route('/api/tag-templates/<template_id>', methods=['GET'])
+def get_tag_template(template_id):
+    """Get a specific tag template."""
+    try:
+        template = tag_template_manager.get_template(template_id)
+        if not template:
+            return jsonify({'success': False, 'message': 'Template not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'template': template
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting tag template: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error getting tag template: {str(e)}'}), 500
+
+@tags_bp.route('/api/tag-templates/<template_id>/apply', methods=['POST'])
+def apply_tag_template(template_id):
+    """Apply a tag template to create rules."""
+    try:
+        data = request.get_json() or {}
+        customize_options = data.get('customize_options', {})
+
+        # Get rules from template
+        rules = tag_template_manager.apply_template(template_id, customize_options)
+
+        created_rules = []
+        errors = []
+
+        for rule_data in rules:
+            try:
+                # Check if rule with same name already exists
+                existing_rule = TaggingRule.query.filter_by(name=rule_data['name']).first()
+                if existing_rule:
+                    errors.append(f"Rule '{rule_data['name']}' already exists")
+                    continue
+
+                # Create new rule
+                rule = TaggingRule(
+                    name=rule_data['name'],
+                    description=rule_data.get('description'),
+                    enabled=rule_data.get('enabled', True),
+                    auto_execute=rule_data.get('auto_execute', False),
+                    priority=rule_data.get('priority', 0),
+                    conditions=json.dumps(rule_data['conditions']),
+                    actions=json.dumps(rule_data['actions'])
+                )
+
+                db.session.add(rule)
+                created_rules.append(rule_data['name'])
+
+            except Exception as e:
+                errors.append(f"Error creating rule '{rule_data.get('name', 'unknown')}': {str(e)}")
+
+        db.session.commit()
+
+        logger.info(f"Applied template '{template_id}': created {len(created_rules)} rules")
+
+        return jsonify({
+            'success': True,
+            'message': f'Template applied successfully',
+            'created_rules': created_rules,
+            'errors': errors,
+            'stats': {
+                'created': len(created_rules),
+                'errors': len(errors)
+            }
+        })
+
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error applying tag template: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error applying tag template: {str(e)}'}), 500
+
+@tags_bp.route('/api/tag-templates/<template_id>/export', methods=['GET'])
+def export_tag_template(template_id):
+    """Export a tag template as JSON."""
+    try:
+        template_json = tag_template_manager.export_template(template_id)
+
+        return jsonify({
+            'success': True,
+            'template_data': template_json
+        })
+
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error exporting tag template: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error exporting tag template: {str(e)}'}), 500
+
+@tags_bp.route('/api/tag-templates/import', methods=['POST'])
+def import_tag_template():
+    """Import a tag template from JSON."""
+    try:
+        data = request.get_json()
+        template_data = data.get('template_data')
+
+        if not template_data:
+            return jsonify({'success': False, 'message': 'Template data is required'}), 400
+
+        template_id = tag_template_manager.import_template(template_data)
+
+        logger.info(f"Imported template: {template_id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Template imported successfully',
+            'template_id': template_id
+        })
+
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error importing tag template: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error importing tag template: {str(e)}'}), 500
+
+## Configuration Export/Import ##
+
+@tags_bp.route('/api/tagging-config/export', methods=['GET'])
+def export_tagging_config():
+    """Export complete tagging configuration (tags, rules, templates)."""
+    try:
+        # Get all tags
+        tags = Tag.query.all()
+        tags_data = [{
+            'name': tag.name,
+            'color': tag.color,
+            'description': tag.description
+        } for tag in tags]
+
+        # Get all rules
+        rules = TaggingRule.query.all()
+        rules_data = [{
+            'name': rule.name,
+            'description': rule.description,
+            'enabled': rule.enabled,
+            'auto_execute': rule.auto_execute,
+            'priority': rule.priority,
+            'conditions': json.loads(rule.conditions),
+            'actions': json.loads(rule.actions)
+        } for rule in rules]
+
+        # Get all templates
+        templates = tag_template_manager.templates
+
+        config = {
+            'exported_at': datetime.utcnow().isoformat(),
+            'version': '1.0',
+            'tags': tags_data,
+            'rules': rules_data,
+            'templates': templates
+        }
+
+        return jsonify({
+            'success': True,
+            'config': json.dumps(config, indent=2)
+        })
+
+    except Exception as e:
+        logger.error(f"Error exporting tagging config: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error exporting tagging config: {str(e)}'}), 500
+
+@tags_bp.route('/api/tagging-config/import', methods=['POST'])
+def import_tagging_config():
+    """Import complete tagging configuration."""
+    try:
+        data = request.get_json()
+        config_data = data.get('config_data')
+        overwrite = data.get('overwrite', False)
+
+        if not config_data:
+            return jsonify({'success': False, 'message': 'Configuration data is required'}), 400
+
+        try:
+            config = json.loads(config_data)
+        except json.JSONDecodeError as e:
+            return jsonify({'success': False, 'message': f'Invalid JSON format: {str(e)}'}), 400
+
+        stats = {
+            'tags_created': 0,
+            'tags_skipped': 0,
+            'rules_created': 0,
+            'rules_skipped': 0,
+            'templates_imported': 0,
+            'errors': []
+        }
+
+        # Import tags
+        for tag_data in config.get('tags', []):
+            try:
+                existing_tag = Tag.query.filter_by(name=tag_data['name']).first()
+                if existing_tag and not overwrite:
+                    stats['tags_skipped'] += 1
+                    continue
+
+                if existing_tag and overwrite:
+                    existing_tag.color = tag_data.get('color', existing_tag.color)
+                    existing_tag.description = tag_data.get('description')
+                else:
+                    tag = Tag(
+                        name=tag_data['name'],
+                        color=tag_data.get('color', '#007bff'),
+                        description=tag_data.get('description')
+                    )
+                    db.session.add(tag)
+                    stats['tags_created'] += 1
+
+            except Exception as e:
+                stats['errors'].append(f"Error importing tag '{tag_data.get('name', 'unknown')}': {str(e)}")
+
+        # Import rules
+        for rule_data in config.get('rules', []):
+            try:
+                existing_rule = TaggingRule.query.filter_by(name=rule_data['name']).first()
+                if existing_rule and not overwrite:
+                    stats['rules_skipped'] += 1
+                    continue
+
+                if existing_rule and overwrite:
+                    existing_rule.description = rule_data.get('description')
+                    existing_rule.enabled = rule_data.get('enabled', True)
+                    existing_rule.auto_execute = rule_data.get('auto_execute', False)
+                    existing_rule.priority = rule_data.get('priority', 0)
+                    existing_rule.conditions = json.dumps(rule_data['conditions'])
+                    existing_rule.actions = json.dumps(rule_data['actions'])
+                else:
+                    rule = TaggingRule(
+                        name=rule_data['name'],
+                        description=rule_data.get('description'),
+                        enabled=rule_data.get('enabled', True),
+                        auto_execute=rule_data.get('auto_execute', False),
+                        priority=rule_data.get('priority', 0),
+                        conditions=json.dumps(rule_data['conditions']),
+                        actions=json.dumps(rule_data['actions'])
+                    )
+                    db.session.add(rule)
+                    stats['rules_created'] += 1
+
+            except Exception as e:
+                stats['errors'].append(f"Error importing rule '{rule_data.get('name', 'unknown')}': {str(e)}")
+
+        # Import templates
+        for template_id, template_data in config.get('templates', {}).items():
+            try:
+                tag_template_manager.templates[template_id] = template_data
+                stats['templates_imported'] += 1
+            except Exception as e:
+                stats['errors'].append(f"Error importing template '{template_id}': {str(e)}")
+
+        db.session.commit()
+
+        logger.info(f"Imported tagging configuration: {stats}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Configuration imported successfully',
+            'stats': stats
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error importing tagging config: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error importing tagging config: {str(e)}'}), 500
