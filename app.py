@@ -62,11 +62,10 @@ app, db = create_app()
 def init_auto_scan_threads():
     """
     Initialize the auto-scan threads for Docker, Portainer, and Komodo integrations.
+    TODO: Implement auto-scan threads for the new instance-based approach.
     """
-    from utils.routes.docker import start_auto_scan_threads
-    with app.app_context():
-        start_auto_scan_threads()
-    logging.info("Auto-scan threads initialized")
+    # TODO: Implement auto-scan functionality with the new DockerInstanceManager
+    logging.info("Auto-scan threads initialization skipped (TODO: implement for new instance system)")
 
 # Run application
 if __name__ == '__main__':

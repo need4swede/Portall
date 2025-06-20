@@ -2,12 +2,115 @@
 
 from .db import db
 from datetime import datetime
+import json
+
+class DockerInstance(db.Model):
+    """
+    Represents a Docker, Portainer, or Komodo instance configuration.
+    Supports multiple instances of each integration type.
+    """
+    __tablename__ = 'docker_instance'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.Enum('docker', 'portainer', 'komodo', name='instance_type'), nullable=False)
+    enabled = db.Column(db.Boolean, default=True)
+    auto_detect = db.Column(db.Boolean, default=True)
+    scan_interval = db.Column(db.Integer, default=300)
+    config = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    services = db.relationship('DockerService', backref='instance', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<DockerInstance {self.name} ({self.type})>'
+
+    def get_config_value(self, key, default=None):
+        """
+        Get a specific configuration value.
+
+        Args:
+            key (str): The configuration key to retrieve.
+            default: Default value if key is not found.
+
+        Returns:
+            The configuration value or default.
+        """
+        if isinstance(self.config, dict):
+            return self.config.get(key, default)
+        return default
+
+    def set_config_value(self, key, value):
+        """
+        Set a specific configuration value.
+
+        Args:
+            key (str): The configuration key to set.
+            value: The value to set.
+        """
+        if not isinstance(self.config, dict):
+            self.config = {}
+        self.config[key] = value
+        # Mark the column as modified for SQLAlchemy to detect changes
+        db.session.merge(self)
+
+    def to_dict(self):
+        """
+        Convert the instance to a dictionary for JSON serialization.
+
+        Returns:
+            dict: Dictionary representation of the instance.
+        """
+        return {
+            'id': self.id,
+            'name': self.name,
+            'type': self.type,
+            'enabled': self.enabled,
+            'auto_detect': self.auto_detect,
+            'scan_interval': self.scan_interval,
+            'config': self.config,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'service_count': len(self.services) if self.services else 0
+        }
+
+    @staticmethod
+    def get_default_config(instance_type):
+        """
+        Get default configuration for a given instance type.
+
+        Args:
+            instance_type (str): The type of instance ('docker', 'portainer', 'komodo').
+
+        Returns:
+            dict: Default configuration for the instance type.
+        """
+        defaults = {
+            'docker': {
+                'host': 'unix:///var/run/docker.sock',
+                'timeout': 30
+            },
+            'portainer': {
+                'url': '',
+                'api_key': '',
+                'verify_ssl': True
+            },
+            'komodo': {
+                'url': '',
+                'api_key': '',
+                'api_secret': ''
+            }
+        }
+        return defaults.get(instance_type, {})
 
 class DockerService(db.Model):
     """
     Represents a Docker service detected by the auto port detection feature.
     """
     id = db.Column(db.Integer, primary_key=True)
+    instance_id = db.Column(db.Integer, db.ForeignKey('docker_instance.id', ondelete='CASCADE'), nullable=True)
     container_id = db.Column(db.String(64), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     image = db.Column(db.String(200), nullable=False)

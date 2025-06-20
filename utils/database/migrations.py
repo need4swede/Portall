@@ -16,6 +16,7 @@ import migration_immutable
 import migration_settings
 import migration_tags
 import migration_auto_execute
+import migration_docker_instances
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -389,7 +390,8 @@ class MigrationManager:
             "add_is_immutable_column",
             "add_required_settings",
             "add_tagging_system",
-            "add_auto_execute_column"
+            "add_auto_execute_column",
+            "add_docker_instances"
         ]
 
         applied_names = [m['name'] for m in status['applied_migrations']]
@@ -423,7 +425,8 @@ class MigrationManager:
             ("add_is_immutable_column", migration_immutable.run_migration),
             ("add_required_settings", migration_settings.run_migration),
             ("add_tagging_system", migration_tags.run_migration),
-            ("add_auto_execute_column", migration_auto_execute.run_migration)
+            ("add_auto_execute_column", migration_auto_execute.run_migration),
+            ("add_docker_instances", migration_docker_instances.run_migration)
         ]
 
         # Filter to only pending migrations

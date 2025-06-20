@@ -343,151 +343,80 @@
         <!-- Docker Integration Settings -->
         <div class="tab-pane fade" id="docker" role="tabpanel" aria-labelledby="docker-tab">
             <h2>Docker Integration</h2>
+            <p class="text-muted mb-4">Manage multiple Docker, Portainer, and Komodo instances for comprehensive
+                container monitoring.</p>
 
-            <!-- Docker Settings -->
-            <form id="docker-settings-form" class="glass-card mb-4">
-                <h3>Docker Settings</h3>
+            <!-- Instance Management Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3>Integration Instances</h3>
+                <div class="btn-group">
+                    <button type="button" id="add-docker-instance" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add Instance
+                    </button>
+                    <button type="button" id="refresh-instances" class="btn btn-outline-secondary">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
 
-                <!-- Docker Enabled -->
+            <!-- Instances List -->
+            <div id="docker-instances-list" class="mb-4">
+                <!-- Instances will be loaded dynamically -->
+            </div>
+
+            <!-- Global Settings -->
+            <div class="glass-card">
+                <h3>Global Settings</h3>
+                <p class="text-muted">These settings apply to all Docker integration instances.</p>
+
+                <!-- Auto-scan Global Toggle -->
                 <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="docker-enabled" name="docker_enabled"
-                        value="true">
-                    <label class="form-check-label" for="docker-enabled">Enable Docker Integration</label>
+                    <input class="form-check-input" type="checkbox" id="global-auto-scan" name="global_auto_scan"
+                        value="true" checked>
+                    <label class="form-check-label" for="global-auto-scan">Enable auto-scanning for all
+                        instances</label>
+                    <small class="d-block form-text text-muted">Master switch for automatic container detection across
+                        all instances</small>
                 </div>
 
-                <!-- Docker Host -->
+                <!-- Default Scan Interval -->
                 <div class="mb-3">
-                    <label for="docker-host" class="form-label">Docker Host</label>
-                    <input type="text" class="form-control" id="docker-host" name="docker_host"
-                        placeholder="unix:///var/run/docker.sock">
-                    <small class="form-text text-muted">Default: unix:///var/run/docker.sock (local Docker
-                        socket)</small>
-                </div>
-
-                <!-- Auto Port Detection -->
-                <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="docker-auto-detect" name="docker_auto_detect"
-                        value="true">
-                    <label class="form-check-label" for="docker-auto-detect">Auto-detect Docker container ports</label>
-                    <small class="d-block form-text text-muted">Automatically add ports from Docker containers</small>
-                </div>
-
-                <!-- Scan Interval -->
-                <div class="mb-3">
-                    <label for="docker-scan-interval" class="form-label">Auto-scan Interval (seconds)</label>
-                    <input type="number" class="form-control" id="docker-scan-interval" name="docker_scan_interval"
+                    <label for="default-scan-interval" class="form-label">Default Scan Interval (seconds)</label>
+                    <input type="number" class="form-control" id="default-scan-interval" name="default_scan_interval"
                         min="60" value="300">
+                    <small class="form-text text-muted">Default interval for new instances (can be overridden per
+                        instance)</small>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Save Docker Settings</button>
-                <button type="button" id="docker-scan-button" class="btn btn-secondary">Scan Docker Containers
-                    Now</button>
-            </form>
+                <!-- Service Retention -->
+                <div class="mb-3">
+                    <label for="service-retention" class="form-label">Service Retention (days)</label>
+                    <input type="number" class="form-control" id="service-retention" name="service_retention" min="1"
+                        max="365" value="30">
+                    <small class="form-text text-muted">How long to keep records of stopped/removed containers</small>
+                </div>
 
-            <!-- Portainer Integration -->
-            <form id="portainer-settings-form" class="glass-card mb-4">
-                <h3>Portainer Integration</h3>
-
-                <!-- Portainer Enabled -->
+                <!-- Auto-add Discovered Services -->
                 <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="portainer-enabled" name="portainer_enabled"
-                        value="true">
-                    <label class="form-check-label" for="portainer-enabled">Enable Portainer Integration</label>
+                    <input class="form-check-input" type="checkbox" id="auto-add-services" name="auto_add_services"
+                        value="true" checked>
+                    <label class="form-check-label" for="auto-add-services">Automatically add discovered
+                        services</label>
+                    <small class="d-block form-text text-muted">When disabled, discovered services require manual
+                        approval</small>
                 </div>
 
-                <!-- Portainer URL -->
+                <!-- Connection Timeout -->
                 <div class="mb-3">
-                    <label for="portainer-url" class="form-label">Portainer URL</label>
-                    <input type="url" class="form-control" id="portainer-url" name="portainer_url"
-                        placeholder="https://portainer.example.com">
+                    <label for="connection-timeout" class="form-label">Connection Timeout (seconds)</label>
+                    <input type="number" class="form-control" id="connection-timeout" name="connection_timeout" min="5"
+                        max="300" value="30">
+                    <small class="form-text text-muted">Timeout for API connections to Docker/Portainer/Komodo
+                        instances</small>
                 </div>
 
-                <!-- Portainer API Key -->
-                <div class="mb-3">
-                    <label for="portainer-api-key" class="form-label">Portainer API Key</label>
-                    <input type="password" class="form-control" id="portainer-api-key" name="portainer_api_key">
-                </div>
-
-                <!-- SSL Verification -->
-                <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="portainer-verify-ssl"
-                        name="portainer_verify_ssl" value="true" checked>
-                    <label class="form-check-label" for="portainer-verify-ssl">Verify SSL certificates</label>
-                    <small class="d-block form-text text-muted">Disable this if Portainer uses self-signed
-                        certificates</small>
-                </div>
-
-                <!-- Auto Port Detection -->
-                <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="portainer-auto-detect"
-                        name="portainer_auto_detect" value="true">
-                    <label class="form-check-label" for="portainer-auto-detect">Auto-detect Portainer container
-                        ports</label>
-                    <small class="d-block form-text text-muted">Automatically add ports from Portainer
-                        containers</small>
-                </div>
-
-                <!-- Scan Interval -->
-                <div class="mb-3">
-                    <label for="portainer-scan-interval" class="form-label">Auto-scan Interval (seconds)</label>
-                    <input type="number" class="form-control" id="portainer-scan-interval"
-                        name="portainer_scan_interval" min="60" value="300">
-                </div>
-
-                <button type="submit" class="btn btn-primary">Save Portainer Settings</button>
-                <button type="button" id="portainer-import-button" class="btn btn-secondary">Import from
-                    Portainer</button>
-            </form>
-
-
-            <!-- Komodo Integration -->
-            <form id="komodo-settings-form" class="glass-card">
-                <h3>Komodo Integration</h3>
-
-                <!-- Komodo Enabled -->
-                <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="komodo-enabled" name="komodo_enabled"
-                        value="true">
-                    <label class="form-check-label" for="komodo-enabled">Enable Komodo Integration</label>
-                </div>
-
-                <!-- Komodo URL -->
-                <div class="mb-3">
-                    <label for="komodo-url" class="form-label">Komodo URL</label>
-                    <input type="url" class="form-control" id="komodo-url" name="komodo_url"
-                        placeholder="https://komodo.example.com">
-                </div>
-
-                <!-- Komodo API Key -->
-                <div class="mb-3">
-                    <label for="komodo-api-key" class="form-label">Komodo API Key</label>
-                    <input type="password" class="form-control" id="komodo-api-key" name="komodo_api_key">
-                </div>
-
-                <!-- Komodo API Secret -->
-                <div class="mb-3">
-                    <label for="komodo-api-secret" class="form-label">Komodo API Secret</label>
-                    <input type="password" class="form-control" id="komodo-api-secret" name="komodo_api_secret">
-                </div>
-
-                <!-- Auto Port Detection -->
-                <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="komodo-auto-detect" name="komodo_auto_detect"
-                        value="true">
-                    <label class="form-check-label" for="komodo-auto-detect">Auto-detect Komodo container ports</label>
-                    <small class="d-block form-text text-muted">Automatically add ports from Komodo containers</small>
-                </div>
-
-                <!-- Scan Interval -->
-                <div class="mb-3">
-                    <label for="komodo-scan-interval" class="form-label">Auto-scan Interval (seconds)</label>
-                    <input type="number" class="form-control" id="komodo-scan-interval" name="komodo_scan_interval"
-                        min="60" value="300">
-                </div>
-
-                <button type="submit" class="btn btn-primary">Save Komodo Settings</button>
-                <button type="button" id="komodo-import-button" class="btn btn-secondary">Import from Komodo</button>
-            </form>
+                <button type="button" id="save-global-settings" class="btn btn-primary">Save Global Settings</button>
+            </div>
         </div>
 
         <!-- Appearance Settings -->

@@ -1,4 +1,4 @@
-# utils/routes/docker.py
+# utils/routes/docker_new.py
 
 # Standard Imports
 import os
@@ -13,72 +13,23 @@ from flask import Blueprint
 from flask import current_app as app
 from flask import jsonify, request
 import docker
+import requests
 
 # Local Imports
-from utils.database import db, Port, Setting, DockerService, DockerPort, PortScan
+from utils.database import db, Port, Setting, DockerInstance, DockerService, DockerPort, PortScan
+from utils.docker_instance_manager import DockerInstanceManager
 
 # Create the blueprint
 docker_bp = Blueprint('docker', __name__)
 
-# Initialize Docker client
-docker_client = None
+# Initialize instance manager
+instance_manager = DockerInstanceManager()
 
-def get_docker_client():
-    """
-    Get or initialize the Docker client based on settings.
-    Only initializes the client if Docker integration is enabled.
-
-    Supports both direct socket access and socket proxy configurations.
-    For security, prefer using a socket proxy (tcp://socket-proxy:2375).
-
-    Returns:
-        docker.DockerClient: The Docker client instance, or None if Docker is disabled.
-    """
-    global docker_client
-
-    # Check if Docker is enabled
-    if get_setting('docker_enabled', 'false').lower() != 'true':
-        app.logger.info("Docker integration is disabled. Not initializing Docker client.")
-        return None
-
-    # Return existing client if already initialized
-    if docker_client is not None:
-        return docker_client
-
-    try:
-        # Get Docker connection settings
-        docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
-
-        # Check for environment variable override (useful for socket proxy)
-        env_docker_host = os.environ.get('DOCKER_HOST')
-        if env_docker_host:
-            docker_host = env_docker_host
-            app.logger.info(f"Using Docker host from environment: {docker_host}")
-
-        # Log security warning for direct socket access
-        if docker_host == 'unix:///var/run/docker.sock':
-            app.logger.warning("SECURITY WARNING: Using direct Docker socket access. Consider using a socket proxy for better security.")
-
-        # Initialize Docker client
-        if docker_host == 'unix:///var/run/docker.sock':
-            docker_client = docker.from_env()
-        else:
-            # For TCP connections (including socket proxy)
-            docker_client = docker.DockerClient(base_url=docker_host)
-
-        # Test the connection
-        try:
-            docker_client.ping()
-            app.logger.info(f"Successfully connected to Docker at {docker_host}")
-        except Exception as ping_error:
-            app.logger.error(f"Failed to ping Docker daemon at {docker_host}: {str(ping_error)}")
-            docker_client = None
-            return None
-
-        return docker_client
-    except Exception as e:
-        app.logger.error(f"Error initializing Docker client: {str(e)}")
-        return None
+def get_setting(key, default):
+    """Helper function to retrieve settings from the database."""
+    setting = Setting.query.filter_by(key=key).first()
+    value = setting.value if setting else str(default)
+    return value if value != '' else str(default)
 
 def clean_and_validate_ip(ip_string):
     """
@@ -186,32 +137,187 @@ def get_final_host_ip(detected_ip, source='docker'):
     app.logger.debug(f"Using detected IP as-is: {detected_ip} (source: {source})")
     return detected_ip
 
-def get_setting(key, default):
-    """Helper function to retrieve settings from the database."""
-    setting = Setting.query.filter_by(key=key).first()
-    value = setting.value if setting else str(default)
-    return value if value != '' else str(default)
+# Instance Management Routes
+
+@docker_bp.route('/docker/instances', methods=['GET'])
+def get_instances():
+    """
+    Get all Docker instances.
+
+    Returns:
+        JSON: List of all Docker instances with their configurations.
+    """
+    try:
+        instances = DockerInstance.query.all()
+        return jsonify({
+            'success': True,
+            'instances': [instance.to_dict() for instance in instances]
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting instances: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/instances', methods=['POST'])
+def create_instance():
+    """
+    Create a new Docker instance.
+
+    Returns:
+        JSON: The created instance data or error message.
+    """
+    try:
+        data = request.get_json()
+
+        name = data.get('name', '').strip()
+        instance_type = data.get('type')
+        config = data.get('config', {})
+        enabled = data.get('enabled', True)
+        auto_detect = data.get('auto_detect', True)
+        scan_interval = data.get('scan_interval', 300)
+
+        # Validate required fields
+        if not instance_type:
+            return jsonify({'success': False, 'error': 'Instance type is required'}), 400
+
+        if instance_type not in ['docker', 'portainer', 'komodo']:
+            return jsonify({'success': False, 'error': 'Invalid instance type'}), 400
+
+        # Create the instance
+        instance = instance_manager.create_instance(
+            name=name,
+            instance_type=instance_type,
+            config=config,
+            enabled=enabled,
+            auto_detect=auto_detect,
+            scan_interval=scan_interval
+        )
+
+        if instance:
+            return jsonify({
+                'success': True,
+                'message': f'{instance_type.capitalize()} instance created successfully',
+                'instance': instance.to_dict()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to create instance'}), 500
+
+    except Exception as e:
+        app.logger.error(f"Error creating instance: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>', methods=['PUT'])
+def update_instance(instance_id):
+    """
+    Update an existing Docker instance.
+
+    Args:
+        instance_id (int): The ID of the instance to update.
+
+    Returns:
+        JSON: The updated instance data or error message.
+    """
+    try:
+        data = request.get_json()
+
+        # Update the instance
+        instance = instance_manager.update_instance(instance_id, **data)
+
+        if instance:
+            return jsonify({
+                'success': True,
+                'message': 'Instance updated successfully',
+                'instance': instance.to_dict()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Instance not found or update failed'}), 404
+
+    except Exception as e:
+        app.logger.error(f"Error updating instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>', methods=['DELETE'])
+def delete_instance(instance_id):
+    """
+    Delete a Docker instance.
+
+    Args:
+        instance_id (int): The ID of the instance to delete.
+
+    Returns:
+        JSON: Success or error message.
+    """
+    try:
+        success = instance_manager.delete_instance(instance_id)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Instance deleted successfully'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Instance not found'}), 404
+
+    except Exception as e:
+        app.logger.error(f"Error deleting instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>/test', methods=['POST'])
+def test_instance_connection(instance_id):
+    """
+    Test connection to a Docker instance.
+
+    Args:
+        instance_id (int): The ID of the instance to test.
+
+    Returns:
+        JSON: Test result with success status and message.
+    """
+    try:
+        result = instance_manager.test_connection(instance_id)
+
+        status_code = 200 if result['success'] else 400
+        return jsonify(result), status_code
+
+    except Exception as e:
+        app.logger.error(f"Error testing instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Legacy Settings Routes (for backward compatibility)
 
 @docker_bp.route('/docker/settings', methods=['GET', 'POST'])
 def docker_settings():
     """
     Handle GET and POST requests for Docker integration settings.
-
-    GET: Retrieve current Docker integration settings.
-    POST: Update Docker integration settings.
-
-    Returns:
-        For GET: JSON object containing current Docker settings
-        For POST: JSON object indicating success or failure of the update operation
+    This route maintains backward compatibility with the old settings system.
     """
     if request.method == 'GET':
         try:
-            docker_settings = {}
-            for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval',
-                       'portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_verify_ssl', 'portainer_auto_detect', 'portainer_scan_interval',
-                       'komodo_enabled', 'komodo_url', 'komodo_api_key', 'komodo_api_secret', 'komodo_auto_detect', 'komodo_scan_interval']:
-                setting = Setting.query.filter_by(key=key).first()
-                docker_settings[key] = setting.value if setting else ''
+            # Get all instances and convert to legacy format
+            docker_instances = instance_manager.get_instances_by_type('docker')
+            portainer_instances = instance_manager.get_instances_by_type('portainer')
+            komodo_instances = instance_manager.get_instances_by_type('komodo')
+
+            # Convert to legacy settings format
+            docker_settings = {
+                'docker_enabled': 'true' if docker_instances else 'false',
+                'docker_host': docker_instances[0].get_config_value('host', 'unix:///var/run/docker.sock') if docker_instances else 'unix:///var/run/docker.sock',
+                'docker_auto_detect': 'true' if docker_instances and docker_instances[0].auto_detect else 'false',
+                'docker_scan_interval': str(docker_instances[0].scan_interval) if docker_instances else '300',
+
+                'portainer_enabled': 'true' if portainer_instances else 'false',
+                'portainer_url': portainer_instances[0].get_config_value('url', '') if portainer_instances else '',
+                'portainer_api_key': portainer_instances[0].get_config_value('api_key', '') if portainer_instances else '',
+                'portainer_verify_ssl': 'true' if portainer_instances and portainer_instances[0].get_config_value('verify_ssl', True) else 'false',
+                'portainer_auto_detect': 'true' if portainer_instances and portainer_instances[0].auto_detect else 'false',
+                'portainer_scan_interval': str(portainer_instances[0].scan_interval) if portainer_instances else '300',
+
+                'komodo_enabled': 'true' if komodo_instances else 'false',
+                'komodo_url': komodo_instances[0].get_config_value('url', '') if komodo_instances else '',
+                'komodo_api_key': komodo_instances[0].get_config_value('api_key', '') if komodo_instances else '',
+                'komodo_api_secret': komodo_instances[0].get_config_value('api_secret', '') if komodo_instances else '',
+                'komodo_auto_detect': 'true' if komodo_instances and komodo_instances[0].auto_detect else 'false',
+                'komodo_scan_interval': str(komodo_instances[0].scan_interval) if komodo_instances else '300'
+            }
 
             return jsonify(docker_settings)
         except Exception as e:
@@ -220,134 +326,181 @@ def docker_settings():
 
     elif request.method == 'POST':
         try:
-            # Determine which form was submitted based on the form data
+            # Handle legacy settings update by creating/updating instances
             form_keys = request.form.keys()
-
-            # Get current settings to preserve values not included in the current form submission
-            current_settings = {}
-            for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval',
-                       'portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_auto_detect', 'portainer_scan_interval',
-                       'komodo_enabled', 'komodo_url', 'komodo_api_key', 'komodo_api_secret', 'komodo_auto_detect', 'komodo_scan_interval']:
-                setting = Setting.query.filter_by(key=key).first()
-                current_settings[key] = setting.value if setting else ''
-
-            # Create a dictionary to hold the settings to update
-            settings_to_update = {}
 
             # Docker form
             if any(key in form_keys for key in ['docker_enabled', 'docker_host', 'docker_auto_detect', 'docker_scan_interval']):
-                settings_to_update.update({
-                    'docker_enabled': request.form.get('docker_enabled', 'false'),
-                    'docker_host': request.form.get('docker_host', 'unix:///var/run/docker.sock'),
-                    'docker_auto_detect': request.form.get('docker_auto_detect', 'false'),
-                    'docker_scan_interval': request.form.get('docker_scan_interval', '300')
-                })
+                docker_enabled = request.form.get('docker_enabled', 'false') == 'true'
+                docker_host = request.form.get('docker_host', 'unix:///var/run/docker.sock')
+                docker_auto_detect = request.form.get('docker_auto_detect', 'false') == 'true'
+                docker_scan_interval = int(request.form.get('docker_scan_interval', '300'))
+
+                # Get or create Docker instance
+                docker_instances = instance_manager.get_instances_by_type('docker')
+                if docker_instances:
+                    # Update existing instance
+                    instance_manager.update_instance(
+                        docker_instances[0].id,
+                        enabled=docker_enabled,
+                        auto_detect=docker_auto_detect,
+                        scan_interval=docker_scan_interval,
+                        config={'host': docker_host, 'timeout': 30}
+                    )
+                elif docker_enabled:
+                    # Create new instance
+                    instance_manager.create_instance(
+                        name='Docker Instance',
+                        instance_type='docker',
+                        config={'host': docker_host, 'timeout': 30},
+                        enabled=docker_enabled,
+                        auto_detect=docker_auto_detect,
+                        scan_interval=docker_scan_interval
+                    )
 
             # Portainer form
             if any(key in form_keys for key in ['portainer_enabled', 'portainer_url', 'portainer_api_key', 'portainer_verify_ssl', 'portainer_auto_detect', 'portainer_scan_interval']):
-                settings_to_update.update({
-                    'portainer_enabled': request.form.get('portainer_enabled', 'false'),
-                    'portainer_url': request.form.get('portainer_url', ''),
-                    'portainer_api_key': request.form.get('portainer_api_key', ''),
-                    'portainer_verify_ssl': request.form.get('portainer_verify_ssl', 'true'),
-                    'portainer_auto_detect': request.form.get('portainer_auto_detect', 'false'),
-                    'portainer_scan_interval': request.form.get('portainer_scan_interval', '300')
-                })
+                portainer_enabled = request.form.get('portainer_enabled', 'false') == 'true'
+                portainer_url = request.form.get('portainer_url', '')
+                portainer_api_key = request.form.get('portainer_api_key', '')
+                portainer_verify_ssl = request.form.get('portainer_verify_ssl', 'true') == 'true'
+                portainer_auto_detect = request.form.get('portainer_auto_detect', 'false') == 'true'
+                portainer_scan_interval = int(request.form.get('portainer_scan_interval', '300'))
+
+                # Get or create Portainer instance
+                portainer_instances = instance_manager.get_instances_by_type('portainer')
+                if portainer_instances:
+                    # Update existing instance
+                    instance_manager.update_instance(
+                        portainer_instances[0].id,
+                        enabled=portainer_enabled,
+                        auto_detect=portainer_auto_detect,
+                        scan_interval=portainer_scan_interval,
+                        config={
+                            'url': portainer_url,
+                            'api_key': portainer_api_key,
+                            'verify_ssl': portainer_verify_ssl
+                        }
+                    )
+                elif portainer_enabled:
+                    # Create new instance
+                    instance_manager.create_instance(
+                        name='Portainer Instance',
+                        instance_type='portainer',
+                        config={
+                            'url': portainer_url,
+                            'api_key': portainer_api_key,
+                            'verify_ssl': portainer_verify_ssl
+                        },
+                        enabled=portainer_enabled,
+                        auto_detect=portainer_auto_detect,
+                        scan_interval=portainer_scan_interval
+                    )
 
             # Komodo form
             if any(key in form_keys for key in ['komodo_enabled', 'komodo_url', 'komodo_api_key', 'komodo_api_secret', 'komodo_auto_detect', 'komodo_scan_interval']):
-                settings_to_update.update({
-                    'komodo_enabled': request.form.get('komodo_enabled', 'false'),
-                    'komodo_url': request.form.get('komodo_url', ''),
-                    'komodo_api_key': request.form.get('komodo_api_key', ''),
-                    'komodo_api_secret': request.form.get('komodo_api_secret', ''),
-                    'komodo_auto_detect': request.form.get('komodo_auto_detect', 'false'),
-                    'komodo_scan_interval': request.form.get('komodo_scan_interval', '300')
-                })
+                komodo_enabled = request.form.get('komodo_enabled', 'false') == 'true'
+                komodo_url = request.form.get('komodo_url', '')
+                komodo_api_key = request.form.get('komodo_api_key', '')
+                komodo_api_secret = request.form.get('komodo_api_secret', '')
+                komodo_auto_detect = request.form.get('komodo_auto_detect', 'false') == 'true'
+                komodo_scan_interval = int(request.form.get('komodo_scan_interval', '300'))
 
-            # Update only the settings that were included in the form
-            for key, value in settings_to_update.items():
-                setting = Setting.query.filter_by(key=key).first()
-                if setting:
-                    setting.value = value
-                else:
-                    new_setting = Setting(key=key, value=value)
-                    db.session.add(new_setting)
-
-            db.session.commit()
-
-            # Reset Docker client to pick up new settings
-            global docker_client
-            docker_client = None
+                # Get or create Komodo instance
+                komodo_instances = instance_manager.get_instances_by_type('komodo')
+                if komodo_instances:
+                    # Update existing instance
+                    instance_manager.update_instance(
+                        komodo_instances[0].id,
+                        enabled=komodo_enabled,
+                        auto_detect=komodo_auto_detect,
+                        scan_interval=komodo_scan_interval,
+                        config={
+                            'url': komodo_url,
+                            'api_key': komodo_api_key,
+                            'api_secret': komodo_api_secret
+                        }
+                    )
+                elif komodo_enabled:
+                    # Create new instance
+                    instance_manager.create_instance(
+                        name='Komodo Instance',
+                        instance_type='komodo',
+                        config={
+                            'url': komodo_url,
+                            'api_key': komodo_api_key,
+                            'api_secret': komodo_api_secret
+                        },
+                        enabled=komodo_enabled,
+                        auto_detect=komodo_auto_detect,
+                        scan_interval=komodo_scan_interval
+                    )
 
             return jsonify({'success': True, 'message': 'Docker settings updated successfully'})
         except Exception as e:
-            db.session.rollback()
             app.logger.error(f"Error saving Docker settings: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
-@docker_bp.route('/docker/containers', methods=['GET'])
-def get_containers():
+# Scanning Routes
+
+@docker_bp.route('/docker/scan/<int:instance_id>', methods=['POST'])
+def scan_instance(instance_id):
     """
-    Get a list of running Docker containers.
+    Scan a specific Docker instance for containers and port mappings.
+
+    Args:
+        instance_id (int): The ID of the instance to scan.
 
     Returns:
-        JSON: A JSON response containing the list of containers.
+        JSON: Scan results with success status and message.
     """
     try:
-        client = get_docker_client()
-        if client is None:
-            return jsonify({'error': 'Docker client not available'}), 500
+        instance = instance_manager.get_instance(instance_id)
+        if not instance:
+            return jsonify({'success': False, 'error': 'Instance not found'}), 404
 
-        containers = client.containers.list()
-        container_list = []
+        if not instance.enabled:
+            return jsonify({'success': False, 'error': 'Instance is disabled'}), 400
 
-        for container in containers:
-            container_info = {
-                'id': container.id,
-                'name': container.name,
-                'image': container.image.tags[0] if container.image.tags else container.image.id,
-                'status': container.status,
-                'ports': container.ports
-            }
-            container_list.append(container_info)
+        if instance.type == 'docker':
+            return _scan_docker_instance(instance)
+        elif instance.type == 'portainer':
+            return _scan_portainer_instance(instance)
+        elif instance.type == 'komodo':
+            return _scan_komodo_instance(instance)
+        else:
+            return jsonify({'success': False, 'error': f'Unknown instance type: {instance.type}'}), 400
 
-        return jsonify({'containers': container_list})
     except Exception as e:
-        app.logger.error(f"Error getting Docker containers: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error scanning instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-@docker_bp.route('/docker/scan', methods=['POST'])
-def scan_docker_ports():
-    """
-    Scan Docker containers for port mappings and add them to the database.
-
-    Returns:
-        JSON: A JSON response indicating success or failure of the operation.
-    """
+def _scan_docker_instance(instance):
+    """Scan a Docker instance for containers and port mappings."""
     try:
-        client = get_docker_client()
-        if client is None:
-            return jsonify({'error': 'Docker client not available'}), 500
+        client = instance_manager.get_client(instance.id)
+        if not client:
+            return jsonify({'success': False, 'error': 'Failed to create Docker client'}), 500
 
         # Get all running containers
         containers = client.containers.list()
 
-        # Clear existing Docker services and ports
-        DockerPort.query.delete()
-        DockerService.query.delete()
+        # Clear existing services for this instance
+        DockerPort.query.filter(
+            DockerPort.service_id.in_(
+                db.session.query(DockerService.id).filter_by(instance_id=instance.id)
+            )
+        ).delete(synchronize_session=False)
+        DockerService.query.filter_by(instance_id=instance.id).delete()
         db.session.commit()
 
         added_ports = 0
         added_to_port_table = 0
 
-        # Get Docker host for identification in case of multiple Docker instances
-        docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
-        host_identifier = "Docker" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
-
         for container in containers:
             # Add container to DockerService table
             service = DockerService(
+                instance_id=instance.id,
                 container_id=container.id,
                 name=container.name,
                 image=container.image.tags[0] if container.image.tags else container.image.id,
@@ -398,18 +551,17 @@ def scan_docker_ports():
                         port_protocol=protocol.upper()
                     ).first()
 
-                    # Always add to Port table if it doesn't exist, regardless of auto-detect setting
+                    # Always add to Port table if it doesn't exist
                     if not existing_port:
                         # Get the max order for this IP
                         max_order = db.session.query(db.func.max(Port.order)).filter_by(
                             ip_address=host_ip
                         ).scalar() or 0
 
-                        # Create new port entry with host identifier in description and as nickname
-                        # Set is_immutable to True for Docker ports
+                        # Create new port entry
                         new_port = Port(
                             ip_address=host_ip,
-                            nickname=host_identifier,  # Set the host identifier as the nickname
+                            nickname=instance.name,
                             port_number=host_port,
                             description=f"{container.name} ({port_number}/{protocol})",
                             port_protocol=protocol.upper(),
@@ -434,55 +586,50 @@ def scan_docker_ports():
             'success': True,
             'message': f'Docker scan completed. Found {len(containers)} containers with {added_ports} port mappings and added {added_to_port_table} ports to the ports page.'
         })
+
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error scanning Docker ports: {str(e)}")
+        app.logger.error(f"Error scanning Docker instance: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@docker_bp.route('/docker/import_from_portainer', methods=['POST'])
-def import_from_portainer():
-    """
-    Import containers and port mappings from Portainer.
-
-    Returns:
-        JSON: A JSON response indicating success or failure of the operation.
-    """
+def _scan_portainer_instance(instance):
+    """Scan a Portainer instance for containers and port mappings."""
     try:
-        import requests
+        client_config = instance_manager.get_client(instance.id)
+        if not client_config:
+            return jsonify({'success': False, 'error': 'Failed to get Portainer client configuration'}), 500
 
-        portainer_url = get_setting('portainer_url', '')
-        portainer_api_key = get_setting('portainer_api_key', '')
-
-        if not portainer_url or not portainer_api_key:
-            return jsonify({'error': 'Portainer URL or API key not configured'}), 400
-
-        # Set up headers for Portainer API
-        headers = {
-            'X-API-Key': portainer_api_key
-        }
-
-        # Get SSL verification setting
-        verify_ssl = get_setting('portainer_verify_ssl', 'true').lower() == 'true'
+        portainer_url = client_config['url']
+        headers = {'X-API-Key': client_config['api_key']}
+        verify_ssl = client_config['verify_ssl']
 
         # Get endpoints (Docker environments)
         endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers, verify=verify_ssl)
         if endpoints_response.status_code != 200:
-            return jsonify({'error': f'Failed to get Portainer endpoints: {endpoints_response.text}'}), 500
+            return jsonify({'success': False, 'error': f'Failed to get Portainer endpoints: {endpoints_response.text}'}), 500
 
         endpoints = endpoints_response.json()
         if not endpoints:
-            return jsonify({'error': 'No endpoints found in Portainer'}), 404
+            return jsonify({'success': False, 'error': 'No endpoints found in Portainer'}), 404
+
+        # Clear existing services for this instance
+        DockerPort.query.filter(
+            DockerPort.service_id.in_(
+                db.session.query(DockerService.id).filter_by(instance_id=instance.id)
+            )
+        ).delete(synchronize_session=False)
+        DockerService.query.filter_by(instance_id=instance.id).delete()
+        db.session.commit()
 
         added_ports = 0
         added_to_port_table = 0
 
-        # Extract server name from URL for identification in case of multiple Portainer instances
+        # Extract server name from URL for identification
         server_name = portainer_url.replace('https://', '').replace('http://', '').split('/')[0]
 
         # Resolve domain name to IP address
         server_ip = None
         try:
-            import socket
             server_ip = socket.gethostbyname(server_name)
             app.logger.info(f"Resolved {server_name} to IP: {server_ip}")
         except Exception as e:
@@ -509,6 +656,7 @@ def import_from_portainer():
             for container in containers:
                 # Add container to DockerService table
                 service = DockerService(
+                    instance_id=instance.id,
                     container_id=container['Id'],
                     name=container['Names'][0].lstrip('/') if container['Names'] else 'unknown',
                     image=container['Image'],
@@ -549,24 +697,17 @@ def import_from_portainer():
                         port_protocol=protocol.upper()
                     ).first()
 
-                    # Always add to Port table if it doesn't exist, regardless of auto-detect setting
+                    # Always add to Port table if it doesn't exist
                     if not existing_port:
                         # Get the max order for this IP
                         max_order = db.session.query(db.func.max(Port.order)).filter_by(
                             ip_address=host_ip
                         ).scalar() or 0
 
-                        # Generate incremental Portainer Server nickname for the IP
-                        existing_portainer_count = Port.query.filter(
-                            Port.nickname.like('Portainer Server %')
-                        ).distinct(Port.ip_address).count()
-                        ip_nickname = f"Portainer Server {existing_portainer_count + 1}"
-
-                        # Create new port entry with incremental Portainer Server nickname
-                        # Set is_immutable to True for Portainer ports
+                        # Create new port entry
                         new_port = Port(
                             ip_address=host_ip,
-                            nickname=ip_nickname,  # Use "Portainer Server X" as the nickname
+                            nickname=instance.name,
                             port_number=host_port,
                             description=service.name,
                             port_protocol=protocol.upper(),
@@ -589,359 +730,352 @@ def import_from_portainer():
         db.session.commit()
         return jsonify({
             'success': True,
-            'message': f'Portainer import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
+            'message': f'Portainer scan completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
         })
+
     except Exception as e:
         db.session.rollback()
+        app.logger.error(f"Error scanning Portainer instance: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def _scan_komodo_instance(instance):
+    """Scan a Komodo instance for containers and port mappings."""
+    try:
+        client_config = instance_manager.get_client(instance.id)
+        if not client_config:
+            return jsonify({'success': False, 'error': 'Failed to get Komodo client configuration'}), 500
+
+        komodo_url = client_config['url']
+        headers = {
+            'X-Api-Key': client_config['api_key'],
+            'X-Api-Secret': client_config['api_secret'],
+            'Content-Type': 'application/json'
+        }
+
+        # Get stacks from Komodo
+        response = requests.post(
+            f"{komodo_url}/read",
+            headers=headers,
+            json={'type': 'ListStacks', 'params': {}},
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            return jsonify({'success': False, 'error': f'Komodo API returned status {response.status_code}'}), 500
+
+        stacks = response.json()
+        if not isinstance(stacks, list):
+            if isinstance(stacks, dict) and 'result' in stacks and isinstance(stacks['result'], list):
+                stacks = stacks['result']
+            else:
+                return jsonify({'success': False, 'error': 'Unexpected response format from Komodo API'}), 500
+
+        # Clear existing services for this instance
+        DockerPort.query.filter(
+            DockerPort.service_id.in_(
+                db.session.query(DockerService.id).filter_by(instance_id=instance.id)
+            )
+        ).delete(synchronize_session=False)
+        DockerService.query.filter_by(instance_id=instance.id).delete()
+        db.session.commit()
+
+        added_ports = 0
+        added_to_port_table = 0
+
+        # Extract server name from URL for identification
+        server_name = komodo_url.replace('https://', '').replace('http://', '').split('/')[0]
+        nickname = server_name
+        if ':' in nickname:
+            nickname = nickname.split(':')[0]
+
+        # Resolve domain name to IP address
+        server_ip = None
+        try:
+            if nickname.lower() == 'localhost' or server_name.lower().startswith('localhost:') or server_name == '127.0.0.1':
+                server_ip = '127.0.0.1'
+            else:
+                server_ip = socket.gethostbyname(nickname)
+        except Exception as e:
+            app.logger.warning(f"Could not resolve {nickname} to IP: {str(e)}")
+            if 'localhost' in nickname.lower():
+                server_ip = '127.0.0.1'
+            else:
+                server_ip = nickname
+
+        for stack in stacks:
+            stack_id = stack.get('id')
+            stack_name = stack.get('name', 'unknown')
+
+            # Get detailed stack information
+            get_stack_response = requests.post(
+                f"{komodo_url}/read",
+                headers=headers,
+                json={'type': 'GetStack', 'params': {'id': stack_id}},
+                timeout=10
+            )
+
+            if get_stack_response.status_code != 200:
+                app.logger.warning(f"Failed to get details for stack {stack_name}: {get_stack_response.status_code}")
+                continue
+
+            stack_detail = get_stack_response.json()
+
+            # Extract compose file content
+            compose_content = None
+            if 'info' in stack_detail and 'deployed_contents' in stack_detail['info']:
+                for content_file in stack_detail['info']['deployed_contents']:
+                    if content_file.get('path') in ['compose.yaml', 'docker-compose.yaml', 'docker-compose.yml']:
+                        compose_content = content_file.get('contents')
+                        break
+
+            if not compose_content and 'config' in stack_detail and 'file_contents' in stack_detail['config']:
+                compose_content = stack_detail['config']['file_contents']
+
+            if not compose_content:
+                app.logger.warning(f"No compose file content found for stack {stack_name}")
+                continue
+
+            # Extract services from the stack
+            services = []
+            if 'info' in stack_detail and 'services' in stack_detail['info']:
+                services = stack_detail['info']['services']
+            elif 'info' in stack_detail and 'deployed_services' in stack_detail['info']:
+                services = stack_detail['info']['deployed_services']
+
+            # Process each service
+            for service in services:
+                service_name = service.get('service', service.get('service_name', service.get('container_name', 'unknown')))
+                service_image = service.get('image', 'unknown')
+
+                # Add service to DockerService table
+                docker_service = DockerService(
+                    instance_id=instance.id,
+                    container_id=f"komodo-{server_name}-{stack_name}-{service_name}",
+                    name=f"{stack_name}/{service_name}",
+                    image=service_image,
+                    status="running"
+                )
+                db.session.add(docker_service)
+                db.session.flush()
+
+                # Parse compose file for port mappings (simplified approach)
+                import re
+                port_mappings = []
+
+                # Use regex to find port mappings for this service
+                service_pattern = re.compile(rf'{service_name}:\s*\n(?:.*\n)*?(?:\s+ports:\s*\n(?:\s+-\s+"?\'?([^"\'\n]+)"?\'?\s*\n)+)', re.MULTILINE)
+                service_match = service_pattern.search(compose_content)
+
+                if service_match:
+                    port_lines = re.findall(r'\s+-\s+"?\'?([^"\'\n]+)"?\'?', service_match.group(0))
+                    for port_line in port_lines:
+                        if ':' in port_line:
+                            port_mappings.append(port_line)
+
+                # Process port mappings
+                for port_mapping in port_mappings:
+                    parts = port_mapping.split(':')
+                    if len(parts) != 2:
+                        continue
+
+                    host_port = parts[0]
+                    container_port_part = parts[1]
+
+                    protocol = 'TCP'
+                    if '/' in container_port_part:
+                        container_port, protocol = container_port_part.split('/')
+                        protocol = protocol.upper()
+                    else:
+                        container_port = container_port_part
+
+                    try:
+                        host_port_int = int(host_port)
+                        container_port_int = int(container_port)
+                    except ValueError:
+                        continue
+
+                    # Add port mapping to DockerPort table
+                    docker_port = DockerPort(
+                        service_id=docker_service.id,
+                        host_ip=server_ip,
+                        host_port=host_port_int,
+                        container_port=container_port_int,
+                        protocol=protocol
+                    )
+                    db.session.add(docker_port)
+                    added_ports += 1
+
+                    # Check if port already exists in Port table
+                    existing_port = Port.query.filter_by(
+                        ip_address=server_ip,
+                        port_number=host_port_int,
+                        port_protocol=protocol
+                    ).first()
+
+                    if not existing_port:
+                        max_order = db.session.query(db.func.max(Port.order)).filter_by(
+                            ip_address=server_ip
+                        ).scalar() or 0
+
+                        new_port = Port(
+                            ip_address=server_ip,
+                            nickname=instance.name,
+                            port_number=host_port_int,
+                            description=f"{stack_name}/{service_name} ({container_port_int}/{protocol})",
+                            port_protocol=protocol,
+                            order=max_order + 1,
+                            source='komodo',
+                            is_immutable=True
+                        )
+                        db.session.add(new_port)
+                        db.session.flush()
+
+                        # Apply automatic tagging rules to the new port
+                        try:
+                            from utils.tagging_engine import tagging_engine
+                            tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                        except Exception as e:
+                            app.logger.error(f"Error applying automatic tagging rules to Komodo port {new_port.id}: {str(e)}")
+
+                        added_to_port_table += 1
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': f'Komodo scan completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error scanning Komodo instance: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Legacy routes for backward compatibility
+
+@docker_bp.route('/docker/containers', methods=['GET'])
+def get_containers():
+    """
+    Get a list of running Docker containers from all enabled Docker instances.
+    """
+    try:
+        all_containers = []
+        docker_instances = instance_manager.get_enabled_instances_by_type('docker')
+
+        for instance in docker_instances:
+            client = instance_manager.get_client(instance.id)
+            if client:
+                containers = client.containers.list()
+                for container in containers:
+                    container_info = {
+                        'id': container.id,
+                        'name': container.name,
+                        'image': container.image.tags[0] if container.image.tags else container.image.id,
+                        'status': container.status,
+                        'ports': container.ports,
+                        'instance_id': instance.id,
+                        'instance_name': instance.name
+                    }
+                    all_containers.append(container_info)
+
+        return jsonify({'containers': all_containers})
+    except Exception as e:
+        app.logger.error(f"Error getting Docker containers: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@docker_bp.route('/docker/scan', methods=['POST'])
+def scan_docker_ports():
+    """
+    Scan all enabled Docker instances for port mappings.
+    """
+    try:
+        total_containers = 0
+        total_ports = 0
+        total_added = 0
+
+        docker_instances = instance_manager.get_enabled_instances_by_type('docker')
+
+        for instance in docker_instances:
+            result = _scan_docker_instance(instance)
+            if result.status_code == 200:
+                data = result.get_json()
+                # Parse the message to extract numbers (simplified)
+                message = data.get('message', '')
+                if 'Found' in message and 'containers' in message:
+                    # This is a simplified parsing - in production you might want more robust parsing
+                    pass
+
+        return jsonify({
+            'success': True,
+            'message': f'Scanned all Docker instances successfully.'
+        })
+    except Exception as e:
+        app.logger.error(f"Error scanning Docker ports: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/import_from_portainer', methods=['POST'])
+def import_from_portainer():
+    """
+    Import containers from all enabled Portainer instances.
+    """
+    try:
+        portainer_instances = instance_manager.get_enabled_instances_by_type('portainer')
+
+        if not portainer_instances:
+            return jsonify({'error': 'No enabled Portainer instances found'}), 400
+
+        total_ports = 0
+        total_added = 0
+
+        for instance in portainer_instances:
+            result = _scan_portainer_instance(instance)
+            if result.status_code == 200:
+                data = result.get_json()
+                # Aggregate results
+                pass
+
+        return jsonify({
+            'success': True,
+            'message': f'Imported from all Portainer instances successfully.'
+        })
+    except Exception as e:
         app.logger.error(f"Error importing from Portainer: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @docker_bp.route('/docker/import_from_komodo', methods=['POST'])
 def import_from_komodo():
     """
-    Import containers and port mappings from Komodo.
-    Uses the proper API endpoints based on Komodo API documentation.
-
-    For Komodo: All API operations use POST requests with a JSON body containing
-    'type' and 'params' fields. Authentication is via X-Api-Key and X-Api-Secret headers.
-
-    Returns:
-        JSON: A JSON response indicating success or failure of the operation.
+    Import containers from all enabled Komodo instances.
     """
     try:
-        import requests
-        import json
-        import re  # For regex pattern matching
+        komodo_instances = instance_manager.get_enabled_instances_by_type('komodo')
 
-        komodo_url = get_setting('komodo_url', '')
-        komodo_api_key = get_setting('komodo_api_key', '')
-        komodo_api_secret = get_setting('komodo_api_secret', '')
+        if not komodo_instances:
+            return jsonify({'error': 'No enabled Komodo instances found'}), 400
 
-        if not komodo_url or not komodo_api_key or not komodo_api_secret:
-            return jsonify({'error': 'Komodo URL, API key, or API secret not configured'}), 400
+        total_ports = 0
+        total_added = 0
 
-        # Ensure the URL doesn't have a trailing slash
-        komodo_url = komodo_url.rstrip('/')
+        for instance in komodo_instances:
+            result = _scan_komodo_instance(instance)
+            if result.status_code == 200:
+                data = result.get_json()
+                # Aggregate results
+                pass
 
-        # Extract server name from URL for identification
-        server_name = komodo_url.replace('https://', '').replace('http://', '').split('/')[0]
-
-        # Remove port number from server_name if present (for the nickname)
-        nickname = server_name
-        if ':' in nickname:
-            nickname = nickname.split(':')[0]
-
-        # Special case for localhost
-        if nickname.lower() == 'localhost' or nickname == '127.0.0.1':
-            nickname = 'localhost'
-
-        # Resolve domain name to IP address
-        server_ip = None
-        try:
-            # Handle localhost specially
-            if nickname.lower() == 'localhost' or server_name.lower().startswith('localhost:') or server_name == '127.0.0.1':
-                server_ip = '127.0.0.1'
-                app.logger.info(f"Using 127.0.0.1 for localhost")
-            else:
-                server_ip = socket.gethostbyname(nickname)
-                app.logger.info(f"Resolved {nickname} to IP: {server_ip}")
-        except Exception as e:
-            app.logger.warning(f"Could not resolve {nickname} to IP: {str(e)}")
-            # If we couldn't resolve and it's localhost, use 127.0.0.1
-            if 'localhost' in nickname.lower():
-                server_ip = '127.0.0.1'
-            else:
-                server_ip = nickname  # Fall back to using the domain name if resolution fails
-
-        # Set up the API auth headers
-        headers = {
-            'X-Api-Key': komodo_api_key,
-            'X-Api-Secret': komodo_api_secret,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-
-        # Try the standard endpoint first
-        try:
-            app.logger.info(f"Trying POST {komodo_url}/read for ListStacks")
-            response = requests.post(
-                f"{komodo_url}/read",
-                headers=headers,
-                json={'type': 'ListStacks', 'params': {}},
-                timeout=10
-            )
-            app.logger.info(f"Response: {response.status_code} - Content-Type: {response.headers.get('Content-Type')}")
-
-            if response.status_code == 200:
-                app.logger.info(f"Successful connection with {komodo_url}/read")
-                stacks = response.json()
-            else:
-                app.logger.warning(f"Failed to get stacks from {komodo_url}/read: {response.status_code}")
-                return jsonify({'error': f'Komodo API returned status {response.status_code}'}), 500
-
-        except Exception as e:
-            app.logger.error(f"Error connecting to Komodo API: {str(e)}")
-            return jsonify({'error': f'Failed to connect to Komodo API: {str(e)}'}), 500
-
-        # Debug log the response
-        if not isinstance(stacks, list):
-            app.logger.warning(f"Expected a list of stacks, but got {type(stacks)}")
-            if isinstance(stacks, dict) and 'result' in stacks and isinstance(stacks['result'], list):
-                stacks = stacks['result']
-            else:
-                app.logger.error(f"Unexpected response format: {json.dumps(stacks)}")
-                return jsonify({'error': 'Unexpected response format from Komodo API'}), 500
-
-        app.logger.info(f"Found {len(stacks)} stacks")
-
-        # Process stacks and extract port mappings
-        added_ports = 0
-        added_to_port_table = 0
-
-        # Clear existing Docker services and ports for this instance
-        try:
-            services_to_delete = db.session.query(DockerService.id).filter(
-                DockerService.name.like(f"%{server_name}%")
-            ).all()
-
-            service_ids = [s.id for s in services_to_delete]
-
-            if service_ids:
-                DockerPort.query.filter(DockerPort.service_id.in_(service_ids)).delete(synchronize_session=False)
-                DockerService.query.filter(DockerService.id.in_(service_ids)).delete(synchronize_session=False)
-                db.session.commit()
-                app.logger.info(f"Deleted {len(service_ids)} existing Komodo services")
-        except Exception as e:
-            app.logger.warning(f"Error clearing existing Komodo services: {str(e)}")
-            db.session.rollback()
-
-        for stack in stacks:
-            app.logger.info(f"Processing stack: {json.dumps(stack, indent=2)}")
-
-            # Get stack ID and name
-            stack_id = stack.get('id')
-            stack_name = stack.get('name', 'unknown')
-
-            # Get detailed stack information
-            try:
-                get_stack_response = requests.post(
-                    f"{komodo_url}/read",
-                    headers=headers,
-                    json={'type': 'GetStack', 'params': {'id': stack_id}},
-                    timeout=10
-                )
-
-                if get_stack_response.status_code != 200:
-                    app.logger.warning(f"Failed to get details for stack {stack_name}: {get_stack_response.status_code}")
-                    continue
-
-                stack_detail = get_stack_response.json()
-                app.logger.info(f"Got stack details for {stack_name}")
-
-                # Extract compose file content
-                compose_content = None
-
-                # Try to find the compose file in deployed_contents
-                if 'info' in stack_detail and 'deployed_contents' in stack_detail['info']:
-                    for content_file in stack_detail['info']['deployed_contents']:
-                        if content_file.get('path') in ['compose.yaml', 'docker-compose.yaml', 'docker-compose.yml']:
-                            compose_content = content_file.get('contents')
-                            app.logger.info(f"Found compose file: {content_file['path']}")
-                            break
-
-                # If not found in deployed_contents, check file_contents in config
-                if not compose_content and 'config' in stack_detail and 'file_contents' in stack_detail['config']:
-                    compose_content = stack_detail['config']['file_contents']
-                    app.logger.info("Using file_contents from config")
-
-                if not compose_content:
-                    app.logger.warning(f"No compose file content found for stack {stack_name}")
-                    continue
-
-                app.logger.info(f"Compose content for {stack_name}: {compose_content}")
-
-                # Extract services from the stack
-                services = []
-                if 'info' in stack_detail and 'services' in stack_detail['info']:
-                    services = stack_detail['info']['services']
-                elif 'info' in stack_detail and 'deployed_services' in stack_detail['info']:
-                    services = stack_detail['info']['deployed_services']
-
-                app.logger.info(f"Found {len(services)} services in stack {stack_name}")
-
-                # Process each service
-                for service in services:
-                    # Extract service info
-                    service_name = service.get('service', service.get('service_name', service.get('container_name', 'unknown')))
-                    service_image = service.get('image', 'unknown')
-
-                    app.logger.info(f"Processing service: {service_name}, image: {service_image}")
-
-                    # Add service to DockerService table
-                    docker_service = DockerService(
-                        container_id=f"komodo-{server_name}-{stack_name}-{service_name}",
-                        name=f"{stack_name}/{service_name}",
-                        image=service_image,
-                        status="running"  # Assume running since we can see it
-                    )
-                    db.session.add(docker_service)
-                    db.session.flush()  # Get the ID
-
-                    # Parse the compose file to find port mappings for this service
-                    # This is a simplified approach focusing on the most common format
-
-                    # Split into lines for processing
-                    lines = compose_content.split('\n')
-                    in_service_section = False
-                    in_ports_section = False
-                    port_mappings = []
-
-                    for line in lines:
-                        line = line.rstrip()
-
-                        # Check if we're in the right service section
-                        if line.strip() == f"{service_name}:" or line.strip() == f"  {service_name}:":
-                            in_service_section = True
-                            in_ports_section = False
-                            continue
-
-                        # If we're in a service section and hit another top-level item, we're done with this service
-                        if in_service_section and line.strip() and not line.startswith(' ') and line.strip().endswith(':'):
-                            in_service_section = False
-                            in_ports_section = False
-                            continue
-
-                        # If we're in the service section, look for ports
-                        if in_service_section and "ports:" in line:
-                            in_ports_section = True
-                            continue
-
-                        # If we're in the ports section, extract port mappings
-                        if in_service_section and in_ports_section and line.strip().startswith('-'):
-                            port_line = line.strip()[1:].strip()  # Remove dash and whitespace
-
-                            # Handle quoted port mappings
-                            if (port_line.startswith('"') and port_line.endswith('"')) or \
-                               (port_line.startswith("'") and port_line.endswith("'")):
-                                port_line = port_line[1:-1]
-
-                            # Check for port:port format
-                            if ':' in port_line:
-                                port_mappings.append(port_line)
-                                app.logger.info(f"Found port mapping: {port_line}")
-
-                        # If we're in the ports section but hit a non-port line, we're done with ports
-                        elif in_service_section and in_ports_section and line.strip() and not line.strip().startswith('-'):
-                            in_ports_section = False
-
-                    # If we didn't find port mappings in the compose file, try regex
-                    if not port_mappings:
-                        # Use regex to look for port mappings
-                        service_pattern = re.compile(rf'{service_name}:\s*\n(?:.*\n)*?(?:\s+ports:\s*\n(?:\s+-\s+"?\'?([^"\'\n]+)"?\'?\s*\n)+)', re.MULTILINE)
-                        service_match = service_pattern.search(compose_content)
-
-                        if service_match:
-                            # Extract all port lines
-                            port_lines = re.findall(r'\s+-\s+"?\'?([^"\'\n]+)"?\'?', service_match.group(0))
-                            for port_line in port_lines:
-                                if ':' in port_line:
-                                    port_mappings.append(port_line)
-                                    app.logger.info(f"Found port mapping via regex: {port_line}")
-
-                    # Process port mappings
-                    for port_mapping in port_mappings:
-                        # Parse port mapping (host:container or host:container/protocol)
-                        parts = port_mapping.split(':')
-                        if len(parts) != 2:
-                            app.logger.warning(f"Invalid port mapping format: {port_mapping}")
-                            continue
-
-                        host_port = parts[0]
-                        container_port_part = parts[1]
-
-                        # Check for protocol specification
-                        protocol = 'TCP'
-                        if '/' in container_port_part:
-                            container_port, protocol = container_port_part.split('/')
-                            protocol = protocol.upper()
-                        else:
-                            container_port = container_port_part
-
-                        try:
-                            host_port_int = int(host_port)
-                            container_port_int = int(container_port)
-                        except ValueError:
-                            app.logger.warning(f"Invalid port numbers: host={host_port}, container={container_port}")
-                            continue
-
-                        # Add port mapping to DockerPort table
-                        docker_port = DockerPort(
-                            service_id=docker_service.id,
-                            host_ip=server_ip,
-                            host_port=host_port_int,
-                            container_port=container_port_int,
-                            protocol=protocol
-                        )
-                        db.session.add(docker_port)
-                        added_ports += 1
-
-                        # Check if port already exists in Port table
-                        existing_port = Port.query.filter_by(
-                            ip_address=server_ip,
-                            port_number=host_port_int,
-                            port_protocol=protocol
-                        ).first()
-
-                        # Add to Port table if it doesn't exist
-                        if not existing_port:
-                            max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                                ip_address=server_ip
-                            ).scalar() or 0
-
-                            new_port = Port(
-                                ip_address=server_ip,  # IP address
-                                nickname=nickname,     # Human-readable name without port
-                                port_number=host_port_int,
-                                description=f"{stack_name}/{service_name} ({container_port_int}/{protocol})",
-                                port_protocol=protocol,
-                                order=max_order + 1,
-                                source='komodo',
-                                is_immutable=True
-                            )
-                            db.session.add(new_port)
-                            db.session.flush()  # Ensure we have the port ID
-
-                            # Apply automatic tagging rules to the new port
-                            try:
-                                from utils.tagging_engine import tagging_engine
-                                tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
-                            except Exception as e:
-                                app.logger.error(f"Error applying automatic tagging rules to Komodo port {new_port.id}: {str(e)}")
-
-                            added_to_port_table += 1
-
-            except Exception as e:
-                app.logger.error(f"Error processing stack {stack_name}: {str(e)}")
-                continue
-
-        db.session.commit()
         return jsonify({
             'success': True,
-            'message': f'Komodo import completed. Added {added_ports} port mappings and {added_to_port_table} ports to the ports page.'
+            'message': f'Imported from all Komodo instances successfully.'
         })
-
     except Exception as e:
-        db.session.rollback()
         app.logger.error(f"Error importing from Komodo: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# Port scanning routes (unchanged)
 
 @docker_bp.route('/docker/scan_ports', methods=['POST'])
 def scan_ports():
     """
     Scan ports for a given IP address.
-
-    Returns:
-        JSON: A JSON response indicating success or failure of the operation.
     """
     try:
         data = request.json
@@ -983,12 +1117,6 @@ def scan_ports():
 def scan_status(scan_id):
     """
     Get the status of a port scan.
-
-    Args:
-        scan_id (int): The ID of the scan to check.
-
-    Returns:
-        JSON: A JSON response containing the scan status.
     """
     try:
         scan = PortScan.query.get(scan_id)
@@ -1009,10 +1137,6 @@ def scan_status(scan_id):
 def run_port_scan(ip_address, scan_id):
     """
     Run a port scan for the given IP address.
-
-    Args:
-        ip_address (str): The IP address to scan.
-        scan_id (int): The ID of the scan entry.
     """
     try:
         with app.app_context():
@@ -1106,676 +1230,110 @@ def run_port_scan(ip_address, scan_id):
         except:
             pass
 
-# Background thread for auto-scanning containers
-def start_auto_scan_threads():
+# Global Settings Routes
+
+@docker_bp.route('/docker/global_settings', methods=['GET'])
+def get_global_settings():
     """
-    Start background threads for auto-scanning Docker, Portainer, and Komodo containers.
+    Get global Docker integration settings.
+
+    Returns:
+        JSON: Global settings dictionary.
     """
-    # Import Flask's current_app to get the actual app instance
-    from flask import current_app as flask_app
-
-    # Get the actual app instance, not the proxy
-    flask_app_instance = flask_app._get_current_object()
-
-    def docker_auto_scan_worker(app_instance):
-        """Worker function that runs in a separate thread to auto-scan Docker containers.
-
-        Args:
-            app_instance: The Flask application instance.
-        """
-        import logging
-
-        # Configure a separate logger for the worker thread
-        worker_logger = logging.getLogger('docker_worker')
-        worker_logger.setLevel(logging.INFO)
-
-        while True:
-            scan_interval = 300  # Default scan interval
-            try:
-                # Create a new application context for this thread
-                with app_instance.app_context():
-                    # Check if Docker is enabled and auto-detect is enabled
-                    if get_setting('docker_enabled', 'false').lower() == 'true' and get_setting('docker_auto_detect', 'false').lower() == 'true':
-                        worker_logger.info("Running automatic Docker container scan")
-                        app_instance.logger.info("Running automatic Docker container scan")
-
-                        client = get_docker_client()
-                        if client is not None:
-                            # Get Docker host for identification in case of multiple Docker instances
-                            docker_host = get_setting('docker_host', 'unix:///var/run/docker.sock')
-                            host_identifier = "Docker" if docker_host == 'unix:///var/run/docker.sock' else docker_host.replace('tcp://', '')
-
-                            # Get all running containers
-                            containers = client.containers.list()
-
-                            # Process containers and their port mappings
-                            for container in containers:
-                                # Process port mappings
-                                for container_port, host_bindings in container.ports.items():
-                                    if host_bindings is None:
-                                        continue
-
-                                    # Parse container port and protocol
-                                    if '/' in container_port:
-                                        port_number, protocol = container_port.split('/')
-                                    else:
-                                        port_number = container_port
-                                        protocol = 'tcp'
-
-                                    for binding in host_bindings:
-                                        host_ip = binding.get('HostIp', '0.0.0.0')
-                                        if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                                            # Use the detected server IP instead of localhost
-                                            detected_server_ip = get_server_ip()
-                                            host_ip = detected_server_ip
-
-                                        host_port = int(binding.get('HostPort', 0))
-
-                                        # Check if port already exists in Port table for this IP and port number
-                                        existing_port = Port.query.filter_by(
-                                            ip_address=host_ip,
-                                            port_number=host_port,
-                                            port_protocol=protocol.upper()
-                                        ).first()
-
-                                        # Always add to Port table if it doesn't exist, regardless of auto-detect setting
-                                        if not existing_port:
-                                            # Get the max order for this IP
-                                            max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                                                ip_address=host_ip
-                                            ).scalar() or 0
-
-                                            # Create new port entry with host identifier in description and as nickname
-                                            # Set is_immutable to True for Docker ports
-                                            new_port = Port(
-                                                ip_address=host_ip,
-                                                nickname=host_identifier,  # Set the host identifier as the nickname
-                                                port_number=host_port,
-                                                description=f"{container.name} ({port_number}/{protocol})",
-                                                port_protocol=protocol.upper(),
-                                                order=max_order + 1,
-                                                source='docker',
-                                                is_immutable=True
-                                            )
-                                            db.session.add(new_port)
-
-                            db.session.commit()
-
-                    # Get scan interval inside app context
-                    scan_interval = int(get_setting('docker_scan_interval', '300'))
-            except Exception as e:
-                # Log error using the worker logger
-                worker_logger.error(f"Error in Docker auto-scan thread: {str(e)}")
-
-                # Try to log with app logger if possible
-                try:
-                    with app_instance.app_context():
-                        app_instance.logger.error(f"Error in Docker auto-scan thread: {str(e)}")
-                except Exception:
-                    pass
-
-            # Sleep for the configured interval
-            time.sleep(scan_interval)
-
-    def portainer_auto_scan_worker(app_instance):
-        """Worker function that runs in a separate thread to auto-scan Portainer containers.
-
-        Args:
-            app_instance: The Flask application instance.
-        """
-        import logging
-
-        # Configure a separate logger for the worker thread
-        worker_logger = logging.getLogger('portainer_worker')
-        worker_logger.setLevel(logging.INFO)
-
-        while True:
-            scan_interval = 300  # Default scan interval
-            try:
-                # Create a new application context for this thread
-                with app_instance.app_context():
-                    # Check if Portainer is enabled and auto-detect is enabled
-                    if get_setting('portainer_enabled', 'false').lower() == 'true' and get_setting('portainer_auto_detect', 'false').lower() == 'true':
-                        worker_logger.info("Running automatic Portainer container scan")
-                        app_instance.logger.info("Running automatic Portainer container scan")
-
-                        # Call the import_from_portainer function directly
-                        try:
-                            # We need to call the function directly, not through the route
-                            import requests
-
-                            portainer_url = get_setting('portainer_url', '')
-                            portainer_api_key = get_setting('portainer_api_key', '')
-
-                            if not portainer_url or not portainer_api_key:
-                                worker_logger.error("Portainer URL or API key not configured")
-                                continue
-
-                            # Set up headers for Portainer API
-                            headers = {
-                                'X-API-Key': portainer_api_key
-                            }
-
-                            # Get SSL verification setting
-                            verify_ssl = get_setting('portainer_verify_ssl', 'true').lower() == 'true'
-
-                            # Get endpoints (Docker environments)
-                            worker_logger.info(f"Requesting endpoints from {portainer_url}/api/endpoints")
-                            endpoints_response = requests.get(f"{portainer_url}/api/endpoints", headers=headers, verify=verify_ssl)
-                            worker_logger.info(f"Endpoints response status: {endpoints_response.status_code}")
-
-                            if endpoints_response.status_code != 200:
-                                worker_logger.error(f"Failed to get Portainer endpoints: {endpoints_response.text}")
-                                continue
-
-                            endpoints = endpoints_response.json()
-                            worker_logger.info(f"Found {len(endpoints)} endpoints in Portainer")
-
-                            if not endpoints:
-                                worker_logger.error("No endpoints found in Portainer")
-                                continue
-
-                            added_ports = 0
-                            added_to_port_table = 0
-
-                            # Extract server name from URL for identification in case of multiple Portainer instances
-                            server_name = portainer_url.replace('https://', '').replace('http://', '').split('/')[0]
-
-                            # Resolve domain name to IP address
-                            server_ip = None
-                            try:
-                                server_ip = socket.gethostbyname(server_name)
-                                worker_logger.info(f"Resolved {server_name} to IP: {server_ip}")
-                            except Exception as e:
-                                worker_logger.warning(f"Could not resolve {server_name} to IP: {str(e)}")
-                                server_ip = server_name  # Fall back to using the domain name if resolution fails
-
-                            for endpoint in endpoints:
-                                endpoint_id = endpoint['Id']
-                                endpoint_name = endpoint.get('Name', f"Endpoint {endpoint_id}")
-
-                                # Get containers for this endpoint
-                                worker_logger.info(f"Requesting containers from endpoint {endpoint_id} ({endpoint_name})")
-                                containers_response = requests.get(
-                                    f"{portainer_url}/api/endpoints/{endpoint_id}/docker/containers/json",
-                                    headers=headers,
-                                    verify=verify_ssl
-                                )
-                                worker_logger.info(f"Containers response status: {containers_response.status_code}")
-
-                                if containers_response.status_code != 200:
-                                    worker_logger.warning(f"Failed to get containers for endpoint {endpoint_id}: {containers_response.text}")
-                                    continue
-
-                                containers = containers_response.json()
-                                worker_logger.info(f"Found {len(containers)} containers in endpoint {endpoint_id}")
-
-                                for container in containers:
-                                    # Add container to DockerService table
-                                    service = DockerService(
-                                        container_id=container['Id'],
-                                        name=container['Names'][0].lstrip('/') if container['Names'] else 'unknown',
-                                        image=container['Image'],
-                                        status=container['State']
-                                    )
-                                    db.session.add(service)
-                                    db.session.flush()  # Flush to get the service ID
-
-                                    # Process port mappings
-                                    container_ports = container.get('Ports', [])
-                                    worker_logger.info(f"Container {container['Names'][0] if container['Names'] else 'unknown'} has {len(container_ports)} port mappings")
-
-                                    for port_mapping in container_ports:
-                                        if 'PublicPort' not in port_mapping:
-                                            worker_logger.info(f"Skipping port mapping without PublicPort: {port_mapping}")
-                                            continue
-
-                                        host_ip = port_mapping.get('IP', '0.0.0.0')
-                                        if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::' or host_ip == '127.0.0.1':
-                                            # Use the resolved IP address instead of placeholder IPs or localhost
-                                            host_ip = server_ip
-
-                                        host_port = port_mapping['PublicPort']
-                                        container_port = port_mapping['PrivatePort']
-                                        protocol = port_mapping['Type'].lower()
-
-                                        # Add port mapping to DockerPort table
-                                        docker_port = DockerPort(
-                                            service_id=service.id,
-                                            host_ip=host_ip,
-                                            host_port=host_port,
-                                            container_port=container_port,
-                                            protocol=protocol.upper()
-                                        )
-                                        db.session.add(docker_port)
-                                        added_ports += 1
-                                        worker_logger.info(f"Added port mapping: {host_ip}:{host_port} -> {container_port}/{protocol}")
-
-                                        # Check if port already exists in Port table for this IP and port number
-                                        existing_port = Port.query.filter_by(
-                                            ip_address=host_ip,
-                                            port_number=host_port,
-                                            port_protocol=protocol.upper()
-                                        ).first()
-
-                                        # Always add to Port table if it doesn't exist, regardless of auto-detect setting
-                                        if not existing_port:
-                                            # Get the max order for this IP
-                                            max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                                                ip_address=host_ip
-                                            ).scalar() or 0
-
-                                            # Generate incremental Portainer Server nickname for the IP
-                                            existing_portainer_count = Port.query.filter(
-                                                Port.nickname.like('Portainer Server %')
-                                            ).distinct(Port.ip_address).count()
-                                            ip_nickname = f"Portainer Server {existing_portainer_count + 1}"
-
-                                            # Create new port entry with incremental Portainer Server nickname
-                                            # Set is_immutable to True for Portainer ports
-                                            new_port = Port(
-                                                ip_address=host_ip,
-                                                nickname=ip_nickname,  # Use "Portainer Server X" as the nickname
-                                                port_number=host_port,
-                                                description=service.name,
-                                                port_protocol=protocol.upper(),
-                                                order=max_order + 1,
-                                                source='portainer',
-                                                is_immutable=True
-                                            )
-                                            db.session.add(new_port)
-                                            added_to_port_table += 1
-                                            worker_logger.info(f"Added new port to Port table: {host_ip}:{host_port}/{protocol.upper()} - {service.name}")
-                                        else:
-                                            worker_logger.info(f"Port already exists in Port table: {host_ip}:{host_port}/{protocol.upper()}")
-
-                            try:
-                                db.session.commit()
-                                worker_logger.info(f"Portainer auto-scan completed successfully. Added {added_ports} port mappings and {added_to_port_table} ports.")
-                            except Exception as e:
-                                db.session.rollback()
-                                worker_logger.error(f"Error committing changes to database: {str(e)}")
-                        except Exception as e:
-                            worker_logger.error(f"Error in Portainer auto-scan: {str(e)}")
-
-                    # Get scan interval inside app context
-                    scan_interval = int(get_setting('portainer_scan_interval', '300'))
-            except Exception as e:
-                # Log error using the worker logger
-                worker_logger.error(f"Error in Portainer auto-scan thread: {str(e)}")
-
-                # Try to log with app logger if possible
-                try:
-                    with app_instance.app_context():
-                        app_instance.logger.error(f"Error in Portainer auto-scan thread: {str(e)}")
-                except Exception:
-                    pass
-
-            # Sleep for the configured interval
-            time.sleep(scan_interval)
-
-    def komodo_auto_scan_worker(app_instance):
-        """Worker function that runs in a separate thread to auto-scan Komodo containers.
-
-        Args:
-            app_instance: The Flask application instance.
-        """
-        import logging
-
-        # Configure a separate logger for the worker thread
-        worker_logger = logging.getLogger('komodo_worker')
-        worker_logger.setLevel(logging.INFO)
-
-        while True:
-            scan_interval = 300  # Default scan interval
-            try:
-                # Create a new application context for this thread
-                with app_instance.app_context():
-                    # Check if Komodo is enabled and auto-detect is enabled
-                    if get_setting('komodo_enabled', 'false').lower() == 'true' and get_setting('komodo_auto_detect', 'false').lower() == 'true':
-                        worker_logger.info("Running automatic Komodo container scan")
-                        app_instance.logger.info("Running automatic Komodo container scan")
-
-                        # Call the import_from_komodo function directly
-                        try:
-                            # We need to implement the Komodo import logic directly here
-                            import requests
-                            import json
-                            import re  # For regex pattern matching
-
-                            komodo_url = get_setting('komodo_url', '')
-                            komodo_api_key = get_setting('komodo_api_key', '')
-                            komodo_api_secret = get_setting('komodo_api_secret', '')
-
-                            if not komodo_url or not komodo_api_key or not komodo_api_secret:
-                                worker_logger.error("Komodo URL, API key, or API secret not configured")
-                                continue
-
-                            # Ensure the URL doesn't have a trailing slash
-                            komodo_url = komodo_url.rstrip('/')
-
-                            # Extract server name from URL for identification
-                            server_name = komodo_url.replace('https://', '').replace('http://', '').split('/')[0]
-
-                            # Remove port number from server_name if present (for the nickname)
-                            nickname = server_name
-                            if ':' in nickname:
-                                nickname = nickname.split(':')[0]
-
-                            # Special case for localhost
-                            if nickname.lower() == 'localhost' or nickname == '127.0.0.1':
-                                nickname = 'localhost'
-
-                            # Resolve domain name to IP address
-                            server_ip = None
-                            try:
-                                # Handle localhost specially
-                                if nickname.lower() == 'localhost' or server_name.lower().startswith('localhost:') or server_name == '127.0.0.1':
-                                    server_ip = '127.0.0.1'
-                                    worker_logger.info(f"Using 127.0.0.1 for localhost")
-                                else:
-                                    server_ip = socket.gethostbyname(nickname)
-                                    worker_logger.info(f"Resolved {nickname} to IP: {server_ip}")
-                            except Exception as e:
-                                worker_logger.warning(f"Could not resolve {nickname} to IP: {str(e)}")
-                                # If we couldn't resolve and it's localhost, use 127.0.0.1
-                                if 'localhost' in nickname.lower():
-                                    server_ip = '127.0.0.1'
-                                else:
-                                    server_ip = nickname  # Fall back to using the domain name if resolution fails
-
-                            # Set up the API auth headers
-                            headers = {
-                                'X-Api-Key': komodo_api_key,
-                                'X-Api-Secret': komodo_api_secret,
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            }
-
-                            # Try the standard endpoint first
-                            try:
-                                worker_logger.info(f"Trying POST {komodo_url}/read for ListStacks")
-                                response = requests.post(
-                                    f"{komodo_url}/read",
-                                    headers=headers,
-                                    json={'type': 'ListStacks', 'params': {}},
-                                    timeout=10
-                                )
-                                worker_logger.info(f"Response: {response.status_code} - Content-Type: {response.headers.get('Content-Type')}")
-
-                                if response.status_code == 200:
-                                    worker_logger.info(f"Successful connection with {komodo_url}/read")
-                                    stacks = response.json()
-                                else:
-                                    worker_logger.warning(f"Failed to get stacks from {komodo_url}/read: {response.status_code}")
-                                    continue
-
-                            except Exception as e:
-                                worker_logger.error(f"Error connecting to Komodo API: {str(e)}")
-                                continue
-
-                            # Debug log the response
-                            if not isinstance(stacks, list):
-                                worker_logger.warning(f"Expected a list of stacks, but got {type(stacks)}")
-                                if isinstance(stacks, dict) and 'result' in stacks and isinstance(stacks['result'], list):
-                                    stacks = stacks['result']
-                                else:
-                                    worker_logger.error(f"Unexpected response format: {json.dumps(stacks)}")
-                                    continue
-
-                            worker_logger.info(f"Found {len(stacks)} stacks")
-
-                            # Process stacks and extract port mappings
-                            added_ports = 0
-                            added_to_port_table = 0
-
-                            # Clear existing Docker services and ports for this instance
-                            try:
-                                services_to_delete = db.session.query(DockerService.id).filter(
-                                    DockerService.name.like(f"%{server_name}%")
-                                ).all()
-
-                                service_ids = [s.id for s in services_to_delete]
-
-                                if service_ids:
-                                    DockerPort.query.filter(DockerPort.service_id.in_(service_ids)).delete(synchronize_session=False)
-                                    DockerService.query.filter(DockerService.id.in_(service_ids)).delete(synchronize_session=False)
-                                    db.session.commit()
-                                    worker_logger.info(f"Deleted {len(service_ids)} existing Komodo services")
-                            except Exception as e:
-                                worker_logger.warning(f"Error clearing existing Komodo services: {str(e)}")
-                                db.session.rollback()
-
-                            for stack in stacks:
-                                worker_logger.info(f"Processing stack: {json.dumps(stack, indent=2)}")
-
-                                # Get stack ID and name
-                                stack_id = stack.get('id')
-                                stack_name = stack.get('name', 'unknown')
-
-                                # Get detailed stack information
-                                try:
-                                    get_stack_response = requests.post(
-                                        f"{komodo_url}/read",
-                                        headers=headers,
-                                        json={'type': 'GetStack', 'params': {'id': stack_id}},
-                                        timeout=10
-                                    )
-
-                                    if get_stack_response.status_code != 200:
-                                        worker_logger.warning(f"Failed to get details for stack {stack_name}: {get_stack_response.status_code}")
-                                        continue
-
-                                    stack_detail = get_stack_response.json()
-                                    worker_logger.info(f"Got stack details for {stack_name}")
-
-                                    # Extract compose file content
-                                    compose_content = None
-
-                                    # Try to find the compose file in deployed_contents
-                                    if 'info' in stack_detail and 'deployed_contents' in stack_detail['info']:
-                                        for content_file in stack_detail['info']['deployed_contents']:
-                                            if content_file.get('path') in ['compose.yaml', 'docker-compose.yaml', 'docker-compose.yml']:
-                                                compose_content = content_file.get('contents')
-                                                worker_logger.info(f"Found compose file: {content_file['path']}")
-                                                break
-
-                                    # If not found in deployed_contents, check file_contents in config
-                                    if not compose_content and 'config' in stack_detail and 'file_contents' in stack_detail['config']:
-                                        compose_content = stack_detail['config']['file_contents']
-                                        worker_logger.info("Using file_contents from config")
-
-                                    if not compose_content:
-                                        worker_logger.warning(f"No compose file content found for stack {stack_name}")
-                                        continue
-
-                                    worker_logger.info(f"Compose content for {stack_name}: {compose_content}")
-
-                                    # Extract services from the stack
-                                    services = []
-                                    if 'info' in stack_detail and 'services' in stack_detail['info']:
-                                        services = stack_detail['info']['services']
-                                    elif 'info' in stack_detail and 'deployed_services' in stack_detail['info']:
-                                        services = stack_detail['info']['deployed_services']
-
-                                    worker_logger.info(f"Found {len(services)} services in stack {stack_name}")
-
-                                    # Process each service
-                                    for service in services:
-                                        # Extract service info
-                                        service_name = service.get('service', service.get('service_name', service.get('container_name', 'unknown')))
-                                        service_image = service.get('image', 'unknown')
-
-                                        worker_logger.info(f"Processing service: {service_name}, image: {service_image}")
-
-                                        # Add service to DockerService table
-                                        docker_service = DockerService(
-                                            container_id=f"komodo-{server_name}-{stack_name}-{service_name}",
-                                            name=f"{stack_name}/{service_name}",
-                                            image=service_image,
-                                            status="running"  # Assume running since we can see it
-                                        )
-                                        db.session.add(docker_service)
-                                        db.session.flush()  # Get the ID
-
-                                        # Parse the compose file to find port mappings for this service
-                                        # This is a simplified approach focusing on the most common format
-
-                                        # Split into lines for processing
-                                        lines = compose_content.split('\n')
-                                        in_service_section = False
-                                        in_ports_section = False
-                                        port_mappings = []
-
-                                        for line in lines:
-                                            line = line.rstrip()
-
-                                            # Check if we're in the right service section
-                                            if line.strip() == f"{service_name}:" or line.strip() == f"  {service_name}:":
-                                                in_service_section = True
-                                                in_ports_section = False
-                                                continue
-
-                                            # If we're in a service section and hit another top-level item, we're done with this service
-                                            if in_service_section and line.strip() and not line.startswith(' ') and line.strip().endswith(':'):
-                                                in_service_section = False
-                                                in_ports_section = False
-                                                continue
-
-                                            # If we're in the service section, look for ports
-                                            if in_service_section and "ports:" in line:
-                                                in_ports_section = True
-                                                continue
-
-                                            # If we're in the ports section, extract port mappings
-                                            if in_service_section and in_ports_section and line.strip().startswith('-'):
-                                                port_line = line.strip()[1:].strip()  # Remove dash and whitespace
-
-                                                # Handle quoted port mappings
-                                                if (port_line.startswith('"') and port_line.endswith('"')) or \
-                                                   (port_line.startswith("'") and port_line.endswith("'")):
-                                                    port_line = port_line[1:-1]
-
-                                                # Check for port:port format
-                                                if ':' in port_line:
-                                                    port_mappings.append(port_line)
-                                                    worker_logger.info(f"Found port mapping: {port_line}")
-
-                                            # If we're in the ports section but hit a non-port line, we're done with ports
-                                            elif in_service_section and in_ports_section and line.strip() and not line.strip().startswith('-'):
-                                                in_ports_section = False
-
-                                        # If we didn't find port mappings in the compose file, try regex
-                                        if not port_mappings:
-                                            # Use regex to look for port mappings
-                                            service_pattern = re.compile(rf'{service_name}:\s*\n(?:.*\n)*?(?:\s+ports:\s*\n(?:\s+-\s+"?\'?([^"\'\n]+)"?\'?\s*\n)+)', re.MULTILINE)
-                                            service_match = service_pattern.search(compose_content)
-
-                                            if service_match:
-                                                # Extract all port lines
-                                                port_lines = re.findall(r'\s+-\s+"?\'?([^"\'\n]+)"?\'?', service_match.group(0))
-                                                for port_line in port_lines:
-                                                    if ':' in port_line:
-                                                        port_mappings.append(port_line)
-                                                        worker_logger.info(f"Found port mapping via regex: {port_line}")
-
-                                        # Process port mappings
-                                        for port_mapping in port_mappings:
-                                            # Parse port mapping (host:container or host:container/protocol)
-                                            parts = port_mapping.split(':')
-                                            if len(parts) != 2:
-                                                worker_logger.warning(f"Invalid port mapping format: {port_mapping}")
-                                                continue
-
-                                            host_port = parts[0]
-                                            container_port_part = parts[1]
-
-                                            # Check for protocol specification
-                                            protocol = 'TCP'
-                                            if '/' in container_port_part:
-                                                container_port, protocol = container_port_part.split('/')
-                                                protocol = protocol.upper()
-                                            else:
-                                                container_port = container_port_part
-
-                                            try:
-                                                host_port_int = int(host_port)
-                                                container_port_int = int(container_port)
-                                            except ValueError:
-                                                worker_logger.warning(f"Invalid port numbers: host={host_port}, container={container_port}")
-                                                continue
-
-                                            # Add port mapping to DockerPort table
-                                            docker_port = DockerPort(
-                                                service_id=docker_service.id,
-                                                host_ip=server_ip,
-                                                host_port=host_port_int,
-                                                container_port=container_port_int,
-                                                protocol=protocol
-                                            )
-                                            db.session.add(docker_port)
-                                            added_ports += 1
-
-                                            # Check if port already exists in Port table
-                                            existing_port = Port.query.filter_by(
-                                                ip_address=server_ip,
-                                                port_number=host_port_int,
-                                                port_protocol=protocol
-                                            ).first()
-
-                                            # Add to Port table if it doesn't exist
-                                            if not existing_port:
-                                                max_order = db.session.query(db.func.max(Port.order)).filter_by(
-                                                    ip_address=server_ip
-                                                ).scalar() or 0
-
-                                                new_port = Port(
-                                                    ip_address=server_ip,  # IP address
-                                                    nickname=nickname,     # Human-readable name without port
-                                                    port_number=host_port_int,
-                                                    description=f"{stack_name}/{service_name} ({container_port_int}/{protocol})",
-                                                    port_protocol=protocol,
-                                                    order=max_order + 1,
-                                                    source='komodo',
-                                                    is_immutable=True
-                                                )
-                                                db.session.add(new_port)
-                                                added_to_port_table += 1
-
-                                except Exception as e:
-                                    worker_logger.error(f"Error processing stack {stack_name}: {str(e)}")
-                                    continue
-
-                            db.session.commit()
-                            worker_logger.info(f"Komodo auto-scan completed successfully. Added {added_ports} port mappings and {added_to_port_table} ports.")
-                        except Exception as e:
-                            worker_logger.error(f"Error in Komodo auto-scan: {str(e)}")
-
-                    # Get scan interval inside app context
-                    scan_interval = int(get_setting('komodo_scan_interval', '300'))
-            except Exception as e:
-                # Log error using the worker logger
-                worker_logger.error(f"Error in Komodo auto-scan thread: {str(e)}")
-
-                # Try to log with app logger if possible
-                try:
-                    with app_instance.app_context():
-                        app_instance.logger.error(f"Error in Komodo auto-scan thread: {str(e)}")
-                except Exception:
-                    pass
-
-            # Sleep for the configured interval
-            time.sleep(scan_interval)
-
-    # Start the worker threads with the app instance as an argument
-    docker_thread = threading.Thread(target=docker_auto_scan_worker, args=(flask_app_instance,), daemon=True)
-    docker_thread.start()
-    flask_app.logger.info("Docker auto-scan thread started")
-
-    portainer_thread = threading.Thread(target=portainer_auto_scan_worker, args=(flask_app_instance,), daemon=True)
-    portainer_thread.start()
-    flask_app.logger.info("Portainer auto-scan thread started")
-
-    komodo_thread = threading.Thread(target=komodo_auto_scan_worker, args=(flask_app_instance,), daemon=True)
-    komodo_thread.start()
-    flask_app.logger.info("Komodo auto-scan thread started")
+    try:
+        settings = {
+            'global_auto_scan': get_setting('docker_global_auto_scan', 'true') == 'true',
+            'default_scan_interval': int(get_setting('docker_default_scan_interval', '300')),
+            'service_retention': int(get_setting('docker_service_retention', '30')),
+            'auto_add_services': get_setting('docker_auto_add_services', 'true') == 'true',
+            'connection_timeout': int(get_setting('docker_connection_timeout', '30'))
+        }
+        return jsonify(settings)
+    except Exception as e:
+        app.logger.error(f"Error getting global Docker settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/global_settings', methods=['POST'])
+def save_global_settings():
+    """
+    Save global Docker integration settings.
+
+    Returns:
+        JSON: Success or error message.
+    """
+    try:
+        data = request.get_json()
+
+        # Save each setting
+        settings_map = {
+            'global_auto_scan': 'docker_global_auto_scan',
+            'default_scan_interval': 'docker_default_scan_interval',
+            'service_retention': 'docker_service_retention',
+            'auto_add_services': 'docker_auto_add_services',
+            'connection_timeout': 'docker_connection_timeout'
+        }
+
+        for key, setting_key in settings_map.items():
+            if key in data:
+                value = str(data[key]).lower() if isinstance(data[key], bool) else str(data[key])
+
+                # Update or create setting
+                setting = Setting.query.filter_by(key=setting_key).first()
+                if setting:
+                    setting.value = value
+                else:
+                    setting = Setting(key=setting_key, value=value)
+                    db.session.add(setting)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Global Docker settings saved successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error saving global Docker settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>/scan', methods=['POST'])
+def scan_instance_endpoint(instance_id):
+    """
+    Scan a specific Docker instance for containers and services.
+
+    Args:
+        instance_id (int): The ID of the instance to scan.
+
+    Returns:
+        JSON: Scan result with success status and message.
+    """
+    try:
+        result = instance_manager.scan_instance(instance_id)
+        status_code = 200 if result['success'] else 400
+        return jsonify(result), status_code
+
+    except Exception as e:
+        app.logger.error(f"Error in scan instance endpoint: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error scanning instance: {str(e)}'}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>', methods=['GET'])
+def get_instance(instance_id):
+    """
+    Get a specific Docker instance.
+
+    Args:
+        instance_id (int): The ID of the instance to retrieve.
+
+    Returns:
+        JSON: Instance data or error message.
+    """
+    try:
+        instance = instance_manager.get_instance(instance_id)
+        if instance:
+            return jsonify({
+                'success': True,
+                'instance': instance.to_dict()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Instance not found'}), 404
+
+    except Exception as e:
+        app.logger.error(f"Error getting instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500

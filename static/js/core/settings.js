@@ -18,6 +18,9 @@ $(document).ready(function () {
     // Initialize Docker settings
     initDockerSettings();
 
+    // Load global Docker settings
+    loadGlobalDockerSettings();
+
     /**
      * Initializes the CodeMirror editor for custom CSS editing.
      * Sets up the editor with specific options and event listeners.
@@ -541,6 +544,37 @@ $(document).ready(function () {
         });
     }
 
+    // Handle global Docker settings form submission
+    $('#save-global-settings').click(function (e) {
+        e.preventDefault();
+
+        const globalSettings = {
+            global_auto_scan: $('#global-auto-scan').is(':checked'),
+            default_scan_interval: parseInt($('#default-scan-interval').val()),
+            service_retention: parseInt($('#service-retention').val()),
+            auto_add_services: $('#auto-add-services').is(':checked'),
+            connection_timeout: parseInt($('#connection-timeout').val())
+        };
+
+        $.ajax({
+            url: '/docker/global_settings',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(globalSettings),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('Global Docker settings saved successfully!');
+                } else {
+                    showNotification('Error saving global Docker settings: ' + response.error, 'error');
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error saving global Docker settings:', status, error);
+                showNotification('Error saving global Docker settings.', 'error');
+            }
+        });
+    });
+
     // Force a refresh on window load
     $(window).on('load', function () {
         if (cssEditor) {
@@ -548,3 +582,30 @@ $(document).ready(function () {
         }
     });
 });
+
+/**
+ * Loads and updates the global Docker settings UI.
+ */
+function loadGlobalDockerSettings() {
+    $.ajax({
+        url: '/docker/global_settings',
+        method: 'GET',
+        success: function (data) {
+            console.log("Received global Docker settings:", data);
+
+            // Set checkbox values with defaults
+            $('#global-auto-scan').prop('checked', data.global_auto_scan !== false);
+            $('#auto-add-services').prop('checked', data.auto_add_services !== false);
+
+            // Set input values with defaults
+            $('#default-scan-interval').val(data.default_scan_interval || 300);
+            $('#service-retention').val(data.service_retention || 30);
+            $('#connection-timeout').val(data.connection_timeout || 30);
+        },
+        error: function (xhr, status, error) {
+            console.error('Error loading global Docker settings:', status, error);
+            // Don't show error notification for missing settings - they might not exist yet
+            console.log('Global Docker settings not found, using defaults');
+        }
+    });
+}
