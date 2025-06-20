@@ -152,7 +152,10 @@ class DockerInstanceManager:
         try:
             instance = self.get_instance(instance_id)
             if not instance:
+                logger.error(f"Instance {instance_id} not found")
                 return None
+
+            logger.info(f"Updating instance {instance_id} with fields: {list(kwargs.keys())}")
 
             # Update fields
             if 'name' in kwargs:
@@ -166,12 +169,15 @@ class DockerInstanceManager:
                         logger.error(f"Instance with name '{new_name}' already exists")
                         return None
                     instance.name = new_name
+                    logger.info(f"Updated name to: {new_name}")
 
             if 'enabled' in kwargs:
                 instance.enabled = bool(kwargs['enabled'])
+                logger.info(f"Updated enabled to: {instance.enabled}")
 
             if 'auto_detect' in kwargs:
                 instance.auto_detect = bool(kwargs['auto_detect'])
+                logger.info(f"Updated auto_detect to: {instance.auto_detect}")
 
             if 'scan_interval' in kwargs:
                 scan_interval = int(kwargs['scan_interval'])
@@ -179,18 +185,22 @@ class DockerInstanceManager:
                     logger.error("Scan interval must be at least 60 seconds")
                     return None
                 instance.scan_interval = scan_interval
+                logger.info(f"Updated scan_interval to: {scan_interval}")
 
             if 'config' in kwargs:
                 config = kwargs['config']
+                # Only validate config if it's being completely replaced
+                # For partial updates (like just enabling/disabling), skip validation
                 if not self.validate_config(instance.type, config):
-                    logger.error(f"Invalid configuration for {instance.type} instance")
+                    logger.error(f"Invalid configuration for {instance.type} instance: {config}")
                     return None
                 instance.config = config
+                logger.info(f"Updated config to: {config}")
 
             instance.updated_at = datetime.utcnow()
             self.db.commit()
 
-            logger.info(f"Updated instance {instance_id}: {instance.name}")
+            logger.info(f"Successfully updated instance {instance_id}: {instance.name}")
             return instance
 
         except Exception as e:
