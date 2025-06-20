@@ -1,4 +1,4 @@
-# utils/routes/docker_new.py
+# utils/routes/docker.py
 
 # Standard Imports
 import os
@@ -261,6 +261,31 @@ def delete_instance(instance_id):
         app.logger.error(f"Error deleting instance {instance_id}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@docker_bp.route('/docker/instances/<int:instance_id>', methods=['GET'])
+def get_instance(instance_id):
+    """
+    Get a specific Docker instance.
+
+    Args:
+        instance_id (int): The ID of the instance to retrieve.
+
+    Returns:
+        JSON: Instance data or error message.
+    """
+    try:
+        instance = instance_manager.get_instance(instance_id)
+        if instance:
+            return jsonify({
+                'success': True,
+                'instance': instance.to_dict()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Instance not found'}), 404
+
+    except Exception as e:
+        app.logger.error(f"Error getting instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @docker_bp.route('/docker/instances/<int:instance_id>/test', methods=['POST'])
 def test_instance_connection(instance_id):
     """
@@ -281,6 +306,49 @@ def test_instance_connection(instance_id):
     except Exception as e:
         app.logger.error(f"Error testing instance {instance_id}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>/scan', methods=['POST'])
+def scan_instance_endpoint(instance_id):
+    """
+    Scan a specific Docker instance for containers and services.
+    This is the endpoint called by the frontend JavaScript.
+
+    Args:
+        instance_id (int): The ID of the instance to scan.
+
+    Returns:
+        JSON: Scan result with success status and message.
+    """
+    app.logger.info(f"🎯 FRONTEND SCAN ENDPOINT HIT: Instance ID {instance_id}")
+
+    try:
+        instance = instance_manager.get_instance(instance_id)
+        if not instance:
+            app.logger.error(f"❌ Instance {instance_id} not found")
+            return jsonify({'success': False, 'message': 'Instance not found'}), 404
+
+        if not instance.enabled:
+            app.logger.error(f"❌ Instance {instance_id} is disabled")
+            return jsonify({'success': False, 'message': 'Instance is disabled'}), 400
+
+        app.logger.info(f"✅ Instance {instance_id} found and enabled: {instance.name} (type: {instance.type})")
+
+        if instance.type == 'docker':
+            app.logger.info(f"🐳 Calling enhanced Docker scan function for instance {instance_id}")
+            return _scan_docker_instance(instance)
+        elif instance.type == 'portainer':
+            app.logger.info(f"🐳 Calling enhanced Portainer scan function for instance {instance_id}")
+            return _scan_portainer_instance(instance)
+        elif instance.type == 'komodo':
+            app.logger.info(f"🐳 Calling enhanced Komodo scan function for instance {instance_id}")
+            return _scan_komodo_instance(instance)
+        else:
+            app.logger.error(f"❌ Unknown instance type: {instance.type}")
+            return jsonify({'success': False, 'message': f'Unknown instance type: {instance.type}'}), 400
+
+    except Exception as e:
+        app.logger.error(f"💥 Critical error in frontend scan endpoint for instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error scanning instance: {str(e)}'}), 500
 
 # Legacy Settings Routes (for backward compatibility)
 
@@ -454,50 +522,94 @@ def scan_instance(instance_id):
     Returns:
         JSON: Scan results with success status and message.
     """
+    app.logger.info(f"🎯 SCAN ENDPOINT HIT: Instance ID {instance_id}")
+
     try:
         instance = instance_manager.get_instance(instance_id)
         if not instance:
+            app.logger.error(f"❌ Instance {instance_id} not found")
             return jsonify({'success': False, 'error': 'Instance not found'}), 404
 
         if not instance.enabled:
+            app.logger.error(f"❌ Instance {instance_id} is disabled")
             return jsonify({'success': False, 'error': 'Instance is disabled'}), 400
 
+        app.logger.info(f"✅ Instance {instance_id} found and enabled: {instance.name} (type: {instance.type})")
+
         if instance.type == 'docker':
+            app.logger.info(f"🐳 Calling enhanced Docker scan function for instance {instance_id}")
             return _scan_docker_instance(instance)
         elif instance.type == 'portainer':
+            app.logger.info(f"🐳 Calling enhanced Portainer scan function for instance {instance_id}")
             return _scan_portainer_instance(instance)
         elif instance.type == 'komodo':
+            app.logger.info(f"🐳 Calling enhanced Komodo scan function for instance {instance_id}")
             return _scan_komodo_instance(instance)
         else:
+            app.logger.error(f"❌ Unknown instance type: {instance.type}")
             return jsonify({'success': False, 'error': f'Unknown instance type: {instance.type}'}), 400
 
     except Exception as e:
-        app.logger.error(f"Error scanning instance {instance_id}: {str(e)}")
+        app.logger.error(f"💥 Critical error in scan endpoint for instance {instance_id}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 def _scan_docker_instance(instance):
     """Scan a Docker instance for containers and port mappings."""
+    app.logger.info(f"🐳 Starting Docker scan for instance {instance.id} ({instance.name})")
+
     try:
         client = instance_manager.get_client(instance.id)
         if not client:
+            app.logger.error(f"❌ Failed to create Docker client for instance {instance.id}")
             return jsonify({'success': False, 'error': 'Failed to create Docker client'}), 500
 
-        # Get all running containers
-        containers = client.containers.list()
+        app.logger.info(f"✅ Docker client created successfully for instance {instance.id}")
+
+        # Get all containers (running and stopped)
+        containers = client.containers.list(all=True)
+        app.logger.info(f"📦 Found {len(containers)} total containers (running and stopped)")
+
+        # Log container details
+        for i, container in enumerate(containers):
+            app.logger.info(f"Container {i+1}: {container.name} | Image: {container.image.tags[0] if container.image.tags else container.image.id} | Status: {container.status}")
+            app.logger.info(f"  Ports: {container.ports}")
 
         # Clear existing services for this instance
+        app.logger.info(f"🧹 Clearing existing services for instance {instance.id}")
+
+        # Count existing services before deletion
+        existing_services_count = DockerService.query.filter_by(instance_id=instance.id).count()
+        existing_ports_count = DockerPort.query.filter(
+            DockerPort.service_id.in_(
+                db.session.query(DockerService.id).filter_by(instance_id=instance.id)
+            )
+        ).count()
+
+        app.logger.info(f"📊 Before cleanup: {existing_services_count} services, {existing_ports_count} ports")
+
         DockerPort.query.filter(
             DockerPort.service_id.in_(
                 db.session.query(DockerService.id).filter_by(instance_id=instance.id)
             )
         ).delete(synchronize_session=False)
         DockerService.query.filter_by(instance_id=instance.id).delete()
-        db.session.commit()
+
+        try:
+            db.session.commit()
+            app.logger.info("✅ Successfully cleared existing services and ports")
+        except Exception as e:
+            app.logger.error(f"❌ Failed to clear existing services: {str(e)}")
+            db.session.rollback()
+            raise
 
         added_ports = 0
         added_to_port_table = 0
 
-        for container in containers:
+        app.logger.info(f"🔄 Processing {len(containers)} containers...")
+
+        for i, container in enumerate(containers):
+            app.logger.info(f"📦 Processing container {i+1}/{len(containers)}: {container.name}")
+
             # Add container to DockerService table
             service = DockerService(
                 instance_id=instance.id,
@@ -506,90 +618,282 @@ def _scan_docker_instance(instance):
                 image=container.image.tags[0] if container.image.tags else container.image.id,
                 status=container.status
             )
-            db.session.add(service)
-            db.session.flush()  # Flush to get the service ID
+
+            app.logger.info(f"💾 Adding service to database: {service.name} (instance_id={service.instance_id})")
+
+            try:
+                db.session.add(service)
+                db.session.flush()  # Flush to get the service ID
+                app.logger.info(f"✅ Service added with ID: {service.id}")
+            except Exception as e:
+                app.logger.error(f"❌ Failed to add service {service.name}: {str(e)}")
+                raise
 
             # Process port mappings
-            for container_port, host_bindings in container.ports.items():
-                if host_bindings is None:
-                    continue
+            app.logger.info(f"🔍 Processing port mappings for container {container.name}")
+            app.logger.info(f"  Container ports: {container.ports}")
 
-                # Parse container port and protocol
+            port_count_for_container = 0
+
+            for container_port, host_bindings in container.ports.items():
+                app.logger.info(f"  📡 Processing port: {container_port} -> {host_bindings}")
+
+                # Parse container port and protocol first
                 if '/' in container_port:
                     port_number, protocol = container_port.split('/')
                 else:
                     port_number = container_port
                     protocol = 'tcp'
 
-                for binding in host_bindings:
-                    host_ip = binding.get('HostIp', '0.0.0.0')
-                    if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
-                        # Use the detected server IP instead of localhost
-                        detected_server_ip = get_server_ip()
-                        host_ip = detected_server_ip
-                    else:
-                        # Apply the final host IP logic for Docker integrations
-                        host_ip = get_final_host_ip(host_ip, 'docker')
+                app.logger.info(f"    Parsed: port={port_number}, protocol={protocol}")
 
-                    host_port = int(binding.get('HostPort', 0))
+                # Handle containers with external port bindings
+                if host_bindings is not None:
+                    app.logger.info(f"    ✅ Container has external port bindings: {len(host_bindings)} bindings")
 
-                    # Add port mapping to DockerPort table
+                    for i, binding in enumerate(host_bindings):
+                        app.logger.info(f"    🔗 Processing binding {i+1}/{len(host_bindings)}: {binding}")
+
+                        host_ip = binding.get('HostIp', '0.0.0.0')
+                        if host_ip == '' or host_ip == '0.0.0.0' or host_ip == '::':
+                            # Use the detected server IP instead of localhost
+                            detected_server_ip = get_server_ip()
+                            host_ip = detected_server_ip
+                            app.logger.info(f"      🔄 Converted empty/wildcard IP to server IP: {host_ip}")
+                        else:
+                            # Apply the final host IP logic for Docker integrations
+                            original_ip = host_ip
+                            host_ip = get_final_host_ip(host_ip, 'docker')
+                            if original_ip != host_ip:
+                                app.logger.info(f"      🔄 Applied final host IP logic: {original_ip} -> {host_ip}")
+
+                        host_port = int(binding.get('HostPort', 0))
+                        app.logger.info(f"      📍 Final mapping: {host_ip}:{host_port} -> {port_number}/{protocol}")
+
+                        # Add port mapping to DockerPort table
+                        docker_port = DockerPort(
+                            service_id=service.id,
+                            host_ip=host_ip,
+                            host_port=host_port,
+                            container_port=int(port_number),
+                            protocol=protocol.upper()
+                        )
+
+                        app.logger.info(f"      💾 Adding DockerPort: service_id={service.id}, host_ip={host_ip}, host_port={host_port}, container_port={port_number}, protocol={protocol.upper()}")
+
+                        try:
+                            db.session.add(docker_port)
+                            db.session.flush()  # Flush to get the ID
+                            app.logger.info(f"      ✅ DockerPort added successfully with ID: {docker_port.id}")
+                            added_ports += 1
+                            port_count_for_container += 1
+                        except Exception as e:
+                            app.logger.error(f"      ❌ Failed to add DockerPort: {str(e)}")
+                            raise
+
+                        # Check if port already exists in Port table for this IP and port number
+                        app.logger.info(f"      🔍 Checking if port exists in Port table: {host_ip}:{host_port}/{protocol.upper()}")
+
+                        existing_port = Port.query.filter_by(
+                            ip_address=host_ip,
+                            port_number=host_port,
+                            port_protocol=protocol.upper()
+                        ).first()
+
+                        if existing_port:
+                            app.logger.info(f"      ⚠️  Port already exists in Port table: ID={existing_port.id}")
+                        else:
+                            app.logger.info(f"      ➕ Port doesn't exist, creating new Port entry")
+
+                            # Get the max order for this IP
+                            max_order = db.session.query(db.func.max(Port.order)).filter_by(
+                                ip_address=host_ip
+                            ).scalar() or 0
+                            app.logger.info(f"        📊 Max order for IP {host_ip}: {max_order}")
+
+                            # Create new port entry
+                            new_port = Port(
+                                ip_address=host_ip,
+                                nickname=instance.name,
+                                port_number=host_port,
+                                description=f"{container.name} ({port_number}/{protocol})",
+                                port_protocol=protocol.upper(),
+                                order=max_order + 1,
+                                source='docker',
+                                is_immutable=True
+                            )
+
+                            app.logger.info(f"        💾 Adding Port: ip={host_ip}, nickname={instance.name}, port={host_port}, desc='{new_port.description}', protocol={protocol.upper()}, order={max_order + 1}")
+
+                            try:
+                                db.session.add(new_port)
+                                db.session.flush()  # Ensure we have the port ID
+                                app.logger.info(f"        ✅ Port added successfully with ID: {new_port.id}")
+
+                                # Apply automatic tagging rules to the new port
+                                try:
+                                    from utils.tagging_engine import tagging_engine
+                                    tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                                    app.logger.info(f"        🏷️  Applied automatic tagging rules to port {new_port.id}")
+                                except Exception as e:
+                                    app.logger.error(f"        ❌ Error applying automatic tagging rules to Docker port {new_port.id}: {str(e)}")
+
+                                added_to_port_table += 1
+                            except Exception as e:
+                                app.logger.error(f"        ❌ Failed to add Port: {str(e)}")
+                                raise
+                else:
+                    app.logger.info(f"    🔒 Container has exposed ports but no external bindings (internal only)")
+
+                    # Handle containers with exposed ports but no external bindings
+                    # These are internal container ports that are exposed but not mapped to host
+                    host_ip = get_server_ip()
+                    container_port_int = int(port_number)
+
+                    app.logger.info(f"    📍 Internal port mapping: {host_ip}:{container_port_int} (internal:{port_number}/{protocol})")
+
+                    # Add port mapping to DockerPort table (using container port as host port for internal services)
                     docker_port = DockerPort(
                         service_id=service.id,
                         host_ip=host_ip,
-                        host_port=host_port,
-                        container_port=int(port_number),
+                        host_port=container_port_int,  # Use container port since no host port mapping
+                        container_port=container_port_int,
                         protocol=protocol.upper()
                     )
-                    db.session.add(docker_port)
-                    added_ports += 1
+
+                    app.logger.info(f"    💾 Adding internal DockerPort: service_id={service.id}, host_ip={host_ip}, host_port={container_port_int}, container_port={container_port_int}, protocol={protocol.upper()}")
+
+                    try:
+                        db.session.add(docker_port)
+                        db.session.flush()  # Flush to get the ID
+                        app.logger.info(f"    ✅ Internal DockerPort added successfully with ID: {docker_port.id}")
+                        added_ports += 1
+                        port_count_for_container += 1
+                    except Exception as e:
+                        app.logger.error(f"    ❌ Failed to add internal DockerPort: {str(e)}")
+                        raise
 
                     # Check if port already exists in Port table for this IP and port number
+                    app.logger.info(f"    🔍 Checking if internal port exists in Port table: {host_ip}:{container_port_int}/{protocol.upper()}")
+
                     existing_port = Port.query.filter_by(
                         ip_address=host_ip,
-                        port_number=host_port,
+                        port_number=container_port_int,
                         port_protocol=protocol.upper()
                     ).first()
 
-                    # Always add to Port table if it doesn't exist
-                    if not existing_port:
+                    if existing_port:
+                        app.logger.info(f"    ⚠️  Internal port already exists in Port table: ID={existing_port.id}")
+                    else:
+                        app.logger.info(f"    ➕ Internal port doesn't exist, creating new Port entry")
+
                         # Get the max order for this IP
                         max_order = db.session.query(db.func.max(Port.order)).filter_by(
                             ip_address=host_ip
                         ).scalar() or 0
+                        app.logger.info(f"      📊 Max order for IP {host_ip}: {max_order}")
 
-                        # Create new port entry
+                        # Create new port entry for internal service
                         new_port = Port(
                             ip_address=host_ip,
                             nickname=instance.name,
-                            port_number=host_port,
-                            description=f"{container.name} ({port_number}/{protocol})",
+                            port_number=container_port_int,
+                            description=f"{container.name} (internal:{port_number}/{protocol})",
                             port_protocol=protocol.upper(),
                             order=max_order + 1,
                             source='docker',
                             is_immutable=True
                         )
-                        db.session.add(new_port)
-                        db.session.flush()  # Ensure we have the port ID
 
-                        # Apply automatic tagging rules to the new port
+                        app.logger.info(f"      💾 Adding internal Port: ip={host_ip}, nickname={instance.name}, port={container_port_int}, desc='{new_port.description}', protocol={protocol.upper()}, order={max_order + 1}")
+
                         try:
-                            from utils.tagging_engine import tagging_engine
-                            tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                            db.session.add(new_port)
+                            db.session.flush()  # Ensure we have the port ID
+                            app.logger.info(f"      ✅ Internal Port added successfully with ID: {new_port.id}")
+
+                            # Apply automatic tagging rules to the new port
+                            try:
+                                from utils.tagging_engine import tagging_engine
+                                tagging_engine.apply_automatic_rules_to_port(new_port, commit=False)
+                                app.logger.info(f"      🏷️  Applied automatic tagging rules to internal port {new_port.id}")
+                            except Exception as e:
+                                app.logger.error(f"      ❌ Error applying automatic tagging rules to Docker port {new_port.id}: {str(e)}")
+
+                            added_to_port_table += 1
                         except Exception as e:
-                            app.logger.error(f"Error applying automatic tagging rules to Docker port {new_port.id}: {str(e)}")
+                            app.logger.error(f"      ❌ Failed to add internal Port: {str(e)}")
+                            raise
 
-                        added_to_port_table += 1
+            app.logger.info(f"📊 Container {container.name} processed: {port_count_for_container} ports added")
 
-        db.session.commit()
-        return jsonify({
-            'success': True,
-            'message': f'Docker scan completed. Found {len(containers)} containers with {added_ports} port mappings and added {added_to_port_table} ports to the ports page.'
-        })
+        # Final database commit with comprehensive logging
+        app.logger.info(f"💾 Committing all changes to database...")
+        app.logger.info(f"📊 Summary before commit:")
+        app.logger.info(f"  - Processed {len(containers)} containers")
+        app.logger.info(f"  - Added {added_ports} DockerPort entries")
+        app.logger.info(f"  - Added {added_to_port_table} Port entries")
+
+        try:
+            db.session.commit()
+            app.logger.info("✅ Database commit successful!")
+
+            # Verify the data was actually written
+            app.logger.info("🔍 Verifying database writes...")
+
+            # Count services for this instance
+            final_services_count = DockerService.query.filter_by(instance_id=instance.id).count()
+            app.logger.info(f"📊 Final services count for instance {instance.id}: {final_services_count}")
+
+            # Count docker ports for this instance
+            final_docker_ports_count = DockerPort.query.filter(
+                DockerPort.service_id.in_(
+                    db.session.query(DockerService.id).filter_by(instance_id=instance.id)
+                )
+            ).count()
+            app.logger.info(f"📊 Final DockerPort count for instance {instance.id}: {final_docker_ports_count}")
+
+            # Count total ports in Port table
+            total_ports_count = Port.query.count()
+            app.logger.info(f"📊 Total ports in Port table: {total_ports_count}")
+
+            # Count ports from this source
+            docker_source_ports = Port.query.filter_by(source='docker').count()
+            app.logger.info(f"📊 Total Docker source ports in Port table: {docker_source_ports}")
+
+            # List some recent ports for verification
+            recent_ports = Port.query.filter_by(source='docker').order_by(Port.id.desc()).limit(5).all()
+            app.logger.info(f"📋 Recent Docker ports added:")
+            for port in recent_ports:
+                app.logger.info(f"  - ID:{port.id} {port.ip_address}:{port.port_number}/{port.port_protocol} '{port.description}'")
+
+            return jsonify({
+                'success': True,
+                'message': f'Docker scan completed. Found {len(containers)} containers with {added_ports} port mappings and added {added_to_port_table} ports to the ports page.',
+                'details': {
+                    'containers_processed': len(containers),
+                    'docker_ports_added': added_ports,
+                    'main_ports_added': added_to_port_table,
+                    'final_services_count': final_services_count,
+                    'final_docker_ports_count': final_docker_ports_count
+                }
+            })
+
+        except Exception as commit_error:
+            app.logger.error(f"❌ Database commit failed: {str(commit_error)}")
+            app.logger.error(f"❌ Rolling back transaction...")
+            db.session.rollback()
+            raise commit_error
 
     except Exception as e:
-        db.session.rollback()
-        app.logger.error(f"Error scanning Docker instance: {str(e)}")
+        app.logger.error(f"💥 Critical error in Docker scan: {str(e)}")
+        app.logger.error(f"🔄 Rolling back all database changes...")
+        try:
+            db.session.rollback()
+            app.logger.info("✅ Database rollback successful")
+        except Exception as rollback_error:
+            app.logger.error(f"❌ Database rollback failed: {str(rollback_error)}")
+
         return jsonify({'success': False, 'error': str(e)}), 500
 
 def _scan_portainer_instance(instance):
@@ -1291,49 +1595,4 @@ def save_global_settings():
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error saving global Docker settings: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@docker_bp.route('/docker/instances/<int:instance_id>/scan', methods=['POST'])
-def scan_instance_endpoint(instance_id):
-    """
-    Scan a specific Docker instance for containers and services.
-
-    Args:
-        instance_id (int): The ID of the instance to scan.
-
-    Returns:
-        JSON: Scan result with success status and message.
-    """
-    try:
-        result = instance_manager.scan_instance(instance_id)
-        status_code = 200 if result['success'] else 400
-        return jsonify(result), status_code
-
-    except Exception as e:
-        app.logger.error(f"Error in scan instance endpoint: {str(e)}")
-        return jsonify({'success': False, 'message': f'Error scanning instance: {str(e)}'}), 500
-
-@docker_bp.route('/docker/instances/<int:instance_id>', methods=['GET'])
-def get_instance(instance_id):
-    """
-    Get a specific Docker instance.
-
-    Args:
-        instance_id (int): The ID of the instance to retrieve.
-
-    Returns:
-        JSON: Instance data or error message.
-    """
-    try:
-        instance = instance_manager.get_instance(instance_id)
-        if instance:
-            return jsonify({
-                'success': True,
-                'instance': instance.to_dict()
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Instance not found'}), 404
-
-    except Exception as e:
-        app.logger.error(f"Error getting instance {instance_id}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
