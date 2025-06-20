@@ -364,6 +364,69 @@
                 <!-- Instances will be loaded dynamically -->
             </div>
 
+            <!-- Auto-scan Settings -->
+            <div class="glass-card mb-4">
+                <h3>Auto-scan on Page Refresh</h3>
+                <p class="text-muted">Configure automatic scanning when the ports page is loaded.</p>
+
+                <!-- Enable Auto-scan on Refresh -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-scan-on-refresh"
+                        name="auto_scan_on_refresh" value="true">
+                    <label class="form-check-label" for="auto-scan-on-refresh">Auto-scan on page refresh</label>
+                    <small class="d-block form-text text-muted">Automatically scan all enabled Docker instances when the
+                        ports page loads</small>
+                </div>
+
+                <!-- Minimum Scan Interval -->
+                <div class="mb-3">
+                    <label for="min-scan-interval" class="form-label">Minimum Scan Interval (seconds)</label>
+                    <input type="number" class="form-control" id="min-scan-interval" name="min_scan_interval" min="60"
+                        max="3600" value="300">
+                    <small class="form-text text-muted">Minimum time between auto-scans to prevent excessive
+                        scanning</small>
+                </div>
+
+                <!-- Scan Timeout -->
+                <div class="mb-3">
+                    <label for="scan-timeout" class="form-label">Scan Timeout (seconds)</label>
+                    <input type="number" class="form-control" id="scan-timeout" name="scan_timeout" min="30" max="300"
+                        value="60">
+                    <small class="form-text text-muted">Maximum time to wait for scan completion</small>
+                </div>
+
+                <!-- Show Scan Notifications -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="show-scan-notifications"
+                        name="show_scan_notifications" value="true" checked>
+                    <label class="form-check-label" for="show-scan-notifications">Show scan notifications</label>
+                    <small class="d-block form-text text-muted">Display notifications for auto-scan results</small>
+                </div>
+
+                <!-- Scan Enabled Only -->
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="scan-enabled-only" name="scan_enabled_only"
+                        value="true" checked>
+                    <label class="form-check-label" for="scan-enabled-only">Scan enabled instances only</label>
+                    <small class="d-block form-text text-muted">Only scan instances that are currently enabled</small>
+                </div>
+            </div>
+
+            <!-- Bulk Actions -->
+            <div class="glass-card mb-4">
+                <h3>Bulk Actions</h3>
+                <p class="text-muted">Perform actions on all instances at once.</p>
+
+                <div class="btn-group" role="group">
+                    <button type="button" id="scan-all-instances" class="btn btn-outline-primary">
+                        <i class="fas fa-search"></i> Scan All Instances
+                    </button>
+                    <button type="button" id="test-all-instances" class="btn btn-outline-secondary">
+                        <i class="fas fa-check-circle"></i> Test All Connections
+                    </button>
+                </div>
+            </div>
+
             <!-- Global Settings -->
             <div class="glass-card">
                 <h3>Global Settings</h3>
@@ -379,14 +442,6 @@
                         all instances</small>
                 </div>
 
-                <!-- Default Scan Interval -->
-                <div class="mb-3">
-                    <label for="default-scan-interval" class="form-label">Default Scan Interval (seconds)</label>
-                    <input type="number" class="form-control" id="default-scan-interval" name="default_scan_interval"
-                        min="60" value="300">
-                    <small class="form-text text-muted">Default interval for new instances (can be overridden per
-                        instance)</small>
-                </div>
 
                 <!-- Service Retention -->
                 <div class="mb-3">

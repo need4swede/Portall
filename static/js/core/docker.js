@@ -19,6 +19,7 @@ export function init() {
     // Set up button click handlers
     $('#add-docker-instance').click(handleAddInstanceClick);
     $('#refresh-instances').click(loadDockerInstances);
+    $('#scan-all-instances').click(handleScanAllInstancesClick);
 
     // Set up delegated event handlers for dynamic content
     $(document).on('click', '.edit-instance-btn', handleEditInstanceClick);
@@ -27,6 +28,115 @@ export function init() {
     $(document).on('click', '.test-instance-btn', handleTestInstanceClick);
     $(document).on('submit', '#instance-form', handleInstanceFormSubmit);
     $(document).on('change', '.instance-enabled', handleInstanceEnabledChange);
+    $(document).on('change', '#auto-scan-on-refresh', handleAutoScanSettingChange);
+
+    // Load auto-scan settings
+    loadAutoScanSettings();
+}
+
+/**
+ * Initialize auto-scan functionality for page refresh.
+ * This should be called when the ports page loads.
+ */
+export function initAutoScan() {
+    console.log('🔄 Initializing auto-scan functionality');
+
+    // Check if auto-scan on refresh is enabled
+    $.ajax({
+        url: '/docker/auto_scan_settings',
+        method: 'GET',
+        success: function (response) {
+            if (response.success && response.settings.auto_scan_on_refresh) {
+                console.log('✅ Auto-scan on refresh is enabled');
+
+                // Check if enough time has passed since last scan
+                const lastScanTime = localStorage.getItem('docker_last_auto_scan');
+                const minInterval = response.settings.min_scan_interval * 1000; // Convert to milliseconds
+                const now = Date.now();
+
+                if (!lastScanTime || (now - parseInt(lastScanTime)) > minInterval) {
+                    console.log('🚀 Starting auto-scan...');
+                    performAutoScan(response.settings);
+                } else {
+                    const timeRemaining = Math.ceil((minInterval - (now - parseInt(lastScanTime))) / 1000);
+                    console.log(`⏳ Auto-scan skipped, ${timeRemaining}s remaining until next allowed scan`);
+
+                    if (response.settings.show_scan_notifications) {
+                        showNotification(`Auto-scan skipped (${timeRemaining}s remaining)`, 'info');
+                    }
+                }
+            } else {
+                console.log('❌ Auto-scan on refresh is disabled');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error loading auto-scan settings:', error);
+        }
+    });
+}
+
+/**
+ * Perform auto-scan of Docker instances.
+ *
+ * @param {Object} settings - Auto-scan settings
+ */
+function performAutoScan(settings) {
+    if (settings.show_scan_notifications) {
+        showNotification('Auto-scanning Docker instances...', 'info');
+    }
+
+    const startTime = Date.now();
+
+    $.ajax({
+        url: '/docker/scan_all',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            enabled_only: settings.scan_enabled_only
+        }),
+        timeout: settings.scan_timeout * 1000,
+        success: function (response) {
+            const duration = Math.round((Date.now() - startTime) / 1000);
+
+            if (response.success) {
+                // Update last scan time
+                localStorage.setItem('docker_last_auto_scan', Date.now().toString());
+
+                if (settings.show_scan_notifications) {
+                    const summary = response.summary;
+                    const message = `Auto-scan completed in ${duration}s: ${summary.successful_scans}/${summary.total_instances} instances scanned, ${summary.total_added} ports added`;
+                    showNotification(message, 'success');
+                }
+
+                console.log('✅ Auto-scan completed successfully:', response.summary);
+
+                // Trigger page refresh if ports were added
+                if (response.summary.total_added > 0) {
+                    // Dispatch custom event to notify other parts of the app
+                    window.dispatchEvent(new CustomEvent('dockerPortsUpdated', {
+                        detail: response.summary
+                    }));
+                }
+            } else {
+                console.error('❌ Auto-scan failed:', response.error);
+                if (settings.show_scan_notifications) {
+                    showNotification(`Auto-scan failed: ${response.error}`, 'error');
+                }
+            }
+        },
+        error: function (xhr, status, error) {
+            const duration = Math.round((Date.now() - startTime) / 1000);
+            console.error('💥 Auto-scan error:', error);
+
+            if (settings.show_scan_notifications) {
+                if (status === 'timeout') {
+                    showNotification(`Auto-scan timed out after ${settings.scan_timeout}s`, 'warning');
+                } else {
+                    showNotification(`Auto-scan error: ${error}`, 'error');
+                }
+            }
+        }
+    });
 }
 
 /**
@@ -302,6 +412,8 @@ function handleInstanceEnabledChange(e) {
     const instanceId = $(e.currentTarget).data('instance-id');
     const enabled = $(e.currentTarget).is(':checked');
 
+    console.log(`Updating instance ${instanceId} enabled status to: ${enabled}`);
+
     $.ajax({
         url: `/docker/instances/${instanceId}`,
         method: 'PUT',
@@ -312,14 +424,19 @@ function handleInstanceEnabledChange(e) {
                 showNotification(`Instance ${enabled ? 'enabled' : 'disabled'} successfully!`);
                 loadDockerInstances(); // Refresh to update UI
             } else {
+                console.error('Server error updating instance:', response.error);
                 showNotification('Error updating instance: ' + response.error, 'error');
                 // Revert checkbox state
                 $(e.currentTarget).prop('checked', !enabled);
             }
         },
         error: function (xhr, status, error) {
-            console.error('Error updating instance:', status, error);
-            showNotification('Error updating instance.', 'error');
+            console.error('Error updating instance:', status, error, xhr.responseText);
+            let errorMessage = 'Error updating instance.';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+            }
+            showNotification(errorMessage, 'error');
             // Revert checkbox state
             $(e.currentTarget).prop('checked', !enabled);
         }
@@ -619,6 +736,94 @@ function pollScanStatus(scanId, resolve, reject) {
         error: function (xhr, status, error) {
             console.error('Error checking scan status:', status, error);
             reject(new Error('Error checking scan status'));
+        }
+    });
+}
+
+/**
+ * Handle scan all instances button click.
+ */
+function handleScanAllInstancesClick() {
+    const $button = $('#scan-all-instances');
+
+    $button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Scanning All...');
+
+    $.ajax({
+        url: '/docker/scan_all',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            enabled_only: true
+        }),
+        success: function (response) {
+            if (response.success) {
+                showNotification(response.message, 'success');
+                loadDockerInstances(); // Refresh to show updated service counts
+            } else {
+                showNotification('Error scanning instances: ' + response.error, 'error');
+            }
+            $button.prop('disabled', false).html('<i class="fas fa-search"></i> Scan All');
+        },
+        error: function (xhr, status, error) {
+            console.error('Error scanning all instances:', status, error);
+            showNotification('Error scanning instances.', 'error');
+            $button.prop('disabled', false).html('<i class="fas fa-search"></i> Scan All');
+        }
+    });
+}
+
+/**
+ * Load auto-scan settings from the server.
+ */
+function loadAutoScanSettings() {
+    $.ajax({
+        url: '/docker/auto_scan_settings',
+        method: 'GET',
+        success: function (response) {
+            if (response.success) {
+                const settings = response.settings;
+                $('#auto-scan-on-refresh').prop('checked', settings.auto_scan_on_refresh);
+                $('#min-scan-interval').val(settings.min_scan_interval);
+                $('#scan-timeout').val(settings.scan_timeout);
+                $('#show-scan-notifications').prop('checked', settings.show_scan_notifications);
+                $('#scan-enabled-only').prop('checked', settings.scan_enabled_only);
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error loading auto-scan settings:', error);
+        }
+    });
+}
+
+/**
+ * Handle auto-scan setting change.
+ *
+ * @param {Event} e - Change event
+ */
+function handleAutoScanSettingChange(e) {
+    const settings = {
+        auto_scan_on_refresh: $('#auto-scan-on-refresh').is(':checked'),
+        min_scan_interval: parseInt($('#min-scan-interval').val()) || 300,
+        scan_timeout: parseInt($('#scan-timeout').val()) || 60,
+        show_scan_notifications: $('#show-scan-notifications').is(':checked'),
+        scan_enabled_only: $('#scan-enabled-only').is(':checked')
+    };
+
+    $.ajax({
+        url: '/docker/auto_scan_settings',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(settings),
+        success: function (response) {
+            if (response.success) {
+                showNotification('Auto-scan settings saved successfully!', 'success');
+            } else {
+                showNotification('Error saving auto-scan settings: ' + response.error, 'error');
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('Error saving auto-scan settings:', error);
+            showNotification('Error saving auto-scan settings.', 'error');
         }
     });
 }

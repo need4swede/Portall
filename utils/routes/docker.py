@@ -31,6 +31,15 @@ def get_setting(key, default):
     value = setting.value if setting else str(default)
     return value if value != '' else str(default)
 
+def get_setting_int(key, default):
+    """Helper function to safely retrieve integer settings from the database."""
+    try:
+        value = get_setting(key, default)
+        return int(value)
+    except (ValueError, TypeError):
+        app.logger.warning(f"Invalid integer value for setting '{key}': '{value}', using default: {default}")
+        return int(default)
+
 def clean_and_validate_ip(ip_string):
     """
     Clean and validate IP address with extensive edge case handling.
@@ -218,17 +227,24 @@ def update_instance(instance_id):
     """
     try:
         data = request.get_json()
+        app.logger.info(f"Updating instance {instance_id} with data: {data}")
+
+        if not data:
+            app.logger.error(f"No data provided for instance {instance_id} update")
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
 
         # Update the instance
         instance = instance_manager.update_instance(instance_id, **data)
 
         if instance:
+            app.logger.info(f"Successfully updated instance {instance_id}")
             return jsonify({
                 'success': True,
                 'message': 'Instance updated successfully',
                 'instance': instance.to_dict()
             })
         else:
+            app.logger.error(f"Failed to update instance {instance_id} - instance not found or update failed")
             return jsonify({'success': False, 'error': 'Instance not found or update failed'}), 404
 
     except Exception as e:
@@ -1547,10 +1563,10 @@ def get_global_settings():
     try:
         settings = {
             'global_auto_scan': get_setting('docker_global_auto_scan', 'true') == 'true',
-            'default_scan_interval': int(get_setting('docker_default_scan_interval', '300')),
-            'service_retention': int(get_setting('docker_service_retention', '30')),
+            'default_scan_interval': get_setting_int('docker_default_scan_interval', 300),
+            'service_retention': get_setting_int('docker_service_retention', 30),
             'auto_add_services': get_setting('docker_auto_add_services', 'true') == 'true',
-            'connection_timeout': int(get_setting('docker_connection_timeout', '30'))
+            'connection_timeout': get_setting_int('docker_connection_timeout', 30)
         }
         return jsonify(settings)
     except Exception as e:
@@ -1595,4 +1611,184 @@ def save_global_settings():
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error saving global Docker settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Auto-scan Settings Routes
+
+@docker_bp.route('/docker/auto_scan_settings', methods=['GET'])
+def get_auto_scan_settings():
+    """
+    Get auto-scan on page refresh settings.
+
+    Returns:
+        JSON: Auto-scan settings dictionary.
+    """
+    try:
+        settings = {
+            'auto_scan_on_refresh': get_setting('docker_auto_scan_on_refresh', 'false') == 'true',
+            'min_scan_interval': get_setting_int('docker_min_scan_interval', 300),
+            'scan_timeout': get_setting_int('docker_scan_timeout', 60),
+            'show_scan_notifications': get_setting('docker_show_scan_notifications', 'true') == 'true',
+            'scan_enabled_only': get_setting('docker_scan_enabled_only', 'true') == 'true'
+        }
+        return jsonify({'success': True, 'settings': settings})
+    except Exception as e:
+        app.logger.error(f"Error getting auto-scan settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/auto_scan_settings', methods=['POST'])
+def save_auto_scan_settings():
+    """
+    Save auto-scan on page refresh settings.
+
+    Returns:
+        JSON: Success or error message.
+    """
+    try:
+        data = request.get_json()
+
+        # Save each setting
+        settings_map = {
+            'auto_scan_on_refresh': 'docker_auto_scan_on_refresh',
+            'min_scan_interval': 'docker_min_scan_interval',
+            'scan_timeout': 'docker_scan_timeout',
+            'show_scan_notifications': 'docker_show_scan_notifications',
+            'scan_enabled_only': 'docker_scan_enabled_only'
+        }
+
+        for key, setting_key in settings_map.items():
+            if key in data:
+                value = str(data[key]).lower() if isinstance(data[key], bool) else str(data[key])
+
+                # Update or create setting
+                setting = Setting.query.filter_by(key=setting_key).first()
+                if setting:
+                    setting.value = value
+                else:
+                    setting = Setting(key=setting_key, value=value)
+                    db.session.add(setting)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Auto-scan settings saved successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error saving auto-scan settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@docker_bp.route('/docker/scan_all', methods=['POST'])
+def scan_all_instances():
+    """
+    Scan all enabled Docker instances.
+
+    Returns:
+        JSON: Scan results for all instances.
+    """
+    try:
+        data = request.get_json() or {}
+        enabled_only = data.get('enabled_only', True)
+
+        app.logger.info(f"🎯 SCAN ALL INSTANCES ENDPOINT HIT (enabled_only: {enabled_only})")
+
+        # Get instances to scan
+        if enabled_only:
+            instances = DockerInstance.query.filter_by(enabled=True).all()
+        else:
+            instances = DockerInstance.query.all()
+
+        if not instances:
+            return jsonify({
+                'success': True,
+                'message': 'No instances found to scan',
+                'results': []
+            })
+
+        app.logger.info(f"📦 Found {len(instances)} instances to scan")
+
+        results = []
+        total_containers = 0
+        total_ports = 0
+        total_added = 0
+
+        for instance in instances:
+            app.logger.info(f"🔄 Scanning instance {instance.id}: {instance.name} ({instance.type})")
+
+            try:
+                if instance.type == 'docker':
+                    result = _scan_docker_instance(instance)
+                elif instance.type == 'portainer':
+                    result = _scan_portainer_instance(instance)
+                elif instance.type == 'komodo':
+                    result = _scan_komodo_instance(instance)
+                else:
+                    app.logger.warning(f"⚠️  Unknown instance type: {instance.type}")
+                    continue
+
+                # Parse result
+                if result.status_code == 200:
+                    result_data = result.get_json()
+                    results.append({
+                        'instance_id': instance.id,
+                        'instance_name': instance.name,
+                        'instance_type': instance.type,
+                        'success': True,
+                        'message': result_data.get('message', 'Scan completed'),
+                        'details': result_data.get('details', {})
+                    })
+
+                    # Aggregate totals
+                    details = result_data.get('details', {})
+                    total_containers += details.get('containers_processed', 0)
+                    total_ports += details.get('docker_ports_added', 0)
+                    total_added += details.get('main_ports_added', 0)
+
+                    app.logger.info(f"✅ Successfully scanned instance {instance.id}")
+                else:
+                    result_data = result.get_json()
+                    results.append({
+                        'instance_id': instance.id,
+                        'instance_name': instance.name,
+                        'instance_type': instance.type,
+                        'success': False,
+                        'message': result_data.get('error', 'Scan failed'),
+                        'details': {}
+                    })
+                    app.logger.error(f"❌ Failed to scan instance {instance.id}: {result_data.get('error', 'Unknown error')}")
+
+            except Exception as e:
+                app.logger.error(f"💥 Error scanning instance {instance.id}: {str(e)}")
+                results.append({
+                    'instance_id': instance.id,
+                    'instance_name': instance.name,
+                    'instance_type': instance.type,
+                    'success': False,
+                    'message': f'Error: {str(e)}',
+                    'details': {}
+                })
+
+        # Generate summary message
+        successful_scans = len([r for r in results if r['success']])
+        failed_scans = len([r for r in results if not r['success']])
+
+        summary_message = f"Scanned {len(instances)} instances: {successful_scans} successful, {failed_scans} failed. "
+        summary_message += f"Total: {total_containers} containers, {total_ports} port mappings, {total_added} ports added."
+
+        app.logger.info(f"📊 Scan all complete: {summary_message}")
+
+        return jsonify({
+            'success': True,
+            'message': summary_message,
+            'results': results,
+            'summary': {
+                'total_instances': len(instances),
+                'successful_scans': successful_scans,
+                'failed_scans': failed_scans,
+                'total_containers': total_containers,
+                'total_ports': total_ports,
+                'total_added': total_added
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"💥 Critical error in scan all endpoint: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
