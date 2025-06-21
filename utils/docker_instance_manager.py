@@ -6,6 +6,11 @@ import requests
 from datetime import datetime
 from flask import current_app as app
 from utils.database import db, DockerInstance
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.fernet import Fernet
+import base64
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -610,7 +615,7 @@ class DockerInstanceManager:
 
     def _create_ssh_client(self, instance, host, timeout):
         """
-        Create Docker client for SSH connection with improved error handling.
+        Create Docker client for SSH connection with automatic key management.
         """
         try:
             # Check if paramiko is available for SSH support
@@ -626,6 +631,46 @@ class DockerInstanceManager:
             # Parse SSH connection details
             ssh_config = self._parse_ssh_config(instance, host)
 
+            # Check if SSH key exists, generate if needed
+            if not instance.get_config_value('ssh_private_key_encrypted'):
+                logger.info(f"No SSH key found for instance {instance.id}, generating automatically")
+                key_result = self.generate_ssh_key_for_instance(instance.id)
+                if not key_result['success']:
+                    raise Exception(f"Failed to generate SSH key: {key_result['message']}")
+
+                # Reload instance to get updated config
+                instance = self.get_instance(instance.id)
+
+            # Get SSH private key and write to temporary file
+            private_key_pem = self._get_ssh_private_key(instance)
+            if not private_key_pem:
+                raise Exception("Failed to decrypt SSH private key")
+
+            # Write private key to temporary file for paramiko
+            try:
+                key_file_path = self._write_ssh_private_key_to_file(instance, private_key_pem)
+                ssh_config['key_path'] = key_file_path
+            except Exception as key_error:
+                # If key file creation fails due to format issues, try migration
+                if "not valid" in str(key_error).lower() or "encountered RSA key" in str(key_error):
+                    logger.info(f"SSH key format issue detected for instance {instance.id}, attempting migration")
+                    migration_result = self.migrate_ssh_key_format(instance.id)
+
+                    if migration_result['success'] and migration_result.get('migration_performed'):
+                        logger.info(f"SSH key migration successful for instance {instance.id}, retrying connection")
+                        # Reload instance and retry
+                        instance = self.get_instance(instance.id)
+                        private_key_pem = self._get_ssh_private_key(instance)
+                        if not private_key_pem:
+                            raise Exception("Failed to decrypt migrated SSH private key")
+                        key_file_path = self._write_ssh_private_key_to_file(instance, private_key_pem)
+                        ssh_config['key_path'] = key_file_path
+                    else:
+                        raise Exception(f"SSH key migration failed: {migration_result['message']}")
+                else:
+                    # Re-raise the original error if it's not a format issue
+                    raise
+
             # Ensure SSH host key is available
             self._ensure_ssh_host_key(ssh_config)
 
@@ -633,6 +678,7 @@ class DockerInstanceManager:
             self._configure_paramiko_known_hosts(ssh_config)
 
             # Test SSH connection manually first
+            logger.info(f"Testing SSH connection to {ssh_config['host']}:{ssh_config['port']} as {ssh_config['username']}")
             if not self._test_ssh_connection(ssh_config):
                 logger.error("SSH connection test failed, cannot proceed")
                 raise Exception("SSH connection test failed")
@@ -943,27 +989,46 @@ class DockerInstanceManager:
         try:
             from pathlib import Path
             import os
+            import tempfile
 
-            # Use application directory for SSH storage (container-isolated)
+            # Try multiple locations in order of preference
+            ssh_dir = None
+
+            # Option 1: Use /app/ssh if /app is writable
             app_dir = Path('/app')
-            if not app_dir.exists() or not os.access(app_dir, os.W_OK):
-                # Fallback to /tmp if /app is not writable
-                ssh_dir = Path('/tmp/portall_ssh')
-                logger.info("Using /tmp/portall_ssh for SSH storage (fallback)")
-            else:
+            if app_dir.exists() and os.access(app_dir, os.W_OK):
                 ssh_dir = app_dir / 'ssh'
                 logger.debug("Using /app/ssh for SSH storage")
 
-            # Create SSH directory with secure permissions
-            ssh_dir.mkdir(mode=0o700, exist_ok=True)
+            # Option 2: Use /tmp/portall_ssh as fallback
+            if not ssh_dir:
+                ssh_dir = Path('/tmp/portall_ssh')
+                logger.info("Using /tmp/portall_ssh for SSH storage (fallback)")
 
-            # Create subdirectories for organization
-            keys_dir = ssh_dir / 'keys'
-            keys_dir.mkdir(mode=0o700, exist_ok=True)
+            # Option 3: Use system temp directory as last resort
+            if not ssh_dir:
+                temp_base = Path(tempfile.gettempdir())
+                ssh_dir = temp_base / 'portall_ssh'
+                logger.warning(f"Using system temp directory for SSH storage: {ssh_dir}")
 
-            # Ensure proper permissions on existing directory
-            ssh_dir.chmod(0o700)
-            keys_dir.chmod(0o700)
+            # Create SSH directory with proper error handling
+            try:
+                ssh_dir.mkdir(mode=0o755, parents=True, exist_ok=True)
+                logger.debug(f"Created SSH directory: {ssh_dir}")
+            except PermissionError:
+                # If we can't create with 0o755, try with more permissive mode
+                ssh_dir.mkdir(mode=0o777, parents=True, exist_ok=True)
+                logger.warning(f"Created SSH directory with permissive mode: {ssh_dir}")
+
+            # Try to set secure permissions, but don't fail if we can't
+            try:
+                ssh_dir.chmod(0o700)
+            except (PermissionError, OSError) as e:
+                logger.warning(f"Could not set secure permissions on SSH directory: {str(e)}")
+
+            # Verify directory is accessible
+            if not os.access(ssh_dir, os.R_OK | os.W_OK):
+                raise Exception(f"SSH directory is not accessible: {ssh_dir}")
 
             logger.debug(f"SSH directory ready: {ssh_dir}")
             return ssh_dir
@@ -1545,3 +1610,398 @@ class DockerInstanceManager:
             self.db.rollback()
             logger.error(f"Error scanning Komodo instance: {str(e)}")
             return {'success': False, 'message': f'Komodo scan failed: {str(e)}', 'services_found': 0}
+
+    # SSH Key Management Methods
+
+    def generate_ssh_key_for_instance(self, instance_id):
+        """
+        Generate SSH key pair for Docker instance and store securely in database.
+
+        Args:
+            instance_id (int): The ID of the Docker instance.
+
+        Returns:
+            dict: Result with 'success' boolean, 'message' string, and 'public_key' if successful.
+        """
+        try:
+            instance = self.get_instance(instance_id)
+            if not instance:
+                return {'success': False, 'message': 'Instance not found'}
+
+            if instance.type != 'docker':
+                return {'success': False, 'message': 'SSH keys are only supported for Docker instances'}
+
+            # Generate RSA key pair
+            logger.info(f"Generating SSH key pair for instance {instance_id}: {instance.name}")
+
+            private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+            )
+
+            # Serialize private key to OpenSSH format (modern paramiko compatibility)
+            private_pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.OpenSSH,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+
+            # Generate public key in OpenSSH format
+            public_key = private_key.public_key()
+            public_ssh = public_key.public_bytes(
+                encoding=serialization.Encoding.OpenSSH,
+                format=serialization.PublicFormat.OpenSSH
+            )
+
+            # Add comment to public key
+            public_key_with_comment = f"{public_ssh.decode()} portall@instance-{instance_id}"
+
+            # Calculate key fingerprint for verification
+            key_fingerprint = self._calculate_ssh_key_fingerprint(public_ssh)
+
+            # Encrypt private key for database storage
+            encrypted_private_key = self._encrypt_ssh_private_key(private_pem.decode())
+
+            # Update instance configuration with SSH key data
+            config = instance.config.copy() if instance.config else {}
+            config.update({
+                'ssh_private_key_encrypted': encrypted_private_key,
+                'ssh_public_key': public_key_with_comment,
+                'ssh_key_fingerprint': key_fingerprint,
+                'ssh_key_generated_at': datetime.utcnow().isoformat()
+            })
+
+            # Update instance
+            updated_instance = self.update_instance(instance_id, config=config)
+            if not updated_instance:
+                return {'success': False, 'message': 'Failed to save SSH key to database'}
+
+            logger.info(f"Successfully generated and stored SSH key for instance {instance_id}")
+            logger.info(f"SSH key fingerprint: {key_fingerprint}")
+
+            return {
+                'success': True,
+                'message': 'SSH key pair generated successfully',
+                'public_key': public_key_with_comment,
+                'fingerprint': key_fingerprint
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating SSH key for instance {instance_id}: {str(e)}")
+            return {'success': False, 'message': f'SSH key generation failed: {str(e)}'}
+
+    def get_ssh_public_key(self, instance_id):
+        """
+        Get SSH public key for instance.
+
+        Args:
+            instance_id (int): The ID of the Docker instance.
+
+        Returns:
+            dict: Result with 'success' boolean, 'public_key' string, and 'fingerprint' if successful.
+        """
+        try:
+            instance = self.get_instance(instance_id)
+            if not instance:
+                return {'success': False, 'message': 'Instance not found'}
+
+            public_key = instance.get_config_value('ssh_public_key')
+            fingerprint = instance.get_config_value('ssh_key_fingerprint')
+
+            if not public_key:
+                return {'success': False, 'message': 'No SSH key found for this instance'}
+
+            return {
+                'success': True,
+                'public_key': public_key,
+                'fingerprint': fingerprint
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting SSH public key for instance {instance_id}: {str(e)}")
+            return {'success': False, 'message': f'Failed to get SSH public key: {str(e)}'}
+
+    def regenerate_ssh_key_for_instance(self, instance_id):
+        """
+        Regenerate SSH key pair for instance (replaces existing key).
+
+        Args:
+            instance_id (int): The ID of the Docker instance.
+
+        Returns:
+            dict: Result with 'success' boolean, 'message' string, and 'public_key' if successful.
+        """
+        try:
+            logger.info(f"Regenerating SSH key for instance {instance_id}")
+            return self.generate_ssh_key_for_instance(instance_id)
+
+        except Exception as e:
+            logger.error(f"Error regenerating SSH key for instance {instance_id}: {str(e)}")
+            return {'success': False, 'message': f'SSH key regeneration failed: {str(e)}'}
+
+    def migrate_ssh_key_format(self, instance_id):
+        """
+        Migrate SSH key from old format to new OpenSSH format if needed.
+        This handles instances that may have keys generated in the old TraditionalOpenSSL format.
+
+        Args:
+            instance_id (int): The ID of the Docker instance.
+
+        Returns:
+            dict: Result with 'success' boolean, 'message' string, and migration details.
+        """
+        try:
+            instance = self.get_instance(instance_id)
+            if not instance:
+                return {'success': False, 'message': 'Instance not found'}
+
+            if instance.type != 'docker':
+                return {'success': False, 'message': 'SSH key migration is only for Docker instances'}
+
+            # Check if instance has an SSH key
+            encrypted_key = instance.get_config_value('ssh_private_key_encrypted')
+            if not encrypted_key:
+                return {'success': True, 'message': 'No SSH key found, migration not needed'}
+
+            # Try to decrypt and validate the existing key
+            try:
+                private_key_pem = self._get_ssh_private_key(instance)
+                if not private_key_pem:
+                    logger.warning(f"Could not decrypt existing SSH key for instance {instance_id}")
+                    return self._force_key_regeneration(instance_id, "Could not decrypt existing key")
+
+                # Test if the key is compatible with paramiko
+                key_file_path = self._write_ssh_private_key_to_file(instance, private_key_pem)
+
+                # Try to load the key with paramiko
+                import paramiko
+                try:
+                    paramiko.RSAKey.from_private_key_file(key_file_path)
+                    logger.info(f"SSH key for instance {instance_id} is already in compatible format")
+                    return {'success': True, 'message': 'SSH key is already in compatible format'}
+
+                except Exception as key_error:
+                    logger.info(f"SSH key for instance {instance_id} needs format migration: {str(key_error)}")
+                    return self._force_key_regeneration(instance_id, f"Key format incompatible: {str(key_error)}")
+
+            except Exception as decrypt_error:
+                logger.warning(f"Error testing existing SSH key for instance {instance_id}: {str(decrypt_error)}")
+                return self._force_key_regeneration(instance_id, f"Key validation failed: {str(decrypt_error)}")
+
+        except Exception as e:
+            logger.error(f"Error during SSH key migration for instance {instance_id}: {str(e)}")
+            return {'success': False, 'message': f'Migration failed: {str(e)}'}
+
+    def _force_key_regeneration(self, instance_id, reason):
+        """
+        Force regeneration of SSH key for an instance.
+
+        Args:
+            instance_id (int): The ID of the Docker instance.
+            reason (str): Reason for regeneration.
+
+        Returns:
+            dict: Result from key regeneration.
+        """
+        try:
+            logger.info(f"Force regenerating SSH key for instance {instance_id}: {reason}")
+
+            # Store the old fingerprint for logging
+            instance = self.get_instance(instance_id)
+            old_fingerprint = instance.get_config_value('ssh_key_fingerprint', 'unknown') if instance else 'unknown'
+
+            # Regenerate the key
+            result = self.generate_ssh_key_for_instance(instance_id)
+
+            if result['success']:
+                new_fingerprint = result.get('fingerprint', 'unknown')
+                logger.info(f"SSH key migration completed for instance {instance_id}")
+                logger.info(f"Old fingerprint: {old_fingerprint}")
+                logger.info(f"New fingerprint: {new_fingerprint}")
+
+                result['message'] = f"SSH key migrated successfully. Reason: {reason}"
+                result['migration_performed'] = True
+                result['old_fingerprint'] = old_fingerprint
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error during forced key regeneration for instance {instance_id}: {str(e)}")
+            return {'success': False, 'message': f'Forced regeneration failed: {str(e)}'}
+
+    def _get_ssh_private_key(self, instance):
+        """
+        Get decrypted SSH private key for instance.
+
+        Args:
+            instance: DockerInstance object.
+
+        Returns:
+            str: Decrypted private key in PEM format or None if not available.
+        """
+        try:
+            encrypted_key = instance.get_config_value('ssh_private_key_encrypted')
+            if not encrypted_key:
+                return None
+
+            # Decrypt private key
+            private_key_pem = self._decrypt_ssh_private_key(encrypted_key)
+            return private_key_pem
+
+        except Exception as e:
+            logger.error(f"Error getting SSH private key for instance {instance.id}: {str(e)}")
+            return None
+
+    def _encrypt_ssh_private_key(self, private_key_pem):
+        """
+        Encrypt SSH private key for database storage.
+
+        Args:
+            private_key_pem (str): Private key in PEM format.
+
+        Returns:
+            str: Encrypted private key (base64 encoded).
+        """
+        try:
+            # Use Flask app's SECRET_KEY to derive encryption key
+            secret_key = app.config.get('SECRET_KEY', 'default-secret-key')
+
+            # Create a consistent encryption key from the secret
+            key_material = hashlib.sha256(secret_key.encode()).digest()
+            encryption_key = base64.urlsafe_b64encode(key_material)
+
+            # Create Fernet cipher
+            cipher = Fernet(encryption_key)
+
+            # Encrypt the private key
+            encrypted_data = cipher.encrypt(private_key_pem.encode())
+
+            # Return base64 encoded for JSON storage
+            return base64.b64encode(encrypted_data).decode()
+
+        except Exception as e:
+            logger.error(f"Error encrypting SSH private key: {str(e)}")
+            raise
+
+    def _decrypt_ssh_private_key(self, encrypted_key):
+        """
+        Decrypt SSH private key from database storage.
+
+        Args:
+            encrypted_key (str): Encrypted private key (base64 encoded).
+
+        Returns:
+            str: Decrypted private key in PEM format.
+        """
+        try:
+            # Use Flask app's SECRET_KEY to derive encryption key
+            secret_key = app.config.get('SECRET_KEY', 'default-secret-key')
+
+            # Create a consistent encryption key from the secret
+            key_material = hashlib.sha256(secret_key.encode()).digest()
+            encryption_key = base64.urlsafe_b64encode(key_material)
+
+            # Create Fernet cipher
+            cipher = Fernet(encryption_key)
+
+            # Decode from base64 and decrypt
+            encrypted_data = base64.b64decode(encrypted_key.encode())
+            decrypted_data = cipher.decrypt(encrypted_data)
+
+            return decrypted_data.decode()
+
+        except Exception as e:
+            logger.error(f"Error decrypting SSH private key: {str(e)}")
+            raise
+
+    def _calculate_ssh_key_fingerprint(self, public_key_bytes):
+        """
+        Calculate SSH key fingerprint (SHA256).
+
+        Args:
+            public_key_bytes (bytes): Public key in OpenSSH format.
+
+        Returns:
+            str: SHA256 fingerprint in format "SHA256:..."
+        """
+        try:
+            # Calculate SHA256 hash of the public key
+            fingerprint = hashlib.sha256(public_key_bytes).digest()
+
+            # Encode as base64 and remove padding
+            fingerprint_b64 = base64.b64encode(fingerprint).decode().rstrip('=')
+
+            return f"SHA256:{fingerprint_b64}"
+
+        except Exception as e:
+            logger.error(f"Error calculating SSH key fingerprint: {str(e)}")
+            return "SHA256:unknown"
+
+    def _write_ssh_private_key_to_file(self, instance, private_key_pem):
+        """
+        Write SSH private key to temporary file for paramiko usage.
+
+        Args:
+            instance: DockerInstance object.
+            private_key_pem (str): Private key in PEM format.
+
+        Returns:
+            str: Path to temporary private key file.
+        """
+        try:
+            import tempfile
+            import os
+
+            # Create temporary file for private key
+            ssh_dir = self._get_ssh_directory()
+            key_file = ssh_dir / f'instance_{instance.id}_key'
+
+            # Ensure the private key has proper line endings and format
+            if not private_key_pem.endswith('\n'):
+                private_key_pem += '\n'
+
+            # Write private key to file with proper encoding
+            with open(key_file, 'w', encoding='utf-8') as f:
+                f.write(private_key_pem)
+
+            # Set secure permissions with fallback
+            try:
+                key_file.chmod(0o400)
+                logger.debug(f"Set secure permissions (0o400) on key file: {key_file}")
+            except (PermissionError, OSError) as e:
+                logger.warning(f"Could not set secure permissions on key file: {str(e)}")
+                # Try more permissive permissions as fallback
+                try:
+                    key_file.chmod(0o600)
+                    logger.debug(f"Set fallback permissions (0o600) on key file: {key_file}")
+                except (PermissionError, OSError) as e2:
+                    logger.warning(f"Could not set any permissions on key file: {str(e2)}")
+                    # Continue anyway - the file system might handle permissions differently
+
+            logger.debug(f"Wrote SSH private key to: {key_file}")
+
+            # Verify the key file is readable by paramiko with explicit RSA loading
+            try:
+                import paramiko
+                # Explicitly load as RSA key to avoid auto-detection issues
+                rsa_key = paramiko.RSAKey.from_private_key_file(str(key_file))
+                logger.debug(f"SSH RSA private key file verified as valid: {key_file}")
+                logger.debug(f"Key size: {rsa_key.get_bits()} bits")
+            except Exception as verify_error:
+                logger.error(f"SSH private key file verification failed: {str(verify_error)}")
+                # Log the first few lines of the key for debugging (without exposing the actual key)
+                with open(key_file, 'r') as f:
+                    first_line = f.readline().strip()
+                    logger.debug(f"Key file first line: {first_line}")
+
+                # Try to determine if this is a format issue
+                if "q must be exactly" in str(verify_error) or "DSA" in str(verify_error):
+                    raise Exception(f"Key format issue - paramiko is misidentifying RSA key as DSA: {str(verify_error)}")
+                else:
+                    raise Exception(f"Generated SSH key file is not valid: {str(verify_error)}")
+
+            return str(key_file)
+
+        except Exception as e:
+            logger.error(f"Error writing SSH private key to file: {str(e)}")
+            raise
