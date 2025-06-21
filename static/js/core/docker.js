@@ -565,21 +565,7 @@ function updateInstanceFormFields() {
 
     switch (type) {
         case 'docker':
-            configHtml = `
-                <div class="form-group">
-                    <label for="docker-host">Docker Host</label>
-                    <input type="text" class="form-control" id="docker-host" name="host"
-                           value="unix:///var/run/docker.sock" placeholder="unix:///var/run/docker.sock">
-                    <small class="form-text text-muted">
-                        Docker socket path or TCP connection string (e.g., tcp://localhost:2376)
-                    </small>
-                </div>
-                <div class="form-group">
-                    <label for="docker-timeout">Timeout (seconds)</label>
-                    <input type="number" class="form-control" id="docker-timeout" name="timeout"
-                           value="30" min="5" max="300">
-                </div>
-            `;
+            configHtml = renderDockerConfigFields();
             break;
 
         case 'portainer':
@@ -626,6 +612,299 @@ function updateInstanceFormFields() {
     }
 
     $configFields.html(configHtml);
+
+    // Set up connection type change handler for Docker instances
+    if (type === 'docker') {
+        $('#docker-connection-type').change(updateDockerConnectionFields);
+        updateDockerConnectionFields();
+    }
+}
+
+/**
+ * Render Docker configuration fields with connection type selector.
+ */
+function renderDockerConfigFields() {
+    return `
+        <div class="form-group">
+            <label for="docker-connection-type">Connection Type</label>
+            <select class="form-control" id="docker-connection-type" name="connection_type">
+                <option value="socket">Local Socket</option>
+                <option value="ssh">SSH Connection</option>
+                <option value="tcp">TCP Connection</option>
+            </select>
+            <small class="form-text text-muted">Choose how to connect to the Docker daemon</small>
+        </div>
+
+        <div id="docker-connection-fields">
+            <!-- Connection-specific fields will be populated here -->
+        </div>
+
+        <div class="form-group">
+            <label for="docker-timeout">Connection Timeout (seconds)</label>
+            <input type="number" class="form-control" id="docker-timeout" name="timeout"
+                   value="30" min="5" max="300">
+            <small class="form-text text-muted">How long to wait for connection attempts</small>
+        </div>
+    `;
+}
+
+/**
+ * Update Docker connection fields based on selected connection type.
+ */
+function updateDockerConnectionFields() {
+    const connectionType = $('#docker-connection-type').val();
+    const $connectionFields = $('#docker-connection-fields');
+
+    let fieldsHtml = '';
+
+    switch (connectionType) {
+        case 'socket':
+            fieldsHtml = renderSocketFields();
+            break;
+        case 'ssh':
+            fieldsHtml = renderSSHFields();
+            break;
+        case 'tcp':
+            fieldsHtml = renderTCPFields();
+            break;
+    }
+
+    $connectionFields.html(fieldsHtml);
+
+    // Set up TLS toggle handler for TCP connections
+    if (connectionType === 'tcp') {
+        $('#tcp-tls-enabled').change(updateTLSFields);
+        updateTLSFields();
+    }
+}
+
+/**
+ * Render socket connection fields.
+ */
+function renderSocketFields() {
+    return `
+        <div class="alert alert-info">
+            <i class="fas fa-plug"></i>
+            <strong>Local Socket Connection</strong><br>
+            Connect to Docker daemon running on the same machine via Unix socket.
+        </div>
+
+        <div class="form-group">
+            <label for="socket-host">Socket Path</label>
+            <input type="text" class="form-control" id="socket-host" name="host"
+                   value="unix:///var/run/docker.sock" placeholder="unix:///var/run/docker.sock">
+            <small class="form-text text-muted">
+                Path to Docker socket file (usually /var/run/docker.sock)
+            </small>
+        </div>
+    `;
+}
+
+/**
+ * Render SSH connection fields.
+ */
+function renderSSHFields() {
+    return `
+        <div class="alert alert-info">
+            <i class="fas fa-key"></i>
+            <strong>SSH Connection</strong><br>
+            Connect to remote Docker daemon via SSH tunnel. Requires SSH access to the remote host.
+        </div>
+
+        <div class="form-row">
+            <div class="form-group col-md-8">
+                <label for="ssh-host">Remote Host</label>
+                <input type="text" class="form-control" id="ssh-host" name="host"
+                       placeholder="remote-server.example.com" required>
+                <small class="form-text text-muted">Hostname or IP address of remote Docker host</small>
+            </div>
+            <div class="form-group col-md-4">
+                <label for="ssh-port">SSH Port</label>
+                <input type="number" class="form-control" id="ssh-port" name="ssh_port"
+                       value="22" min="1" max="65535">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="ssh-username">SSH Username</label>
+            <input type="text" class="form-control" id="ssh-username" name="ssh_username"
+                   placeholder="docker-user" required>
+            <small class="form-text text-muted">User must be in the docker group on remote host</small>
+        </div>
+
+        <div class="form-group">
+            <label for="ssh-key-path">SSH Private Key Path (optional)</label>
+            <input type="text" class="form-control" id="ssh-key-path" name="ssh_key_path"
+                   placeholder="/path/to/private/key">
+            <small class="form-text text-muted">
+                Leave empty to use default SSH authentication (agent, default keys)
+            </small>
+        </div>
+
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Setup Required:</strong> Ensure SSH access is configured and the user has Docker permissions.
+        </div>
+    `;
+}
+
+/**
+ * Render TCP connection fields.
+ */
+function renderTCPFields() {
+    return `
+        <div class="alert alert-info">
+            <i class="fas fa-network-wired"></i>
+            <strong>TCP Connection</strong><br>
+            Connect to remote Docker daemon via TCP. Can use TLS for secure connections.
+        </div>
+
+        <div class="form-row">
+            <div class="form-group col-md-8">
+                <label for="tcp-host">Remote Host</label>
+                <input type="text" class="form-control" id="tcp-host" name="host"
+                       placeholder="remote-server.example.com" required>
+                <small class="form-text text-muted">Hostname or IP address of remote Docker host</small>
+            </div>
+            <div class="form-group col-md-4">
+                <label for="tcp-port">Port</label>
+                <input type="number" class="form-control" id="tcp-port" name="tcp_port"
+                       value="2376" min="1" max="65535">
+                <small class="form-text text-muted">2376 for TLS, 2375 for unencrypted</small>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="tcp-tls-enabled"
+                       name="tls_enabled" checked>
+                <label class="form-check-label" for="tcp-tls-enabled">
+                    <strong>Enable TLS Encryption</strong>
+                </label>
+            </div>
+            <small class="form-text text-muted">Highly recommended for remote connections</small>
+        </div>
+
+        <div id="tls-fields">
+            <!-- TLS-specific fields will be populated here -->
+        </div>
+
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Setup Required:</strong> Docker daemon must be configured to accept TCP connections.
+        </div>
+    `;
+}
+
+/**
+ * Update TLS fields based on TLS enabled state.
+ */
+function updateTLSFields() {
+    const tlsEnabled = $('#tcp-tls-enabled').is(':checked');
+    const $tlsFields = $('#tls-fields');
+
+    if (tlsEnabled) {
+        $tlsFields.html(`
+            <div class="form-group">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="tls-verify"
+                           name="tls_verify" checked>
+                    <label class="form-check-label" for="tls-verify">
+                        Verify TLS Certificate
+                    </label>
+                </div>
+                <small class="form-text text-muted">Disable only for testing with self-signed certificates</small>
+            </div>
+
+            <div class="form-group">
+                <label for="tls-ca-path">CA Certificate Path (optional)</label>
+                <input type="text" class="form-control" id="tls-ca-path" name="tls_ca_path"
+                       placeholder="/path/to/ca.pem">
+                <small class="form-text text-muted">Custom CA certificate for verification</small>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="tls-cert-path">Client Certificate Path (optional)</label>
+                    <input type="text" class="form-control" id="tls-cert-path" name="tls_cert_path"
+                           placeholder="/path/to/cert.pem">
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="tls-key-path">Client Key Path (optional)</label>
+                    <input type="text" class="form-control" id="tls-key-path" name="tls_key_path"
+                           placeholder="/path/to/key.pem">
+                </div>
+            </div>
+            <small class="form-text text-muted">
+                Client certificates are required only if the Docker daemon requires client authentication
+            </small>
+        `);
+    } else {
+        $tlsFields.html(`
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Warning:</strong> Unencrypted TCP connections are not secure and should only be used in trusted networks.
+            </div>
+        `);
+    }
+}
+
+/**
+ * Build Docker configuration object from form data.
+ *
+ * @param {FormData} formData - Form data object
+ * @returns {Object} Docker configuration object
+ */
+function buildDockerConfig(formData) {
+    const connectionType = formData.get('connection_type') || 'socket';
+    const config = {
+        connection_type: connectionType,
+        timeout: parseInt(formData.get('timeout')) || 30
+    };
+
+    switch (connectionType) {
+        case 'socket':
+            config.host = formData.get('host') || 'unix:///var/run/docker.sock';
+            break;
+
+        case 'ssh':
+            config.host = formData.get('host') || '';
+            config.ssh_username = formData.get('ssh_username') || '';
+            config.ssh_port = parseInt(formData.get('ssh_port')) || 22;
+
+            const sshKeyPath = formData.get('ssh_key_path');
+            if (sshKeyPath && sshKeyPath.trim()) {
+                config.ssh_key_path = sshKeyPath.trim();
+            }
+            break;
+
+        case 'tcp':
+            config.host = formData.get('host') || '';
+            config.tcp_port = parseInt(formData.get('tcp_port')) || 2376;
+            config.tls_enabled = formData.has('tls_enabled');
+
+            if (config.tls_enabled) {
+                config.tls_verify = formData.has('tls_verify');
+
+                const tlsCaPath = formData.get('tls_ca_path');
+                if (tlsCaPath && tlsCaPath.trim()) {
+                    config.tls_ca_path = tlsCaPath.trim();
+                }
+
+                const tlsCertPath = formData.get('tls_cert_path');
+                if (tlsCertPath && tlsCertPath.trim()) {
+                    config.tls_cert_path = tlsCertPath.trim();
+                }
+
+                const tlsKeyPath = formData.get('tls_key_path');
+                if (tlsKeyPath && tlsKeyPath.trim()) {
+                    config.tls_key_path = tlsKeyPath.trim();
+                }
+            }
+            break;
+    }
+
+    return config;
 }
 
 /**
@@ -653,8 +932,7 @@ function handleInstanceFormSubmit(e) {
     // Build config object based on type
     switch (data.type) {
         case 'docker':
-            data.config.host = formData.get('host') || 'unix:///var/run/docker.sock';
-            data.config.timeout = parseInt(formData.get('timeout')) || 30;
+            data.config = buildDockerConfig(formData);
             break;
         case 'portainer':
             data.config.url = formData.get('url');

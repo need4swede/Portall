@@ -77,33 +77,91 @@ class DockerInstance(db.Model):
         }
 
     @staticmethod
-    def get_default_config(instance_type):
+    def get_default_config(instance_type, connection_type='socket'):
         """
         Get default configuration for a given instance type.
 
         Args:
             instance_type (str): The type of instance ('docker', 'portainer', 'komodo').
+            connection_type (str): The connection type for Docker instances ('socket', 'ssh', 'tcp').
 
         Returns:
             dict: Default configuration for the instance type.
         """
-        defaults = {
-            'docker': {
-                'host': 'unix:///var/run/docker.sock',
+        if instance_type == 'docker':
+            base_config = {
+                'connection_type': connection_type,
                 'timeout': 30
-            },
-            'portainer': {
+            }
+
+            if connection_type == 'socket':
+                base_config.update({
+                    'host': 'unix:///var/run/docker.sock'
+                })
+            elif connection_type == 'ssh':
+                base_config.update({
+                    'host': '',
+                    'ssh_username': '',
+                    'ssh_port': 22,
+                    'ssh_key_path': ''
+                })
+            elif connection_type == 'tcp':
+                base_config.update({
+                    'host': '',
+                    'tcp_port': 2376,
+                    'tls_enabled': True,
+                    'tls_verify': True,
+                    'tls_cert_path': '',
+                    'tls_key_path': '',
+                    'tls_ca_path': ''
+                })
+
+            return base_config
+
+        elif instance_type == 'portainer':
+            return {
                 'url': '',
                 'api_key': '',
                 'verify_ssl': True
-            },
-            'komodo': {
+            }
+
+        elif instance_type == 'komodo':
+            return {
                 'url': '',
                 'api_key': '',
                 'api_secret': ''
             }
+
+        return {}
+
+    @staticmethod
+    def get_connection_type_options():
+        """
+        Get available connection type options for Docker instances.
+
+        Returns:
+            dict: Connection type options with descriptions.
+        """
+        return {
+            'socket': {
+                'name': 'Local Socket',
+                'description': 'Connect to local Docker daemon via Unix socket',
+                'icon': 'fas fa-plug',
+                'example': 'unix:///var/run/docker.sock'
+            },
+            'ssh': {
+                'name': 'SSH Connection',
+                'description': 'Connect to remote Docker daemon via SSH tunnel',
+                'icon': 'fas fa-key',
+                'example': 'ssh://user@remote-host'
+            },
+            'tcp': {
+                'name': 'TCP Connection',
+                'description': 'Connect to remote Docker daemon via TCP (with/without TLS)',
+                'icon': 'fas fa-network-wired',
+                'example': 'tcp://remote-host:2376'
+            }
         }
-        return defaults.get(instance_type, {})
 
 class DockerService(db.Model):
     """
