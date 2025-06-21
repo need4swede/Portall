@@ -1815,3 +1815,98 @@ def scan_all_instances():
     except Exception as e:
         app.logger.error(f"💥 Critical error in scan all endpoint: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# SSH Key Management Routes
+
+@docker_bp.route('/docker/instances/<int:instance_id>/ssh/generate', methods=['POST'])
+def generate_ssh_key(instance_id):
+    """
+    Generate SSH key pair for Docker instance.
+
+    Args:
+        instance_id (int): The ID of the Docker instance.
+
+    Returns:
+        JSON: Result with success status, message, and public key if successful.
+    """
+    try:
+        result = instance_manager.generate_ssh_key_for_instance(instance_id)
+
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+
+    except Exception as e:
+        app.logger.error(f"Error generating SSH key for instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'message': f'SSH key generation failed: {str(e)}'}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>/ssh/public-key', methods=['GET'])
+def get_ssh_public_key(instance_id):
+    """
+    Get SSH public key for Docker instance.
+
+    Args:
+        instance_id (int): The ID of the Docker instance.
+
+    Returns:
+        JSON: Result with success status, public key, and fingerprint if successful.
+    """
+    try:
+        result = instance_manager.get_ssh_public_key(instance_id)
+
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 404
+
+    except Exception as e:
+        app.logger.error(f"Error getting SSH public key for instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'message': f'Failed to get SSH public key: {str(e)}'}), 500
+
+@docker_bp.route('/docker/instances/<int:instance_id>/ssh/regenerate', methods=['POST'])
+def regenerate_ssh_key(instance_id):
+    """
+    Regenerate SSH key pair for Docker instance.
+
+    Args:
+        instance_id (int): The ID of the Docker instance.
+
+    Returns:
+        JSON: Result with success status, message, and new public key if successful.
+    """
+    try:
+        result = instance_manager.regenerate_ssh_key_for_instance(instance_id)
+
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+
+    except Exception as e:
+        app.logger.error(f"Error regenerating SSH key for instance {instance_id}: {str(e)}")
+        return jsonify({'success': False, 'message': f'SSH key regeneration failed: {str(e)}'}), 500
+
+@docker_bp.route('/ssh-key/<int:instance_id>', methods=['GET'])
+def get_ssh_key_for_setup(instance_id):
+    """
+    Get SSH public key for easy setup via curl/wget.
+    This endpoint provides a simple way to fetch the public key for server setup.
+
+    Args:
+        instance_id (int): The ID of the Docker instance.
+
+    Returns:
+        Plain text: SSH public key or error message.
+    """
+    try:
+        result = instance_manager.get_ssh_public_key(instance_id)
+
+        if result['success']:
+            return result['public_key'], 200, {'Content-Type': 'text/plain'}
+        else:
+            return f"Error: {result['message']}", 404, {'Content-Type': 'text/plain'}
+
+    except Exception as e:
+        app.logger.error(f"Error getting SSH key for setup for instance {instance_id}: {str(e)}")
+        return f"Error: Failed to get SSH public key", 500, {'Content-Type': 'text/plain'}
