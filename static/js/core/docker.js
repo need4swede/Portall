@@ -7,6 +7,7 @@
  */
 
 import { showNotification } from '../ui/helpers.js';
+import { showDockerScanAnimation, showDockerScanSuccess, showDockerScanError } from '../ui/dockerAnimation.js';
 
 /**
  * Initialize Docker integration functionality.
@@ -41,30 +42,22 @@ export function init() {
 export function initAutoScan() {
     console.log('🔄 Initializing auto-scan functionality');
 
+    // Check if this page load was caused by an auto-scan refresh
+    const scanTriggeredRefresh = sessionStorage.getItem('dockerScanTriggeredRefresh');
+    if (scanTriggeredRefresh) {
+        console.log('⏭️ Skipping auto-scan - page was refreshed due to previous scan');
+        sessionStorage.removeItem('dockerScanTriggeredRefresh');
+        return;
+    }
+
     // Check if auto-scan on refresh is enabled
     $.ajax({
         url: '/docker/auto_scan_settings',
         method: 'GET',
         success: function (response) {
             if (response.success && response.settings.auto_scan_on_refresh) {
-                console.log('✅ Auto-scan on refresh is enabled');
-
-                // Check if enough time has passed since last scan
-                const lastScanTime = localStorage.getItem('docker_last_auto_scan');
-                const minInterval = response.settings.min_scan_interval * 1000; // Convert to milliseconds
-                const now = Date.now();
-
-                if (!lastScanTime || (now - parseInt(lastScanTime)) > minInterval) {
-                    console.log('🚀 Starting auto-scan...');
-                    performAutoScan(response.settings);
-                } else {
-                    const timeRemaining = Math.ceil((minInterval - (now - parseInt(lastScanTime))) / 1000);
-                    console.log(`⏳ Auto-scan skipped, ${timeRemaining}s remaining until next allowed scan`);
-
-                    if (response.settings.show_scan_notifications) {
-                        showNotification(`Auto-scan skipped (${timeRemaining}s remaining)`, 'info');
-                    }
-                }
+                console.log('✅ Auto-scan on refresh is enabled - starting scan immediately');
+                performAutoScan(response.settings);
             } else {
                 console.log('❌ Auto-scan on refresh is disabled');
             }
@@ -81,8 +74,9 @@ export function initAutoScan() {
  * @param {Object} settings - Auto-scan settings
  */
 function performAutoScan(settings) {
+    // Show Docker logo animation instead of text notification
     if (settings.show_scan_notifications) {
-        showNotification('Auto-scanning Docker instances...', 'info');
+        showDockerScanAnimation();
     }
 
     const startTime = Date.now();
@@ -94,24 +88,44 @@ function performAutoScan(settings) {
         data: JSON.stringify({
             enabled_only: settings.scan_enabled_only
         }),
-        timeout: settings.scan_timeout * 1000,
         success: function (response) {
             const duration = Math.round((Date.now() - startTime) / 1000);
 
             if (response.success) {
-                // Update last scan time
-                localStorage.setItem('docker_last_auto_scan', Date.now().toString());
-
-                if (settings.show_scan_notifications) {
-                    const summary = response.summary;
-                    const message = `Auto-scan completed in ${duration}s: ${summary.successful_scans}/${summary.total_instances} instances scanned, ${summary.total_added} ports added`;
-                    showNotification(message, 'success');
-                }
-
                 console.log('✅ Auto-scan completed successfully:', response.summary);
 
-                // Trigger page refresh if ports were added
-                if (response.summary.total_added > 0) {
+                // Show success animation with summary
+                if (settings.show_scan_notifications) {
+                    const summary = response.summary;
+                    let message = `Scan completed in ${duration}s`;
+                    if (summary.total_added > 0 || summary.total_removed > 0) {
+                        message += ` • ${summary.total_added} added, ${summary.total_removed} removed`;
+                    }
+                    showDockerScanSuccess(message, 2000);
+                }
+
+                // Trigger real-time refresh if ports were added or removed
+                if (response.summary.total_added > 0 || response.summary.total_removed > 0) {
+                    console.log('🔄 Triggering real-time page refresh due to port changes');
+
+                    // Set flag to prevent auto-scan on the next page load
+                    sessionStorage.setItem('dockerScanTriggeredRefresh', 'true');
+
+                    // Import and use the refreshPortsForIP function for each IP that had changes
+                    import('./portManagement.js').then(portModule => {
+                        // For now, do a full page reload to ensure all changes are visible
+                        // In the future, we could track which IPs had changes and refresh only those
+                        setTimeout(() => {
+                            console.log('🔄 Reloading page to show updated ports');
+                            window.location.reload();
+                        }, 2500); // Longer delay to let the success animation show
+                    }).catch(err => {
+                        console.log('Port management module not available, doing full reload');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2500);
+                    });
+
                     // Dispatch custom event to notify other parts of the app
                     window.dispatchEvent(new CustomEvent('dockerPortsUpdated', {
                         detail: response.summary
@@ -120,20 +134,15 @@ function performAutoScan(settings) {
             } else {
                 console.error('❌ Auto-scan failed:', response.error);
                 if (settings.show_scan_notifications) {
-                    showNotification(`Auto-scan failed: ${response.error}`, 'error');
+                    showDockerScanError(`Scan failed: ${response.error}`);
                 }
             }
         },
         error: function (xhr, status, error) {
-            const duration = Math.round((Date.now() - startTime) / 1000);
             console.error('💥 Auto-scan error:', error);
 
             if (settings.show_scan_notifications) {
-                if (status === 'timeout') {
-                    showNotification(`Auto-scan timed out after ${settings.scan_timeout}s`, 'warning');
-                } else {
-                    showNotification(`Auto-scan error: ${error}`, 'error');
-                }
+                showDockerScanError(`Scan error: ${error}`);
             }
         }
     });
@@ -783,8 +792,6 @@ function loadAutoScanSettings() {
             if (response.success) {
                 const settings = response.settings;
                 $('#auto-scan-on-refresh').prop('checked', settings.auto_scan_on_refresh);
-                $('#min-scan-interval').val(settings.min_scan_interval);
-                $('#scan-timeout').val(settings.scan_timeout);
                 $('#show-scan-notifications').prop('checked', settings.show_scan_notifications);
                 $('#scan-enabled-only').prop('checked', settings.scan_enabled_only);
             }
@@ -803,8 +810,6 @@ function loadAutoScanSettings() {
 function handleAutoScanSettingChange(e) {
     const settings = {
         auto_scan_on_refresh: $('#auto-scan-on-refresh').is(':checked'),
-        min_scan_interval: parseInt($('#min-scan-interval').val()) || 300,
-        scan_timeout: parseInt($('#scan-timeout').val()) || 60,
         show_scan_notifications: $('#show-scan-notifications').is(':checked'),
         scan_enabled_only: $('#scan-enabled-only').is(':checked')
     };

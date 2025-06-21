@@ -590,7 +590,7 @@ def _scan_docker_instance(instance):
             app.logger.info(f"Container {i+1}: {container.name} | Image: {container.image.tags[0] if container.image.tags else container.image.id} | Status: {container.status}")
             app.logger.info(f"  Ports: {container.ports}")
 
-        # Clear existing services for this instance
+        # Clear existing services for this instance AND remove corresponding ports from Port table
         app.logger.info(f"🧹 Clearing existing services for instance {instance.id}")
 
         # Count existing services before deletion
@@ -603,16 +603,43 @@ def _scan_docker_instance(instance):
 
         app.logger.info(f"📊 Before cleanup: {existing_services_count} services, {existing_ports_count} ports")
 
+        # Get all DockerPort entries for this instance to remove corresponding Port entries
+        docker_ports_to_remove = DockerPort.query.filter(
+            DockerPort.service_id.in_(
+                db.session.query(DockerService.id).filter_by(instance_id=instance.id)
+            )
+        ).all()
+
+        # Remove corresponding entries from Port table (Docker-sourced ports)
+        removed_main_ports = 0
+        for docker_port in docker_ports_to_remove:
+            # Find and remove the corresponding Port entry
+            main_port = Port.query.filter_by(
+                ip_address=docker_port.host_ip,
+                port_number=docker_port.host_port,
+                port_protocol=docker_port.protocol,
+                source='docker',
+                is_immutable=True
+            ).first()
+
+            if main_port:
+                app.logger.info(f"🗑️  Removing Docker port from main table: {main_port.ip_address}:{main_port.port_number}/{main_port.port_protocol}")
+                db.session.delete(main_port)
+                removed_main_ports += 1
+
+        # Remove DockerPort entries
         DockerPort.query.filter(
             DockerPort.service_id.in_(
                 db.session.query(DockerService.id).filter_by(instance_id=instance.id)
             )
         ).delete(synchronize_session=False)
+
+        # Remove DockerService entries
         DockerService.query.filter_by(instance_id=instance.id).delete()
 
         try:
             db.session.commit()
-            app.logger.info("✅ Successfully cleared existing services and ports")
+            app.logger.info(f"✅ Successfully cleared existing services and ports. Removed {removed_main_ports} ports from main table.")
         except Exception as e:
             app.logger.error(f"❌ Failed to clear existing services: {str(e)}")
             db.session.rollback()
@@ -1626,8 +1653,6 @@ def get_auto_scan_settings():
     try:
         settings = {
             'auto_scan_on_refresh': get_setting('docker_auto_scan_on_refresh', 'false') == 'true',
-            'min_scan_interval': get_setting_int('docker_min_scan_interval', 300),
-            'scan_timeout': get_setting_int('docker_scan_timeout', 60),
             'show_scan_notifications': get_setting('docker_show_scan_notifications', 'true') == 'true',
             'scan_enabled_only': get_setting('docker_scan_enabled_only', 'true') == 'true'
         }
@@ -1650,8 +1675,6 @@ def save_auto_scan_settings():
         # Save each setting
         settings_map = {
             'auto_scan_on_refresh': 'docker_auto_scan_on_refresh',
-            'min_scan_interval': 'docker_min_scan_interval',
-            'scan_timeout': 'docker_scan_timeout',
             'show_scan_notifications': 'docker_show_scan_notifications',
             'scan_enabled_only': 'docker_scan_enabled_only'
         }

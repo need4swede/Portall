@@ -5,6 +5,8 @@ import * as IpManagement from "./core/ipManagement.js";
 import * as PortManagement from "./core/portManagement.js";
 import * as Modals from "./ui/modals.js";
 import enhancedTooltip from "./ui/tooltip.js";
+import * as Docker from "./core/docker.js";
+import { initDockerAnimationStyles } from "./ui/dockerAnimation.js";
 
 // Import tags functionality if we're on the tags page
 let TagsModule = null;
@@ -22,9 +24,16 @@ if (window.location.pathname === '/tags') {
 function init() {
     Modals.init();  // Initialize modals first
     enhancedTooltip.init(); // Initialize enhanced tooltip system
+    initDockerAnimationStyles(); // Initialize Docker animation styles
     DragAndDrop.init();
     IpManagement.init();
     PortManagement.init();
+
+    // Initialize Docker auto-scan functionality if we're on the ports page
+    if (window.location.pathname === '/' || window.location.pathname === '/ports') {
+        console.log('Initializing Docker auto-scan for ports page');
+        Docker.initAutoScan();
+    }
 
     // Initialize tag loading for port tooltips
     initPortTagLoading();
